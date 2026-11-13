@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
+import { getMongoDb } from '../db/mongo.js';
 
 let db = null;
 
@@ -270,6 +271,11 @@ export function addMealLog(entry) {
     typeof entry.assumptions === 'string' ? entry.assumptions : JSON.stringify(entry.assumptions || []),
     entry.created_at || new Date().toISOString()
   );
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('meal_logs').updateOne({ id: entry.id, user_id: entry.user_id }, { $set: entry }, { upsert: true }).catch(() => {});
+    }).catch(() => {});
+  }
   return entry;
 }
 
@@ -300,12 +306,22 @@ export function updateMealLog(id, userId, updates) {
     id,
     userId
   );
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('meal_logs').updateOne({ id, user_id: userId }, { $set: merged }).catch(() => {});
+    }).catch(() => {});
+  }
   return d.prepare("SELECT * FROM meal_logs WHERE id = ?").get(id);
 }
 
 export function deleteMealLog(id, userId) {
   const d = getDb();
   const res = d.prepare("DELETE FROM meal_logs WHERE id = ? AND user_id = ?").run(id, userId);
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('meal_logs').deleteOne({ id, user_id: userId }).catch(() => {});
+    }).catch(() => {});
+  }
   return res.changes > 0;
 }
 
@@ -335,12 +351,22 @@ export function addWaterLog(entry) {
     entry.notes || null,
     entry.created_at || new Date().toISOString()
   );
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('water_logs').updateOne({ id: entry.id, user_id: entry.user_id }, { $set: entry }, { upsert: true }).catch(() => {});
+    }).catch(() => {});
+  }
   return entry;
 }
 
 export function deleteWaterLog(id, userId) {
   const d = getDb();
   const res = d.prepare("DELETE FROM water_logs WHERE id = ? AND user_id = ?").run(id, userId);
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('water_logs').deleteOne({ id, user_id: userId }).catch(() => {});
+    }).catch(() => {});
+  }
   return res.changes > 0;
 }
 
@@ -373,6 +399,11 @@ export function addCardioLog(entry) {
     entry.notes || null,
     entry.created_at || new Date().toISOString()
   );
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('cardio_logs').updateOne({ id: entry.id, user_id: entry.user_id }, { $set: entry }, { upsert: true }).catch(() => {});
+    }).catch(() => {});
+  }
   return entry;
 }
 
@@ -395,12 +426,22 @@ export function updateCardioLog(id, userId, updates) {
     id,
     userId
   );
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('cardio_logs').updateOne({ id, user_id: userId }, { $set: merged }).catch(() => {});
+    }).catch(() => {});
+  }
   return d.prepare("SELECT * FROM cardio_logs WHERE id = ?").get(id);
 }
 
 export function deleteCardioLog(id, userId) {
   const d = getDb();
   const res = d.prepare("DELETE FROM cardio_logs WHERE id = ? AND user_id = ?").run(id, userId);
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('cardio_logs').deleteOne({ id, user_id: userId }).catch(() => {});
+    }).catch(() => {});
+  }
   return res.changes > 0;
 }
 
@@ -435,6 +476,11 @@ export function addStrengthLog(entry) {
     entry.notes || null,
     entry.created_at || new Date().toISOString()
   );
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('strength_logs').updateOne({ id: entry.id, user_id: entry.user_id }, { $set: entry }, { upsert: true }).catch(() => {});
+    }).catch(() => {});
+  }
   return entry;
 }
 
@@ -459,12 +505,22 @@ export function updateStrengthLog(id, userId, updates) {
     id,
     userId
   );
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('strength_logs').updateOne({ id, user_id: userId }, { $set: merged }).catch(() => {});
+    }).catch(() => {});
+  }
   return d.prepare("SELECT * FROM strength_logs WHERE id = ?").get(id);
 }
 
 export function deleteStrengthLog(id, userId) {
   const d = getDb();
   const res = d.prepare("DELETE FROM strength_logs WHERE id = ? AND user_id = ?").run(id, userId);
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('strength_logs').deleteOne({ id, user_id: userId }).catch(() => {});
+    }).catch(() => {});
+  }
   return res.changes > 0;
 }
 
@@ -493,5 +549,67 @@ export function setDailyHealthSettings(userId, settings) {
     settings.water_goal_litres != null ? settings.water_goal_litres : 2.5,
     now
   );
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('daily_health_settings').updateOne({ user_id: userId }, { $set: { user_id: userId, ...settings, updated_at: now } }, { upsert: true }).catch(() => {});
+    }).catch(() => {});
+  }
   return getDailyHealthSettings(userId);
+}
+
+/* ==================== Serverless MongoDB Sync Helper ==================== */
+export async function syncHealthLogsFromMongo(userId, date) {
+  if (!process.env.MONGODB_URI) return;
+  try {
+    const mongo = await getMongoDb();
+    if (!mongo) return;
+    const d = getDb();
+
+    // Sync meals if local SQLite cache is empty for date
+    const existingMeals = d.prepare("SELECT COUNT(*) as count FROM meal_logs WHERE user_id = ? AND date = ?").get(userId, date);
+    if (!existingMeals || existingMeals.count === 0) {
+      const mFoods = await mongo.collection('meal_logs').find({ user_id: userId, date }).toArray();
+      for (const f of mFoods) {
+        addMealLog(f);
+      }
+    }
+
+    // Sync water if local SQLite cache is empty for date
+    const existingWater = d.prepare("SELECT COUNT(*) as count FROM water_logs WHERE user_id = ? AND date = ?").get(userId, date);
+    if (!existingWater || existingWater.count === 0) {
+      const mWater = await mongo.collection('water_logs').find({ user_id: userId, date }).toArray();
+      for (const w of mWater) {
+        addWaterLog(w);
+      }
+    }
+
+    // Sync cardio if local SQLite cache is empty for date
+    const existingCardio = d.prepare("SELECT COUNT(*) as count FROM cardio_logs WHERE user_id = ? AND date = ?").get(userId, date);
+    if (!existingCardio || existingCardio.count === 0) {
+      const mCardio = await mongo.collection('cardio_logs').find({ user_id: userId, date }).toArray();
+      for (const c of mCardio) {
+        addCardioLog(c);
+      }
+    }
+
+    // Sync strength if local SQLite cache is empty for date
+    const existingStrength = d.prepare("SELECT COUNT(*) as count FROM strength_logs WHERE user_id = ? AND date = ?").get(userId, date);
+    if (!existingStrength || existingStrength.count === 0) {
+      const mStrength = await mongo.collection('strength_logs').find({ user_id: userId, date }).toArray();
+      for (const s of mStrength) {
+        addStrengthLog(s);
+      }
+    }
+
+    // Sync settings if local SQLite cache is empty
+    const existingSettings = d.prepare("SELECT * FROM daily_health_settings WHERE user_id = ?").get(userId);
+    if (!existingSettings) {
+      const mSettings = await mongo.collection('daily_health_settings').findOne({ user_id: userId });
+      if (mSettings) {
+        setDailyHealthSettings(userId, mSettings);
+      }
+    }
+  } catch (err) {
+    console.error('Mongo health log sync error:', err.message);
+  }
 }

@@ -29,7 +29,8 @@ import {
   updateStrengthLog,
   deleteStrengthLog,
   getDailyHealthSettings,
-  setDailyHealthSettings
+  setDailyHealthSettings,
+  syncHealthLogsFromMongo
 } from './db.js';
 import { calculateRecipeNutrition } from './engine.js';
 
@@ -91,6 +92,8 @@ export function nutritionRoutes({ json, readBody, readSession }) {
 
       const url = new URL(req.url, 'http://x');
       const date = url.searchParams.get('date') || new Date().toISOString().slice(0, 10);
+
+      await syncHealthLogsFromMongo(user.id, date);
 
       const foods = getMealLogs(user.id, date);
       const water = getWaterLogs(user.id, date);

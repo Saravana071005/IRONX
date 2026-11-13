@@ -72,6 +72,10 @@ as a home-screen app, passkey sign-in, offline support, sync across your phone a
 
 ## Features
 
+- 📅 **Custom Weekly Workout Planner** — full 6-day split (4 days Strength + 2 days Cardio + 1 day Rest), fully customizable per weekday with custom split templates and one-click reset to default
+- 📚 **Predefined Exercise Library** — organized by 8 muscle groups (Shoulder, Chest, Triceps, Back, Biceps, Legs, Core / Abs, Cardio) with 54 preloaded exercises, duplicate prevention, custom creation, and multi-select checkbox assignment
+- 🥗 **Daily Health Log** — log food intake, water consumption (with visual progress ring and customizable goal), cardio sessions, and strength workouts with a 1,900 kcal daily target
+- 📄 **PDF Reporting & ChatGPT Analysis** — one-tap export of your daily nutrition and training logs formatted as an executive PDF report containing a tailored prompt for ChatGPT dietary and workout analysis (no live AI API required)
 - ⚖️ **Body-weight tracking** — interactive chart with a goal line you set, gains/losses colored by whether they move toward it
 - 🏋️ **Weekly plan** — a routine per weekday, over a library of **1,324 exercises** (searchable, with animated demos)
 - 🗓️ **Reschedule any day** — sick, missed a session, or fewer gym days this week? Move a workout to another day without touching your weekly plan
@@ -117,6 +121,10 @@ a build step locally either way.
 
 > Want it reachable from your phone over the internet with passkeys? You'll need an HTTPS
 > domain — a two-line change in `.env`. See **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
+>
+> Deploying on **Vercel** with **MongoDB Atlas**? See the complete step-by-step
+> **[Deployment Guide](OPENGYM_DEPLOYMENT_GUIDE.md)** for root directory settings,
+> environment variables, serverless functions, and production verification.
 
 ## Mobile app (no server at all)
 

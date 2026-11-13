@@ -29,7 +29,9 @@ export async function pingMongo() {
   try {
     const client = await getMongoClient();
     if (!client) return { connected: false, configured: true };
-    await client.db('admin').command({ ping: 1 });
+    const db = await getMongoDb();
+    if (!db) return { connected: false, configured: true };
+    await db.command({ ping: 1 });
     return { connected: true, configured: true };
   } catch (err) {
     console.error('MongoDB Atlas ping failed:', err.message);
