@@ -11,15 +11,30 @@ export function getDb() {
   const dataDir = process.env.DATA_DIR || (isVercel ? path.join(os.tmpdir(), 'opengym-data') : './data');
   try { fs.mkdirSync(dataDir, { recursive: true }); } catch {}
 
-  // Locate nutrition.db
-  const candidates = [
-    path.join(dataDir, 'nutrition.db'),
-    path.join(process.cwd(), 'data', 'nutrition.db'),
-    path.join(process.cwd(), '..', 'data', 'nutrition.db')
-  ];
-  let dbPath = candidates.find(p => fs.existsSync(p)) || candidates[0];
-  try { fs.mkdirSync(path.dirname(dbPath), { recursive: true }); } catch {}
-  db = new DatabaseSync(dbPath);
+  // Locate nutrition.db — on Vercel lambda, /var/task is read-only, so copy seed DB to writable /tmp
+  let targetDbPath = path.join(dataDir, 'nutrition.db');
+  if (isVercel && !fs.existsSync(targetDbPath)) {
+    const seedCandidates = [
+      path.join(process.cwd(), 'data', 'nutrition.db'),
+      path.join(process.cwd(), '..', 'data', 'nutrition.db')
+    ];
+    const seed = seedCandidates.find(p => fs.existsSync(p));
+    if (seed) {
+      try {
+        fs.copyFileSync(seed, targetDbPath);
+      } catch (e) {
+        console.error('Failed to copy seed nutrition.db to /tmp:', e.message);
+      }
+    }
+  } else if (!isVercel && !fs.existsSync(targetDbPath)) {
+    const fallback = [
+      path.join(process.cwd(), 'data', 'nutrition.db'),
+      path.join(process.cwd(), '..', 'data', 'nutrition.db')
+    ].find(p => fs.existsSync(p));
+    if (fallback) targetDbPath = fallback;
+  }
+  try { fs.mkdirSync(path.dirname(targetDbPath), { recursive: true }); } catch {}
+  db = new DatabaseSync(targetDbPath);
 
   // Initialize health log tables if needed
   try {

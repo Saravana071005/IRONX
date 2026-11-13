@@ -53,10 +53,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      # No dependencies to install: the Coach tests run on node:test and drive the in-repo
-      # fixture provider, so the whole job graph works without an AI account or a network.
-      - run: npm test
-        working-directory: api
+      - run: npm ci
+      - run: node --test api/test/*.test.js
       # The API's copy of the exercise catalogue is generated and committed. A dataset change
       # that forgets to regenerate it would otherwise only surface as "the Coach can't find
       # that exercise" on somebody's instance.
@@ -71,7 +69,8 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
-          context: ./api
+          context: .
+          file: api/Dockerfile
           push: false
           load: false
           cache-from: type=gha

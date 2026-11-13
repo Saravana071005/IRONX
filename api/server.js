@@ -119,6 +119,14 @@ async function syncFromMongo() {
     console.error('Mongo sync error:', err.message);
   }
 }
+let syncPromise = null;
+async function ensureMongoSync() {
+  if (!process.env.MONGODB_URI) return;
+  if (!syncPromise) {
+    syncPromise = syncFromMongo();
+  }
+  return syncPromise;
+}
 syncFromMongo();
 
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
@@ -396,14 +404,30 @@ const routes = {
     if (process.env.MONGODB_URI) {
       mongoStatus = await pingMongo();
     }
-    json(res, 200, {
-      ok: true,
+    const isDbConnected = process.env.MONGODB_URI ? mongoStatus.connected : true;
+    if (req.url && (req.url.includes('format=simple') || req.url.endsWith('/db'))) {
+      return json(res, isDbConnected ? 200 : 503, { database: isDbConnected ? 'connected' : 'unavailable' });
+    }
+    json(res, isDbConnected ? 200 : 503, {
+      ok: isDbConnected,
+      database: isDbConnected ? 'connected' : 'unavailable',
       users: db.users.length,
-      database: {
+      details: {
         type: process.env.MONGODB_URI ? 'mongodb' : 'sqlite_file',
-        connected: process.env.MONGODB_URI ? mongoStatus.connected : true,
+        connected: isDbConnected,
         configured: !!process.env.MONGODB_URI
       }
+    });
+  },
+
+  'GET /api/health/db': async (req, res) => {
+    let mongoStatus = { connected: false, configured: false };
+    if (process.env.MONGODB_URI) {
+      mongoStatus = await pingMongo();
+    }
+    const isDbConnected = process.env.MONGODB_URI ? mongoStatus.connected : true;
+    json(res, isDbConnected ? 200 : 503, {
+      database: isDbConnected ? 'connected' : 'unavailable'
     });
   },
 
@@ -494,7 +518,21 @@ const routes = {
     const body = await readBody(req);
     const c = takeChallenge(body.cid);
     if (!c) return json(res, 400, { error: 'challenge expired — try again' });
-    const cred = db.creds.find(x => x.id === body.credential?.id);
+    let cred = db.creds.find(x => x.id === body.credential?.id);
+    if (!cred && process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          const foundCred = await mongo.collection('credentials').findOne({ id: body.credential?.id });
+          if (foundCred) {
+            db.creds.push(foundCred);
+            cred = foundCred;
+          }
+        }
+      } catch (err) {
+        console.error('Mongo direct credential lookup error:', err.message);
+      }
+    }
     if (!cred) return json(res, 404, { error: 'unknown passkey — create a profile first' });
     const rpId = getRpId(req);
     const origin = getOrigin(req);
@@ -518,7 +556,21 @@ const routes = {
     if (!verification.verified) return json(res, 400, { error: 'not verified' });
     cred.counter = verification.authenticationInfo.newCounter;
     saveDb();
-    const user = db.users.find(u => u.id === cred.userId);
+    let user = db.users.find(u => u.id === cred.userId);
+    if (!user && process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          const foundUser = await mongo.collection('users').findOne({ id: cred.userId });
+          if (foundUser) {
+            db.users.push(foundUser);
+            user = foundUser;
+          }
+        }
+      } catch (err) {
+        console.error('Mongo direct user lookup error:', err.message);
+      }
+    }
     if (!user) return json(res, 500, { error: 'user missing' });
     if (user.disabled) return json(res, 403, { error: 'this account has been disabled' });
     json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user, req) });
@@ -761,6 +813,7 @@ if (!isVercel) {
 }
 
 export async function handleRequest(req, res) {
+  await ensureMongoSync();
   // Handle CORS
   const reqOrigin = req.headers.origin || '*';
   res.setHeader('Access-Control-Allow-Origin', reqOrigin);

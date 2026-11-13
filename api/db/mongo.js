@@ -1,23 +1,21 @@
 import { MongoClient } from 'mongodb';
 
-const uri = process.env.MONGODB_URI;
-let clientPromise = null;
+export async function getMongoClient() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) return null;
 
-if (uri) {
   if (!global._mongoClientPromise) {
     const client = new MongoClient(uri, {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
       connectTimeoutMS: 10000,
     });
-    global._mongoClientPromise = client.connect();
+    global._mongoClientPromise = client.connect().catch(err => {
+      global._mongoClientPromise = null;
+      throw err;
+    });
   }
-  clientPromise = global._mongoClientPromise;
-}
-
-export async function getMongoClient() {
-  if (!clientPromise) return null;
-  return clientPromise;
+  return global._mongoClientPromise;
 }
 
 export async function getMongoDb(dbName = process.env.MONGODB_DB || 'opengym') {
