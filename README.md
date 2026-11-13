@@ -194,6 +194,9 @@ Rough, community-driven — ideas and PRs welcome:
 - [ ] Body measurements (waist, arms…) alongside weight
 - [ ] Per-exercise notes & plate calculator
 - [ ] Exercise instructions in German & Portuguese (UI is translated; upstream dataset doesn't ship these yet)
+- [x] Daily Health Log & Nutrition — manual food intake, water consumption, cardio, strength tracking, and 1,900 kcal target
+- [x] PDF Reporting & ChatGPT Analysis — exportable vector reports with embedded analysis prompts
+- [x] Multi-platform deployment support — Docker Compose, Vercel Serverless, and MongoDB Atlas persistence
 
 ## Tech
 
