@@ -1006,7 +1006,51 @@ function doFinishWorkout() {
     entries: A.entries.map(e => ({ id: e.id, sets: e.sets, topW: e.topW || null, target: e.target || null })).filter(e => e.sets.some(s => s.done)),
     prs
   }
+  w.dur = w.end - w.start
   w.vol = workoutVolume(w)
+
+  // Sync to daily health log storage so Daily Health Log and PDF export capture completed workouts
+  try {
+    const healthKey = `opengym_health_${w.d}`
+    const rawHealth = typeof localStorage !== 'undefined' ? localStorage.getItem(healthKey) : null
+    const healthData = rawHealth ? JSON.parse(rawHealth) : { foods: [], water: [], cardio: [], strength: [] }
+    const durMin = Math.max(1, Math.round((w.end - w.start) / 60000))
+    const totalSets = w.entries.reduce((acc, e) => acc + (e.sets ? e.sets.filter(s => s.done).length : 0), 0)
+    const isCardio = w.routineId?.toLowerCase().includes('cardio') || w.name?.toLowerCase().includes('cardio')
+
+    if (isCardio) {
+      if (!healthData.cardio) healthData.cardio = []
+      if (!healthData.cardio.some(c => c.workout_id === w.id)) {
+        healthData.cardio.push({
+          id: 'cardio_' + w.id,
+          workout_id: w.id,
+          activity_type: w.name || 'Cardio Session',
+          duration_min: durMin,
+          distance_km: null,
+          steps: null,
+          calories_burned: null,
+          notes: `${totalSets} sets performed`
+        })
+      }
+    } else {
+      if (!healthData.strength) healthData.strength = []
+      if (!healthData.strength.some(s => s.workout_id === w.id)) {
+        healthData.strength.push({
+          id: 'str_' + w.id,
+          workout_id: w.id,
+          workout_name: w.name || 'Strength Workout',
+          duration_min: durMin,
+          exercises_count: w.entries.length,
+          sets_count: totalSets,
+          volume_kg: w.vol || 0,
+          notes: ''
+        })
+      }
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(healthKey, JSON.stringify(healthData))
+    }
+  } catch (e) {}
   update(s => {
     if (s.workouts.some(item => item.id === w.id)) {
       s.active = null

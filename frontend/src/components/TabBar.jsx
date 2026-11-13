@@ -16,7 +16,7 @@ export default function TabBar({ onStart }) {
   const cur = loc.pathname.split('/')[1] || 'home'
   const isTabActive = k => {
     if (k === 'home') return cur === 'home'
-    if (k === 'workouts') return cur === 'plan' || cur === 'workout' || cur === 'library'
+    if (k === 'workouts') return cur === 'plan' || cur === 'planner' || cur === 'workout' || cur === 'library' || cur === 'exercise-library'
     if (k === 'activity') return cur === 'stats' || cur === 'history'
     if (k === 'nutrition') return cur === 'nutrition'
     if (k === 'profile') return cur === 'settings' || cur === 'admin' || cur === 'coach'
@@ -41,9 +41,9 @@ export default function TabBar({ onStart }) {
       <Tab k="home" icon="house" to="/home" label={t('Home')} />
       <Tab
         k="workouts"
-        icon={S.active ? 'play' : 'dumbbell'}
-        to={S.active ? '/workout' : '/plan'}
-        label={S.active ? t('Resume') : t('Workouts')}
+        icon={S.active ? 'play' : 'calendar'}
+        to={S.active ? '/workout' : '/planner'}
+        label={S.active ? t('Resume') : t('Planner')}
         badge={!!S.active}
       />
       <Tab k="activity" icon="chart" to="/stats" label={t('Activity')} />

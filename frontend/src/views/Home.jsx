@@ -379,11 +379,28 @@ export default function Home() {
               <Icon name={S.active ? 'timer' : routine ? glyphOf(routine.emoji) : 'moon'} />
             </span>
             <div style={{ minWidth: 0 }}>
-              <div className="lbl2" style={{ fontSize: 12, color: 'var(--label-2)' }}>{t('Today\'s Session')}</div>
+              <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                <div className="lbl2" style={{ fontSize: 12, color: 'var(--label-2)' }}>{t('Today\'s Session')}</div>
+                {routine?.muscle && (
+                  <span className="tag" style={{ fontSize: 11, padding: '1px 6px', background: 'var(--surface-2)' }}>
+                    {routine.muscle}
+                  </span>
+                )}
+                {routine?.type === 'cardio' && (
+                  <span className="tag" style={{ fontSize: 11, padding: '1px 6px', background: 'var(--mint-light)', color: 'var(--mint)' }}>
+                    {t('Cardio')}
+                  </span>
+                )}
+              </div>
               <div className="ttl" style={{ fontSize: 16, fontWeight: 700, marginTop: 2 }}>
                 {S.active ? t('{0} — in progress', S.active.name) : routine ? routine.name : t('Rest day')}
                 {todayOvr && routine ? ' · ' + t('rescheduled') : ''}
               </div>
+              {routine?.ex?.length > 0 && !S.active && (
+                <div className="muted small" style={{ marginTop: 2, fontSize: 12 }}>
+                  {t('{0} planned exercises', routine.ex.length)}
+                </div>
+              )}
             </div>
           </div>
           {S.active ? (
@@ -397,6 +414,26 @@ export default function Home() {
           ) : (
             <Icon name="plus" className="chev" />
           )}
+        </div>
+      </div>
+
+      {/* Weekly Planner Shortcut Banner */}
+      <div
+        className="card tappable"
+        style={{ cursor: 'pointer', padding: '12px 14px', marginBottom: 12 }}
+        onClick={() => nav('/planner')}
+      >
+        <div className="row between" style={{ alignItems: 'center' }}>
+          <div className="row" style={{ gap: 10, alignItems: 'center' }}>
+            <span className="lrow-i" style={{ background: 'var(--mint-light)', color: 'var(--mint)', width: 34, height: 34, borderRadius: 10, fontSize: 16 }}>
+              <Icon name="calendar" />
+            </span>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>{t('Weekly Workout Planner')}</div>
+              <div className="muted small" style={{ fontSize: 12 }}>{t('6-Day Split: 4 Strength + 2 Cardio · Custom Templates')}</div>
+            </div>
+          </div>
+          <Icon name="chevronRight" className="chev" style={{ fontSize: 16 }} />
         </div>
       </div>
 
@@ -420,6 +457,8 @@ export default function Home() {
           <Button variant={coachOn ? 'plain' : 'primary'} icon="sparkles" onClick={loadStarterPlan}>
             {t('Load starter plan (PPL)')}
           </Button>
+          <div style={{ height: 8 }} />
+          <Button variant="outline" onClick={() => nav('/planner')}>{t('Custom Weekly Planner (6-Day Split)')}</Button>
           <div style={{ height: 8 }} />
           <Button onClick={() => nav('/plan')}>{t('Build my own plan')}</Button>
         </div>

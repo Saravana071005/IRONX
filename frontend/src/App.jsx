@@ -29,6 +29,9 @@ import Coach from './views/Coach.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
 import CoachProposal from './views/CoachProposal.jsx'
 import Nutrition from './views/Nutrition.jsx'
+import WeeklyPlanner from './views/WeeklyPlanner.jsx'
+import DayPlanner from './views/DayPlanner.jsx'
+import ExerciseLibrary from './views/ExerciseLibrary.jsx'
 
 bindUI(useUI)   // lets the shared controls open sheets without importing the store at module scope
 
@@ -76,6 +79,9 @@ function Shell() {
               {!authed ? <Login /> : (
                 <Routes>
                   <Route path="/home" element={<Home />} />
+                  <Route path="/planner" element={<WeeklyPlanner />} />
+                  <Route path="/planner/day/:dayId" element={<DayPlanner />} />
+                  <Route path="/exercise-library" element={<ExerciseLibrary />} />
                   <Route path="/plan" element={<Plan />} />
                   <Route path="/plan/r/:id" element={<RoutineEdit />} />
                   <Route path="/workout" element={<Workout />} />

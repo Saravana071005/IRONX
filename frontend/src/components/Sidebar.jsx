@@ -17,6 +17,8 @@ export default function Sidebar({ onStart }) {
   const cur = loc.pathname.split('/')[1] || 'home'
   const isActive = k => {
     if (k === 'home') return cur === 'home'
+    if (k === 'planner') return cur === 'planner'
+    if (k === 'exercise-library') return cur === 'exercise-library'
     if (k === 'plan') return cur === 'plan'
     if (k === 'workout') return cur === 'workout'
     if (k === 'library') return cur === 'library'
@@ -90,10 +92,10 @@ export default function Sidebar({ onStart }) {
       <nav className="sidebar-nav">
         <div className="sidebar-nav-group-title">{t('Navigation')}</div>
         <NavItem k="home" icon="house" to="/home" label={t('Home')} />
+        <NavItem k="planner" icon="calendar" to="/planner" label={t('Weekly Planner')} />
+        <NavItem k="exercise-library" icon="list" to="/exercise-library" label={t('Exercise Library')} />
         <NavItem k="workout" icon={S.active ? "play" : "dumbbell"} to="/workout" label={t('Workout')} badge={S.active ? '●' : null} />
-        <NavItem k="plan" icon="calendar" to="/plan" label={t('Plan')} />
         <NavItem k="nutrition" icon="nutrition" to="/nutrition" label={t('Daily Health Log')} />
-        <NavItem k="library" icon="list" to="/library" label={t('Exercises')} />
         <NavItem k="stats" icon="chart" to="/stats" label={t('Stats')} />
         <NavItem k="history" icon="history" to="/history" label={t('History')} />
 
@@ -113,7 +115,7 @@ export default function Sidebar({ onStart }) {
               {user ? (user.name || user.id) : t('Guest Mode')}
             </span>
             <span className="sidebar-user-meta">
-              {user ? (user.admin ? 'Administrator' : 'Synced Account') : 'Local Storage Only'}
+              {user ? (user.admin ? t('Admin') : t('Athlete')) : t('Tap to sign in')}
             </span>
           </div>
         </div>

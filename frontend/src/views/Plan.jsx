@@ -32,16 +32,10 @@ export default function Plan() {
     nav('/plan/r/' + r.id)
   }
 
-  const duplicateRoutine = r => {
-    const dup = { id: uid(), name: `${r.name} (${t('Copy')})`, emoji: r.emoji, prog: r.prog, ex: JSON.parse(JSON.stringify(r.ex || [])) }
-    update(s => { s.routines.push(dup) })
-    nav('/plan/r/' + dup.id)
-  }
-
   // Filter routines by search and category
   const filteredRoutines = useMemo(() => {
     const q = searchQuery.toLowerCase().trim()
-    return S.routines.filter(r => {
+    return (S.routines || []).filter(r => {
       const matchSearch = !q || r.name.toLowerCase().includes(q) || (r.ex || []).some(e => {
         const ex = exOr(e.id)
         return (ex.n || '').toLowerCase().includes(q)
@@ -67,14 +61,14 @@ export default function Plan() {
 
   return (
     <div className="narrow">
-      {/* Header — inspired by Phone 3 in reference image */}
+      {/* Header */}
       <div className="hdr" style={{ alignItems: 'center', marginBottom: 14 }}>
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, letterSpacing: '-0.025em' }}>
-            {t('Workouts')}
+            {t('Workouts & Plans')}
           </h1>
           <div className="sub" style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 2 }}>
-            {t('{0} routines · weekly plan', S.routines.length)}
+            {t('{0} routines · weekly plan', (S.routines || []).length)}
           </div>
         </div>
 
@@ -109,7 +103,44 @@ export default function Plan() {
         </div>
       </div>
 
-      {/* Search Input — Phone 3 pill style */}
+      {/* Featured Weekly Workout Planner Card */}
+      <div
+        className="card"
+        style={{
+          padding: '16px 18px',
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(14, 116, 144, 0.08) 100%)',
+          border: '1.5px solid var(--mint)',
+          borderRadius: 16,
+          marginBottom: 16
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="tag acc" style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999 }}>
+                {t('Custom System')}
+              </span>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--label)' }}>
+                {t('Weekly Workout Planner')}
+              </h2>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 4 }}>
+              {t('4 Days Strength · 2 Days Cardio · 1 Day Rest · Exercise Library')}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button size="sm" variant="primary" icon="calendar" onClick={() => nav('/planner')}>
+              {t('Open Planner')}
+            </Button>
+            <Button size="sm" variant="tinted" icon="list" onClick={() => nav('/exercise-library')}>
+              {t('Exercise Library')}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Search Input */}
       <div
         style={{
           display: 'flex',
@@ -152,7 +183,7 @@ export default function Plan() {
         )}
       </div>
 
-      {/* Category Filter Chips — Phone 3 pill buttons */}
+      {/* Category Filter Chips */}
       <div className="chips" style={{ marginBottom: 16 }}>
         {categories.map(c => (
           <button
@@ -172,16 +203,24 @@ export default function Plan() {
             <h4 className="sec" style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--label-2)' }}>
               {t('Week Schedule')}
             </h4>
-            <span className="small muted" style={{ fontSize: 12 }}>{t('Tap to assign')}</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                className="btn sm ghost"
+                style={{ fontSize: 12, padding: '3px 8px', color: 'var(--mint)' }}
+                onClick={() => nav('/planner')}
+              >
+                {t('Open Full Planner')} &rarr;
+              </button>
+            </div>
           </div>
           <div className="card" style={{ padding: 12 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {[1, 2, 3, 4, 5, 6, 0].map(d => {
-                const r = S.routines.find(x => x.id === S.week[d])
+                const r = (S.routines || []).find(x => x.id === S.week?.[d])
                 return (
                   <div
                     key={d}
-                    onClick={() => dayAssignSheet(d)}
+                    onClick={() => nav(`/planner/day/${d}`)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -206,7 +245,10 @@ export default function Plan() {
                         <span style={{ fontSize: 12, color: 'var(--label-3)' }}>{t('Rest Day')}</span>
                       )}
                     </div>
-                    <Icon name="chevronRight" className="chev" style={{ fontSize: 14, color: 'var(--label-3)' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 11, color: 'var(--label-3)' }}>{t('Edit')}</span>
+                      <Icon name="chevronRight" className="chev" style={{ fontSize: 14, color: 'var(--label-3)' }} />
+                    </div>
                   </div>
                 )
               })}
@@ -215,7 +257,7 @@ export default function Plan() {
         </div>
       )}
 
-      {/* Workout Routine Cards — Phone 3 in reference image */}
+      {/* Workout Routine Cards */}
       {activeCategory !== 'Schedule' && (
         <div style={{ marginBottom: 24 }}>
           <div className="row between" style={{ marginBottom: 10, padding: '0 4px' }}>
@@ -230,8 +272,8 @@ export default function Plan() {
           {filteredRoutines.length > 0 ? (
             <div>
               {filteredRoutines.map(r => {
-                const estMin = Math.max(20, r.ex.length * 9)
-                const firstEx = r.ex.length > 0 ? exOr(r.ex[0].id) : null
+                const estMin = Math.max(20, (r.ex || []).length * 9)
+                const firstEx = (r.ex || []).length > 0 ? exOr(r.ex[0].id) : null
                 return (
                   <div
                     key={r.id}
@@ -253,7 +295,7 @@ export default function Plan() {
                       <div className="workout-card-meta">
                         <span>{estMin} min</span>
                         <span>·</span>
-                        <span>{exCount(r.ex.length)}</span>
+                        <span>{exCount((r.ex || []).length)}</span>
                       </div>
                     </div>
 
@@ -294,10 +336,10 @@ export default function Plan() {
                 {searchQuery ? t('No routines found matching "{0}"', searchQuery) : t('No routines yet')}
               </div>
               <div className="muted small" style={{ marginBottom: 16 }}>
-                {t('Create your own custom workout or load the ready-made Push / Pull / Legs plan.')}
+                {t('Create your own custom workout or load the ready-made 6-day split.')}
               </div>
-              <Button variant="primary" icon="sparkles" onClick={loadStarterPlan}>
-                {t('Load Starter Plan (PPL)')}
+              <Button variant="primary" icon="calendar" onClick={() => nav('/planner')}>
+                {t('Open Weekly Workout Planner')}
               </Button>
             </div>
           )}
