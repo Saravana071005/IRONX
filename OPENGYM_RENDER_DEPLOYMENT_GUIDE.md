@@ -119,7 +119,7 @@ If you prefer to configure the services manually via the Render UI:
 | :--- | :--- |
 | **Service Type** | Static Site |
 | **Name** | `opengym-frontend` |
-| **Region** | Oregon (US West) |
+| **Region** | Global CDN (automatically served globally; no region required) |
 | **Branch** | `main` |
 | **Build Command** | `npm install && npm --prefix frontend run build` |
 | **Publish Directory** | `frontend/dist` |
