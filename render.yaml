@@ -32,7 +32,6 @@ services:
   - type: web
     name: opengym-frontend
     runtime: static
-    plan: free
     buildCommand: npm install && npm --prefix frontend run build
     staticPublishPath: frontend/dist
     routes:
