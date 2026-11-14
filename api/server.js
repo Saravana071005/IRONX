@@ -58,9 +58,16 @@ const ORIGINS = Array.from(new Set([
 ]));
 
 function getRpId(req) {
+  if (process.env.RP_ID && process.env.RP_ID !== 'localhost') return process.env.RP_ID;
+  if (req?.headers?.origin) {
+    try {
+      const h = new URL(req.headers.origin).hostname;
+      if (h && h !== 'localhost' && h !== '127.0.0.1') return h;
+    } catch {}
+  }
+  if (process.env.RP_ID) return process.env.RP_ID;
   const host = (req?.headers?.['x-forwarded-host'] || req?.headers?.host || '').split(':')[0];
   if (host && host !== 'localhost' && host !== '127.0.0.1') return host;
-  if (process.env.RP_ID) return process.env.RP_ID;
   return host || 'localhost';
 }
 
@@ -304,9 +311,14 @@ function requireAdmin(req, res) {
   return user;
 }
 function sessionCookie(user, req) {
-  const isHttps = (req?.headers?.['x-forwarded-proto'] === 'https') || (req?.socket?.encrypted) || /^https:/i.test(ORIGIN);
-  const secureFlag = isHttps ? ' Secure;' : '';
-  return `gymsid=${makeSession(user)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly;${secureFlag} SameSite=Lax`;
+  const isHttps = (req?.headers?.['x-forwarded-proto'] === 'https') || (req?.socket?.encrypted) || /^https:/i.test(ORIGIN) || !!process.env.RENDER;
+  const sameSite = isHttps ? 'SameSite=None; Secure' : 'SameSite=Lax';
+  return `gymsid=${makeSession(user)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly; ${sameSite}`;
+}
+function getClearCookie(req) {
+  const isHttps = (req?.headers?.['x-forwarded-proto'] === 'https') || (req?.socket?.encrypted) || /^https:/i.test(ORIGIN) || !!process.env.RENDER;
+  const sameSite = isHttps ? 'SameSite=None; Secure' : 'SameSite=Lax';
+  return `gymsid=; Path=/; Max-Age=0; HttpOnly; ${sameSite}`;
 }
 const clearCookie = `gymsid=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Lax`;
 
@@ -576,7 +588,7 @@ const routes = {
     json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user, req) });
   },
 
-  'POST /api/logout': async (req, res) => json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie }),
+  'POST /api/logout': async (req, res) => json(res, 200, { ok: true }, { 'Set-Cookie': getClearCookie(req) }),
 
   // "Sign out everywhere" — bumps this user's session version, which invalidates every cookie
   // ever issued for the account, on every device, including a copy someone else walked off with.
@@ -587,7 +599,7 @@ const routes = {
     if (!user) return json(res, 401, { error: 'not signed in' });
     user.sv = sessionVersion(user) + 1;
     saveDb();
-    json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie });
+    json(res, 200, { ok: true }, { 'Set-Cookie': getClearCookie(req) });
   },
 
   'GET /api/data': async (req, res) => {
@@ -815,11 +827,17 @@ if (!isVercel) {
 export async function handleRequest(req, res) {
   await ensureMongoSync();
   // Handle CORS
-  const reqOrigin = req.headers.origin || '*';
-  res.setHeader('Access-Control-Allow-Origin', reqOrigin);
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  const reqOrigin = req.headers.origin;
+  if (reqOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', reqOrigin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie');
+  res.setHeader('Access-Control-Max-Age', '86400');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -844,7 +862,11 @@ export async function handleRequest(req, res) {
 
 export default handleRequest;
 
+const isRender = !!process.env.RENDER;
 const isDirectRun = process.argv[1] && (process.argv[1].endsWith('server.js') || process.argv[1].includes('server.js'));
-if (!isVercel && isDirectRun) {
-  http.createServer(handleRequest).listen(PORT, () => console.log(`gym-api on :${PORT} (rpID=${process.env.RP_ID || 'localhost'}, origin=${ORIGIN})`));
+if ((!isVercel || isRender) && (isDirectRun || isRender)) {
+  const server = http.createServer(handleRequest);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`gym-api listening on 0.0.0.0:${PORT} (rpID=${process.env.RP_ID || 'localhost'}, origin=${ORIGIN})`);
+  });
 }

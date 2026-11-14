@@ -7,7 +7,7 @@ import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActiv
 import { fmtNum, fmtDate, todayISO, exCount, DAYN } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
 import { t } from '../lib/i18n.js'
-import { api } from '../lib/api.js'
+import { api, API_BASE } from '../lib/api.js'
 import Media from '../components/Media.jsx'
 import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
@@ -354,7 +354,7 @@ function ActiveWorkout() {
     const iv = setInterval(() => { if (!stopped) ping(true) }, 20000)
     return () => {
       stopped = true; clearInterval(iv)
-      try { navigator.sendBeacon?.('/api/activity', new Blob([JSON.stringify({ active: false })], { type: 'application/json' })) } catch { /* */ }
+      try { navigator.sendBeacon?.((API_BASE ? API_BASE + '/api/activity' : '/api/activity'), new Blob([JSON.stringify({ active: false })], { type: 'application/json' })) } catch { /* */ }
       api('/api/activity', { method: 'POST', body: JSON.stringify({ active: false }) }).catch(() => {})
     }
   }, [])
