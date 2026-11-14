@@ -16,6 +16,17 @@ import { coachRoutes } from './coach/routes.js';
 import { startCadence } from './coach/cadence.js';
 import { nutritionRoutes } from './nutrition/routes.js';
 import { getMongoDb, pingMongo } from './db/mongo.js';
+import {
+  calculateAge,
+  validateProfileData,
+  signOAuthState,
+  verifyOAuthState,
+  getGoogleAuthUrl,
+  exchangeCodeForTokens,
+  verifyGoogleIdToken,
+  mergeGuestState,
+  ensureMongoAuthIndexes
+} from './auth/google.js';
 
 // Load server environment variables from .env if present
 const envCandidates = [path.resolve(process.cwd(), '.env'), path.resolve(process.cwd(), '../.env')];
@@ -46,8 +57,25 @@ const defaultDataDir = isVercel ? path.join(os.tmpdir(), 'opengym-data') : (fs.e
 const DATA = process.env.DATA_DIR || defaultDataDir;
 const RP_NAME = process.env.RP_NAME || 'openGym';
 const ORIGIN = (process.env.ORIGIN || 'http://localhost:8080').trim();
+const FRONTEND_ORIGIN = (process.env.FRONTEND_ORIGIN || process.env.ORIGIN || 'https://opengym-frontend-229c.onrender.com').trim();
+const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
+const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
+
+function getGoogleCallbackUrl(req) {
+  if (process.env.GOOGLE_CALLBACK_URL) return process.env.GOOGLE_CALLBACK_URL.trim();
+  const host = (req?.headers?.['x-forwarded-host'] || req?.headers?.host || '').trim();
+  const proto = (req?.headers?.['x-forwarded-proto'] || (req?.socket?.encrypted ? 'https' : 'http')).trim();
+  if (host && host !== 'localhost' && !host.startsWith('127.0.0.1')) {
+    return `${proto}://${host}/api/auth/google/callback`;
+  }
+  return 'https://opengym-backend-ikdi.onrender.com/api/auth/google/callback';
+}
+
 const ORIGINS = Array.from(new Set([
   ORIGIN,
+  FRONTEND_ORIGIN,
+  'https://opengym-frontend-229c.onrender.com',
+  'https://opengym-backend-ikdi.onrender.com',
   'http://localhost:8080',
   'http://localhost:5173',
   'http://localhost:3000',
@@ -119,6 +147,7 @@ async function syncFromMongo() {
   try {
     const mongo = await getMongoDb();
     if (!mongo) return;
+    await ensureMongoAuthIndexes(mongo);
     const users = await mongo.collection('users').find({}).toArray();
     const creds = await mongo.collection('credentials').find({}).toArray();
     const invites = await mongo.collection('invites').find({}).toArray();
@@ -292,10 +321,16 @@ function makeSession(user) {
   return sign(user.id + ':' + exp + ':' + sessionVersion(user));
 }
 function readSession(req) {
-  const cookies = Object.fromEntries((req.headers.cookie || '').split(';').map(c => {
-    const i = c.indexOf('='); return i < 0 ? ['', ''] : [c.slice(0, i).trim(), c.slice(i + 1).trim()];
-  }));
-  const tok = cookies.gymsid;
+  let tok = null;
+  if (req?.headers?.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    tok = req.headers.authorization.slice(7).trim();
+  }
+  if (!tok && req?.headers?.cookie) {
+    const cookies = Object.fromEntries((req.headers.cookie || '').split(';').map(c => {
+      const i = c.indexOf('='); return i < 0 ? ['', ''] : [c.slice(0, i).trim(), c.slice(i + 1).trim()];
+    }));
+    tok = cookies.gymsid;
+  }
   if (!tok) return null;
   const payload = verifySig(tok);
   if (!payload) return null;
@@ -319,12 +354,12 @@ function requireAdmin(req, res) {
 }
 function sessionCookie(user, req) {
   const isHttps = (req?.headers?.['x-forwarded-proto'] === 'https') || (req?.socket?.encrypted) || /^https:/i.test(ORIGIN) || !!process.env.RENDER;
-  const sameSite = isHttps ? 'SameSite=None; Secure' : 'SameSite=Lax';
+  const sameSite = isHttps ? 'SameSite=None; Secure; Partitioned' : 'SameSite=Lax';
   return `gymsid=${makeSession(user)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly; ${sameSite}`;
 }
 function getClearCookie(req) {
   const isHttps = (req?.headers?.['x-forwarded-proto'] === 'https') || (req?.socket?.encrypted) || /^https:/i.test(ORIGIN) || !!process.env.RENDER;
-  const sameSite = isHttps ? 'SameSite=None; Secure' : 'SameSite=Lax';
+  const sameSite = isHttps ? 'SameSite=None; Secure; Partitioned' : 'SameSite=Lax';
   return `gymsid=; Path=/; Max-Age=0; HttpOnly; ${sameSite}`;
 }
 const clearCookie = `gymsid=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Lax`;
@@ -474,13 +509,268 @@ const routes = {
   // the app it was before the feature existed.
   'GET /api/config': async (req, res) => {
     const coach = coachConfig.publicConfig();
-    json(res, 200, { invite_only: INVITE_ONLY, ...(coach ? { coach } : {}) });
+    json(res, 200, {
+      auth_provider: 'google',
+      google_client_id: GOOGLE_CLIENT_ID || null,
+      invite_only: INVITE_ONLY,
+      ...(coach ? { coach } : {})
+    });
   },
 
   'GET /api/me': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } });
+    const age = user.profile?.dateOfBirth ? calculateAge(user.profile.dateOfBirth) : null;
+    const profile = user.profile ? { ...user.profile, age } : null;
+    json(res, 200, {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email || null,
+        picture: user.picture || null,
+        googleSub: user.googleSub || null,
+        profile,
+        isNewUser: !user.profile || !user.profile.completed,
+        admin: isAdmin(user)
+      }
+    });
+  },
+
+  /* ---------- Google OAuth 2.0 ---------- */
+  'GET /api/auth/google': async (req, res) => {
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      return json(res, 500, {
+        error: 'google_not_configured',
+        message: 'Google OAuth is not configured on this server. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in environment variables.'
+      });
+    }
+    const parsedUrl = new URL(req.url, 'http://localhost');
+    const returnUrl = parsedUrl.searchParams.get('returnUrl') || '/home';
+    const intent = parsedUrl.searchParams.get('intent') || 'login';
+    const state = signOAuthState({ returnUrl, intent }, SECRET);
+    const callbackUrl = getGoogleCallbackUrl(req);
+    const authUrl = getGoogleAuthUrl({ clientId: GOOGLE_CLIENT_ID, callbackUrl, state });
+
+    if (parsedUrl.searchParams.get('format') === 'json' || req.headers.accept?.includes('application/json')) {
+      return json(res, 200, { url: authUrl });
+    }
+    res.writeHead(302, { Location: authUrl });
+    res.end();
+  },
+
+  'GET /api/auth/google/callback': async (req, res) => {
+    const parsedUrl = new URL(req.url, 'http://localhost');
+    const code = parsedUrl.searchParams.get('code');
+    const state = parsedUrl.searchParams.get('state');
+    const oauthError = parsedUrl.searchParams.get('error');
+    const frontendBase = FRONTEND_ORIGIN;
+
+    if (oauthError) {
+      res.writeHead(302, { Location: `${frontendBase}/#/login?error=${encodeURIComponent(oauthError)}` });
+      res.end();
+      return;
+    }
+    if (!code || !state) {
+      res.writeHead(302, { Location: `${frontendBase}/#/login?error=missing_code_or_state` });
+      res.end();
+      return;
+    }
+    const stateData = verifyOAuthState(state, SECRET);
+    if (!stateData) {
+      res.writeHead(302, { Location: `${frontendBase}/#/login?error=invalid_or_expired_state` });
+      res.end();
+      return;
+    }
+
+    try {
+      const callbackUrl = getGoogleCallbackUrl(req);
+      const tokenResponse = await exchangeCodeForTokens({
+        code,
+        clientId: GOOGLE_CLIENT_ID,
+        clientSecret: GOOGLE_CLIENT_SECRET,
+        callbackUrl
+      });
+      const googleUser = await verifyGoogleIdToken({
+        idToken: tokenResponse.id_token,
+        clientId: GOOGLE_CLIENT_ID
+      });
+
+      let mongo = null;
+      if (process.env.MONGODB_URI) {
+        try { mongo = await getMongoDb(); } catch {}
+      }
+
+      // Check existing user by googleSub
+      let user = db.users.find(u => u.googleSub === googleUser.sub);
+      if (!user && mongo) {
+        user = await mongo.collection('users').findOne({ googleSub: googleUser.sub });
+        if (user) db.users.push(user);
+      }
+
+      // Safe linking: match by verified email if account exists
+      if (!user) {
+        const existingByEmail = db.users.find(u => u.email && u.email.toLowerCase() === googleUser.email.toLowerCase());
+        if (existingByEmail) {
+          user = existingByEmail;
+          user.googleSub = googleUser.sub;
+          user.emailVerified = true;
+          user.picture = user.picture || googleUser.picture;
+          user.updatedAt = new Date().toISOString();
+          if (mongo) {
+            await mongo.collection('users').updateOne(
+              { id: user.id },
+              { $set: { googleSub: user.googleSub, emailVerified: true, picture: user.picture, updatedAt: user.updatedAt } }
+            );
+          }
+        }
+      }
+
+      let isNewUser = false;
+      if (!user) {
+        isNewUser = true;
+        const uid = crypto.randomBytes(12).toString('base64url');
+        user = {
+          id: uid,
+          googleSub: googleUser.sub,
+          email: googleUser.email,
+          emailVerified: true,
+          name: googleUser.name,
+          picture: googleUser.picture,
+          profile: null,
+          created: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          sv: 0
+        };
+        db.users.push(user);
+        if (mongo) {
+          try {
+            await mongo.collection('users').insertOne(user);
+          } catch (err) {
+            console.error('Mongo insert user error:', err.message);
+          }
+        }
+      } else {
+        user.picture = googleUser.picture || user.picture;
+        user.name = user.name || googleUser.name;
+        user.updatedAt = new Date().toISOString();
+        if (mongo) {
+          try {
+            await mongo.collection('users').updateOne(
+              { id: user.id },
+              { $set: { picture: user.picture, updatedAt: user.updatedAt } }
+            );
+          } catch {}
+        }
+      }
+      saveDb();
+
+      const session = makeSession(user);
+      const cookie = sessionCookie(user, req);
+      const needsProfile = !user.profile || !user.profile.completed;
+      const targetPath = needsProfile ? '/profile-setup' : (stateData.returnUrl || '/home');
+      const redirectUrl = `${frontendBase}/#/auth-callback?token=${encodeURIComponent(session)}&target=${encodeURIComponent(targetPath)}&isNew=${needsProfile ? '1' : '0'}`;
+
+      res.writeHead(302, {
+        'Location': redirectUrl,
+        'Set-Cookie': cookie
+      });
+      res.end();
+    } catch (err) {
+      console.error('Google OAuth callback error:', err.message);
+      res.writeHead(302, { Location: `${frontendBase}/#/login?error=${encodeURIComponent(err.message)}` });
+      res.end();
+    }
+  },
+
+  /* ---------- Personal Fitness Profile ---------- */
+  'PUT /api/profile': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const { valid, profile, calculatedAge, error } = validateProfileData(body);
+    if (!valid) return json(res, 400, { error });
+
+    user.profile = profile;
+    user.name = profile.fullName;
+    user.updatedAt = new Date().toISOString();
+    saveDb();
+
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          await mongo.collection('users').updateOne(
+            { id: user.id },
+            { $set: { profile: user.profile, name: user.name, updatedAt: user.updatedAt } }
+          );
+        }
+      } catch (err) {
+        console.error('Mongo profile update error:', err.message);
+      }
+    }
+
+    json(res, 200, {
+      ok: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email || null,
+        picture: user.picture || null,
+        googleSub: user.googleSub || null,
+        profile: { ...profile, age: calculatedAge },
+        isNewUser: false,
+        admin: isAdmin(user)
+      }
+    });
+  },
+
+  /* ---------- Guest Progress Import ---------- */
+  'POST /api/auth/import-guest': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    if (!body.guestState || typeof body.guestState !== 'object') {
+      return json(res, 400, { error: 'guestState required' });
+    }
+
+    let cloudState = null;
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          const doc = await mongo.collection('states').findOne({ userId: user.id });
+          cloudState = doc?.state || null;
+        }
+      } catch {}
+    }
+    if (!cloudState) {
+      try {
+        cloudState = JSON.parse(fs.readFileSync(stateFile(user.id), 'utf8'));
+      } catch {
+        cloudState = {};
+      }
+    }
+
+    const { mergedState, counts } = mergeGuestState(cloudState, body.guestState);
+    try { atomicWrite(stateFile(user.id), JSON.stringify(mergedState)); } catch {}
+
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          await mongo.collection('states').updateOne(
+            { userId: user.id },
+            { $set: { userId: user.id, state: mergedState, updatedAt: new Date().toISOString() } },
+            { upsert: true }
+          );
+        }
+      } catch (err) {
+        console.error('Mongo guest import write error:', err.message);
+      }
+    }
+
+    json(res, 200, { ok: true, state: mergedState, counts });
   },
 
   'POST /api/register/options': async (req, res) => {
@@ -875,8 +1165,8 @@ export async function handleRequest(req, res) {
     pathname = '/api' + pathname;
   }
 
-  // Health check probes and root informational endpoint must never be blocked by or fail from background database sync
-  const isHealthCheck = pathname === '/' || pathname === '/api/health' || pathname === '/api/health/db';
+  // Health check probes, root informational endpoint, and OAuth routes must never be blocked by or fail from background database sync
+  const isHealthCheck = pathname === '/' || pathname === '/api/health' || pathname === '/api/health/db' || pathname.startsWith('/api/auth/google');
   if (!isHealthCheck) {
     try {
       await ensureMongoSync();

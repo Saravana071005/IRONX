@@ -1,86 +1,110 @@
+import { useEffect } from 'react'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { webauthnOK, passkeyLogin, passkeyRegister, api, BIO } from '../lib/api.js'
-import { hasData } from '../store/useStore.js'
+import { startGoogleLogin } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
-import { useState, useRef, useEffect } from 'react'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 
-function RegisterSheet({ close }) {
-  const { setUser, pushState, pullState } = useStore()
-  const [name, setName] = useState('')
-  const [code, setCode] = useState('')
-  const [inviteOnly, setInviteOnly] = useState(false)
-  const ref = useRef(null)
-  useEffect(() => { setTimeout(() => ref.current?.focus(), 250) }, [])
-  useEffect(() => { api('/api/config').then(c => setInviteOnly(!!c.invite_only)).catch(() => {}) }, [])
-  const go = async () => {
-    const n = name.trim()
-    if (!n) { useUI.getState().toast(t('Enter a name')); return }
-    if (inviteOnly && !code.trim()) { useUI.getState().toast(t('An invite code is required')); return }
-    try {
-      const u = await passkeyRegister(n, code.trim())
-      setUser(u); close()
-      if (hasData(useStore.getState().S)) { await pushState(); useUI.getState().toast(t('Profile created — data from this device moved into it')) }
-      else { await pullState(); useUI.getState().toast(t('Welcome, {0}', u.name)) }
-    } catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Registration failed')) }
-  }
-  return <>
-    <h3>{t('Create your profile')}</h3>
-    <div className="muted small" style={{ marginBottom: 14 }}>{t('Pick a name, then confirm with {0}. The passkey is saved in your device — no password needed.', BIO)}</div>
-    <input ref={ref} className="input" placeholder={t('Your name')} maxLength={40} value={name} onChange={e => setName(e.target.value)} />
-    {inviteOnly && <>
-      <div style={{ height: 10 }} />
-      <input className="input" placeholder={t('Invite code')} maxLength={40} value={code}
-        onChange={e => setCode(e.target.value.toUpperCase())} style={{ letterSpacing: '.14em', fontWeight: 600, textAlign: 'center' }} />
-      <div className="dim small" style={{ marginTop: 6 }}>{t('This app is invite-only — enter the code you were given.')}</div>
-    </>}
-    <div style={{ height: 12 }} />
-    <Button variant="primary" onClick={go}>{t('Create passkey')}</Button>
-  </>
+function GoogleIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" style={{ marginRight: 10, flexShrink: 0 }}>
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+    </svg>
+  )
 }
 
 export default function Login() {
-  const { setUser, pullState, setGuest } = useStore()
-  const signIn = async () => {
-    try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
-    catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
-  }
-  const head = <>
-    <div style={{ fontSize: 54, display: 'flex', justifyContent: 'center', color: 'var(--acc)' }}><Icon name="dumbbell" /></div>
-    <h1 style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-.028em', margin: '10px 0 4px' }}>openGym</h1>
-  </>
+  const setGuest = useStore(s => s.setGuest)
+
+  useEffect(() => {
+    // Check for error in query or hash
+    const hash = window.location.hash || ''
+    const search = window.location.search || ''
+    const queryString = hash.includes('?') ? hash.split('?')[1] : (search.startsWith('?') ? search.slice(1) : '')
+    if (queryString) {
+      const params = new URLSearchParams(queryString)
+      const err = params.get('error')
+      if (err) {
+        useUI.getState().toast(t('Sign-in failed: {0}', decodeURIComponent(err)))
+      }
+    }
+  }, [])
+
+  const head = (
+    <>
+      <div style={{ fontSize: 54, display: 'flex', justifyContent: 'center', color: 'var(--acc)' }}>
+        <Icon name="dumbbell" />
+      </div>
+      <h1 style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-.028em', margin: '10px 0 4px' }}>openGym</h1>
+    </>
+  )
   const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }
 
-  // Demo build: no backend to sign in against — the only way in is the local guest profile.
-  if (DEMO) return (
-    <div className="narrow" style={wrap}>
-      {head}
-      <div className="muted" style={{ marginBottom: 30 }}>{t('Live demo — everything stays in this browser.')}</div>
-      <Button variant="primary" icon="sparkles" onClick={() => setGuest(true)}>{t('Start the demo')}</Button>
-      <div className="card small muted" style={{ textAlign: 'left', marginTop: 16 }}>
-        {t('This demo runs entirely in your browser on example data — nothing is sent anywhere. Passkey sign-in and sync across your devices come with the openGym server, which you get by self-hosting it.')}
+  // Demo build (GitHub Pages): no backend to sign in against
+  if (DEMO) {
+    return (
+      <div className="narrow" style={wrap}>
+        {head}
+        <div className="muted" style={{ marginBottom: 30 }}>{t('Live demo — everything stays in this browser.')}</div>
+        <Button variant="primary" icon="sparkles" onClick={() => setGuest(true)}>{t('Start the demo')}</Button>
+        <div className="card small muted" style={{ textAlign: 'left', marginTop: 16 }}>
+          {t('This demo runs entirely in your browser on example data — nothing is sent anywhere. Cloud sync and personal fitness profiles come with the openGym server.')}
+        </div>
+        <div className="dim small" style={{ marginTop: 22, lineHeight: 1.6 }}>
+          <a href={REPO} target="_blank" rel="noopener">{t('Self-host it in a minute →')}</a>
+        </div>
       </div>
-      <div className="dim small" style={{ marginTop: 22, lineHeight: 1.6 }}>
-        <a href={REPO} target="_blank" rel="noopener">{t('Self-host it in a minute →')}</a>
-      </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <div className="narrow" style={wrap}>
       {head}
       <div className="muted" style={{ marginBottom: 34 }}>{t('Your workouts. Your weights. Your profile.')}</div>
-      {webauthnOK() ? <>
-        <Button variant="primary" icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
-        <div style={{ height: 10 }} />
-        <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>
-        <div style={{ height: 10 }} />
-      </> : <div className="card small muted" style={{ textAlign: 'left' }}>{t("This browser doesn't support passkeys — you can still use openGym locally on this device.")}</div>}
-      <Button variant="ghost" className="dim" onClick={() => setGuest(true)}>{t('Continue without account')}</Button>
-      <div className="dim small" style={{ marginTop: 26, lineHeight: 1.5 }}>{t('Passkeys use {0} — no passwords.', BIO)}<br />{t('Each profile keeps its own plan, workouts & body weight.')}</div>
+
+      {/* Primary: Continue with Google */}
+      <button
+        type="button"
+        className="btn"
+        onClick={() => startGoogleLogin('/home', 'login')}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 16,
+          padding: '13px 20px',
+          borderRadius: 12,
+          fontWeight: 600,
+          background: '#ffffff',
+          color: '#1f1f1f',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+          border: '1px solid #dadce0',
+          cursor: 'pointer',
+          width: '100%',
+          transition: 'transform 0.1s ease, box-shadow 0.1s ease'
+        }}
+      >
+        <GoogleIcon />
+        {t('Continue with Google')}
+      </button>
+
+      <div style={{ height: 12 }} />
+
+      {/* Secondary: Continue as Guest */}
+      <Button variant="ghost" className="dim" onClick={() => setGuest(true)} style={{ width: '100%', fontSize: 15 }}>
+        {t('Continue as Guest')}
+      </Button>
+
+      <div className="dim small" style={{ marginTop: 28, lineHeight: 1.5 }}>
+        {t('Sign in with Google to sync your personal fitness profile, workout plans, and health logs across devices.')}
+        <br />
+        {t('Guest mode saves temporary data on this device only.')}
+      </div>
     </div>
   )
 }

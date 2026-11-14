@@ -32,6 +32,8 @@ import Nutrition from './views/Nutrition.jsx'
 import WeeklyPlanner from './views/WeeklyPlanner.jsx'
 import DayPlanner from './views/DayPlanner.jsx'
 import ExerciseLibrary from './views/ExerciseLibrary.jsx'
+import ProfileSetup from './views/ProfileSetup.jsx'
+import AuthCallback from './views/AuthCallback.jsx'
 
 bindUI(useUI)   // lets the shared controls open sheets without importing the store at module scope
 
@@ -58,8 +60,9 @@ function Shell() {
   // bound to the workout, not to the route — checking Stats mid-session keeps the screen on
   useWakeLock(!!S.active && S.keepAwake !== false)
 
+  const isAuthCallback = loc.pathname === '/auth-callback'
   const authed = user || isGuest
-  if (!ready && !authed) return (
+  if (!ready && !authed && !isAuthCallback) return (
     <div id="app">
       <div style={{ paddingTop: '44vh', display: 'flex', justifyContent: 'center', fontSize: 34, color: 'var(--label-3)' }}>
         <Icon name="dumbbell" />
@@ -76,8 +79,10 @@ function Shell() {
               re-mounts the boundary, so the tab bar is always a way out */}
           <div id="app" className="vfade" key={loc.pathname}>
             <ErrorBoundary>
-              {!authed ? <Login /> : (
+              {!authed && !isAuthCallback ? <Login /> : (
                 <Routes>
+                  <Route path="/auth-callback" element={<AuthCallback />} />
+                  <Route path="/profile-setup" element={<ProfileSetup />} />
                   <Route path="/home" element={<Home />} />
                   <Route path="/planner" element={<WeeklyPlanner />} />
                   <Route path="/planner/day/:dayId" element={<DayPlanner />} />
@@ -97,7 +102,7 @@ function Shell() {
                   <Route path="/coach/intake" element={<CoachIntake />} />
                   <Route path="/coach/proposal" element={<CoachProposal />} />
                   <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/home" replace />} />
-                  <Route path="*" element={<Navigate to="/home" replace />} />
+                  <Route path="*" element={<Navigate to={authed ? "/home" : "/"} replace />} />
                 </Routes>
               )}
             </ErrorBoundary>
