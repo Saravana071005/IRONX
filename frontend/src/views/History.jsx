@@ -1,16 +1,20 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
+import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
-import { workoutDetailSheet } from '../sheets.jsx'
+import { workoutDetailSheet, cardioSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { exOr } from '../lib/exercises.js'
-import { fmtDate, fmtNum } from '../lib/format.js'
+import { fmtDate, fmtNum, uid, todayISO } from '../lib/format.js'
 
 export default function History() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
+  const update = useStore(s => s.update)
+  const { toast } = useUI()
+
   const workouts = S.workouts || []
   const cardioLogs = S.cardioLogs || []
 
@@ -24,10 +28,11 @@ export default function History() {
     let totalVolume = 0
     let totalStrengthMin = 0
     let totalCardioMin = 0
+    let totalDistanceKm = 0
 
     workouts.forEach(w => {
       const dur = Math.round((w.end && w.start ? w.end - w.start : (w.dur || 0)) / 60000)
-      const isCardio = (w.entries || []).every(e => exOr(e.id)?.bp === 'cardio') || w.name?.toLowerCase().includes('cardio')
+      const isCardio = (w.entries || []).every(e => exOr(e.id)?.bp === 'cardio') || (w.name || '').toLowerCase().includes('cardio')
       if (isCardio) {
         totalCardioMin += dur
       } else {
@@ -46,39 +51,81 @@ export default function History() {
     })
 
     cardioLogs.forEach(c => {
-      totalCardioMin += Number(c.duration_min) || Number(c.duration) || 0
+      const cMin = Number(c.totalDurationMinutes) || ((Number(c.durationHours) || 0) * 60 + (Number(c.durationMinutes) || 0)) || Number(c.duration_min) || 0
+      totalCardioMin += cMin
+      totalDistanceKm += Number(c.distanceKm) || Number(c.distance_km) || 0
     })
 
     return {
-      totalWorkouts: workouts.length,
+      totalWorkouts: workouts.length + cardioLogs.length,
+      strengthWorkouts: workouts.length,
+      cardioSessions: cardioLogs.length,
       totalSets,
       totalReps,
       totalVolume: Math.round(totalVolume),
       totalDurationMin: totalStrengthMin + totalCardioMin,
-      totalCardioMin
+      totalCardioMin,
+      totalDistanceKm: Math.round(totalDistanceKm * 10) / 10
     }
   }, [workouts, cardioLogs])
 
-  // Filtered Workouts List
-  const filteredWorkouts = useMemo(() => {
+  // Unified chronological timeline: Strength workouts + Cardio logs
+  const unifiedHistory = useMemo(() => {
+    const list = []
+
+    workouts.forEach(w => {
+      const isCardio = (w.entries || []).every(e => exOr(e.id)?.bp === 'cardio') || (w.name || '').toLowerCase().includes('cardio')
+      list.push({
+        id: w.id,
+        kind: isCardio ? 'cardio_legacy' : 'strength',
+        date: w.d || '',
+        timestamp: w.end || w.start || (w.d ? new Date(w.d).getTime() : 0),
+        data: w
+      })
+    })
+
+    cardioLogs.forEach(c => {
+      list.push({
+        id: c.id,
+        kind: 'cardio',
+        date: c.d || '',
+        timestamp: c.createdAt ? new Date(c.createdAt).getTime() : (c.d ? new Date(c.d).getTime() : 0),
+        data: c
+      })
+    })
+
+    // Sort descending by date/timestamp
+    list.sort((a, b) => {
+      if (b.date !== a.date) return (b.date || '').localeCompare(a.date || '')
+      return (b.timestamp || 0) - (a.timestamp || 0)
+    })
+
     const q = search.trim().toLowerCase()
-    return [...workouts].reverse().filter(w => {
-      const isCardio = (w.entries || []).every(e => exOr(e.id)?.bp === 'cardio') || w.name?.toLowerCase().includes('cardio')
-      if (activeTab === 'Strength' && isCardio) return false
-      if (activeTab === 'Cardio' && !isCardio) return false
+    return list.filter(item => {
+      if (activeTab === 'Strength' && item.kind !== 'strength') return false
+      if (activeTab === 'Cardio' && item.kind !== 'cardio' && item.kind !== 'cardio_legacy') return false
 
       if (!q) return true
-      const matchName = (w.name || '').toLowerCase().includes(q)
-      const matchDate = (w.d || '').includes(q)
-      const matchEx = (w.entries || []).some(e => {
-        const ex = exOr(e.id)
-        return (ex?.n || e.n || '').toLowerCase().includes(q)
-      })
-      return matchName || matchDate || matchEx
-    })
-  }, [workouts, activeTab, search])
 
-  // Weekly workout volume chart data (last 7 recorded sessions)
+      if (item.kind === 'strength' || item.kind === 'cardio_legacy') {
+        const w = item.data
+        const matchName = (w.name || '').toLowerCase().includes(q)
+        const matchDate = (w.d || '').includes(q)
+        const matchEx = (w.entries || []).some(e => {
+          const ex = exOr(e.id)
+          return (ex?.n || e.n || '').toLowerCase().includes(q)
+        })
+        return matchName || matchDate || matchEx
+      } else {
+        const c = item.data
+        const matchActivity = (c.activity || '').toLowerCase().includes(q)
+        const matchDate = (c.d || '').includes(q)
+        return matchActivity || matchDate
+      }
+    })
+  }, [workouts, cardioLogs, activeTab, search])
+
+  // Weekly workout volume chart data (last 7 recorded strength sessions)
   const recentVolumeData = useMemo(() => {
     return workouts
       .slice(-7)
@@ -99,6 +146,37 @@ export default function History() {
 
   const maxVol = Math.max(1, ...recentVolumeData.map(d => d.vol))
 
+  // Repeat Workout Handler
+  const handleRepeatWorkout = (w, e) => {
+    e.stopPropagation()
+    update(s => {
+      s.active = {
+        id: 'w_' + uid(),
+        routineId: w.routineId || null,
+        groupId: w.groupId || null,
+        name: w.name || t('Workout'),
+        category: w.category || null,
+        type: 'strength',
+        d: todayISO(),
+        start: Date.now(),
+        cur: 0,
+        entries: (w.entries || []).map(ent => ({
+          id: ent.id,
+          name: ent.name || ent.n || ent.id,
+          target: ent.target || { reps: 10, sets: ent.sets?.length || 3 },
+          sets: (ent.sets || []).map(s => ({
+            r: Number(s.r) || 10,
+            w: Number(s.w) || 0,
+            sec: s.sec,
+            done: false
+          }))
+        }))
+      }
+    })
+    toast(t('Loaded workout into new active session'))
+    nav('/workout')
+  }
+
   return (
     <div className="narrow">
       {/* Header */}
@@ -112,26 +190,36 @@ export default function History() {
               {t('Workout History & Progress')}
             </h1>
             <div className="sub" style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 2 }}>
-              {t('{0} recorded workout sessions', workouts.length)}
+              {t('{0} total training sessions recorded', stats.totalWorkouts)}
             </div>
           </div>
         </div>
 
-        <Button
-          size="sm"
-          variant="tinted"
-          icon="calendar"
-          onClick={() => nav('/planner')}
-        >
-          {t('Planner')}
-        </Button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="figureRun"
+            onClick={() => cardioSheet()}
+          >
+            {t('+ Cardio')}
+          </Button>
+          <Button
+            size="sm"
+            variant="tinted"
+            icon="calendar"
+            onClick={() => nav('/planner')}
+          >
+            {t('Planner')}
+          </Button>
+        </div>
       </div>
 
       {/* Aggregate Stats Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
         <div className="card" style={{ padding: '12px 10px', textAlign: 'center' }}>
           <div style={{ fontSize: 11, color: 'var(--label-3)', textTransform: 'uppercase', fontWeight: 600 }}>
-            {t('Workouts')}
+            {t('Sessions')}
           </div>
           <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--label)', marginTop: 2 }}>
             {stats.totalWorkouts}
@@ -251,8 +339,96 @@ export default function History() {
 
       {/* Workout Sessions List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 30 }}>
-        {filteredWorkouts.length > 0 ? (
-          filteredWorkouts.map(w => {
+        {unifiedHistory.length > 0 ? (
+          unifiedHistory.map(item => {
+            // Cardio Activity Card
+            if (item.kind === 'cardio') {
+              const c = item.data
+              const durHours = Number(c.durationHours) || Math.floor((Number(c.totalDurationMinutes) || 0) / 60)
+              const durMins = Number(c.durationMinutes) || ((Number(c.totalDurationMinutes) || 0) % 60)
+              const durDisplay = durHours > 0 ? `${durHours}h ${durMins}m` : `${durMins} min`
+              const distDisplay = c.distanceKm != null ? `${c.distanceKm} km` : '—'
+
+              return (
+                <div
+                  key={c.id}
+                  className="card"
+                  style={{
+                    padding: '16px 18px',
+                    borderRadius: 16,
+                    cursor: 'pointer',
+                    borderLeft: '4px solid var(--mint)'
+                  }}
+                  onClick={() => cardioSheet(c)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 18, color: 'var(--mint)' }}>
+                          <Icon name="figureRun" />
+                        </span>
+                        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--label)' }}>
+                          {c.activity || t('Cardio')}
+                        </h3>
+                        <span className="tag acc" style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, fontWeight: 700 }}>
+                          {t('Cardio')}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 4 }}>
+                        {fmtDate(c.d)}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button
+                        className="btn sm ghost"
+                        style={{ padding: '4px 8px', fontSize: 12 }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          cardioSheet(c)
+                        }}
+                      >
+                        <Icon name="pen" style={{ marginRight: 4 }} />
+                        {t('Edit')}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Dedicated Cardio Metrics: Duration and Distance ONLY */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: 12,
+                      marginTop: 12,
+                      paddingTop: 12,
+                      borderTop: '1px solid var(--surface-2)'
+                    }}
+                  >
+                    <div style={{ background: 'var(--surface-2)', padding: '10px 14px', borderRadius: 10 }}>
+                      <div style={{ fontSize: 11, color: 'var(--label-3)', textTransform: 'uppercase', fontWeight: 600 }}>
+                        {t('Total Duration')}
+                      </div>
+                      <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--label)', marginTop: 2 }}>
+                        {durDisplay}
+                      </div>
+                    </div>
+
+                    <div style={{ background: 'var(--surface-2)', padding: '10px 14px', borderRadius: 10 }}>
+                      <div style={{ fontSize: 11, color: 'var(--label-3)', textTransform: 'uppercase', fontWeight: 600 }}>
+                        {t('Distance Covered')}
+                      </div>
+                      <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--mint)', marginTop: 2 }}>
+                        {distDisplay}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
+            // Strength Workout Card
+            const w = item.data
             const durationMin = Math.round((w.end && w.start ? w.end - w.start : (w.dur || 0)) / 60000)
             const entries = w.entries || []
             const completedSets = entries.reduce((acc, e) => acc + (e.sets || []).filter(s => s.done).length, 0)
@@ -270,7 +446,7 @@ export default function History() {
                   padding: '16px 18px',
                   borderRadius: 16,
                   cursor: 'pointer',
-                  borderLeft: '4px solid var(--mint)'
+                  borderLeft: '4px solid var(--blue, #3b82f6)'
                 }}
                 onClick={() => workoutDetailSheet(w)}
               >
@@ -292,7 +468,25 @@ export default function History() {
                     </div>
                   </div>
 
-                  <Icon name="chevronRight" className="chev" style={{ fontSize: 16, color: 'var(--label-3)' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                      className="btn sm"
+                      style={{
+                        background: 'var(--mint-light)',
+                        color: 'var(--mint)',
+                        fontWeight: 600,
+                        padding: '5px 10px',
+                        fontSize: 12,
+                        borderRadius: 8
+                      }}
+                      onClick={(e) => handleRepeatWorkout(w, e)}
+                      title={t('Load exercises into a new active session')}
+                    >
+                      <Icon name="arrowRotateRight" style={{ marginRight: 4 }} />
+                      {t('Repeat')}
+                    </button>
+                    <Icon name="chevronRight" className="chev" style={{ fontSize: 16, color: 'var(--label-3)' }} />
+                  </div>
                 </div>
 
                 {/* Exercises & Set Records Details */}
@@ -355,14 +549,19 @@ export default function History() {
               <Icon name="history" />
             </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)', marginBottom: 6 }}>
-              {search ? t('No workouts matching "{0}"', search) : t('No workouts recorded yet')}
+              {search ? t('No sessions matching "{0}"', search) : t('No workout sessions recorded yet')}
             </div>
             <div className="muted small" style={{ marginBottom: 16 }}>
-              {t('Complete your first workout from the Weekly Planner to see your sets, repetitions, and volume progression.')}
+              {t('Complete your first workout or log a cardio activity to see your sets, duration, and progress.')}
             </div>
-            <Button variant="primary" icon="calendar" onClick={() => nav('/planner')}>
-              {t('Go to Weekly Planner')}
-            </Button>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <Button variant="primary" icon="calendar" onClick={() => nav('/planner')}>
+                {t('Weekly Planner')}
+              </Button>
+              <Button variant="ghost" icon="figureRun" onClick={() => cardioSheet()}>
+                {t('Log Cardio')}
+              </Button>
+            </div>
           </div>
         )}
       </div>

@@ -953,6 +953,41 @@ const routes = {
             { $set: { userId: user.id, state: body.state, updatedAt: new Date().toISOString() } },
             { upsert: true }
           );
+
+          // Scoped MongoDB collections for workout templates, sessions, and cardio logs
+          if (body.state.workoutTemplates) {
+            await mongo.collection('workout_templates').updateOne(
+              { userId: user.id },
+              { $set: { userId: user.id, templates: body.state.workoutTemplates, updatedAt: new Date().toISOString() } },
+              { upsert: true }
+            ).catch(() => {});
+          }
+
+          if (Array.isArray(body.state.cardioLogs) && body.state.cardioLogs.length > 0) {
+            const cardioOps = body.state.cardioLogs.map(c => ({
+              updateOne: {
+                filter: { userId: user.id, id: c.id },
+                update: { $set: { ...c, userId: user.id, updatedAt: new Date().toISOString() } },
+                upsert: true
+              }
+            }));
+            if (cardioOps.length > 0) {
+              await mongo.collection('cardio_logs').bulkWrite(cardioOps, { ordered: false }).catch(() => {});
+            }
+          }
+
+          if (Array.isArray(body.state.workouts) && body.state.workouts.length > 0) {
+            const workoutOps = body.state.workouts.map(w => ({
+              updateOne: {
+                filter: { userId: user.id, id: w.id },
+                update: { $set: { ...w, userId: user.id, updatedAt: new Date().toISOString() } },
+                upsert: true
+              }
+            }));
+            if (workoutOps.length > 0) {
+              await mongo.collection('workout_sessions').bulkWrite(workoutOps, { ordered: false }).catch(() => {});
+            }
+          }
         }
       } catch (err) {
         console.error('Mongo write state error:', err.message);

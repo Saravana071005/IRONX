@@ -2,16 +2,21 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { t } from '../lib/i18n.js'
+import { t, dateLocale } from '../lib/i18n.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import {
+  PREDEFINED_WORKOUT_GROUPS,
+  DEFAULT_WORKOUT_TEMPLATES,
+  loadWorkoutTemplate,
+  createSessionFromTemplate,
+  getWorkoutTemplates,
   DEFAULT_WEEKLY_SCHEDULE,
   buildDefaultPlannerState,
   ensureWeeklyPlannerState
 } from '../lib/customPlanner.js'
-import { uid, todayISO } from '../lib/format.js'
-import { startFlow } from '../sheets.jsx'
+import { uid, todayISO, isoOf } from '../lib/format.js'
+import { startFlow, cardioSheet, workoutGroupPickerSheet } from '../sheets.jsx'
 
 const WEEKDAYS = [
   { d: 1, name: 'Monday' },
@@ -49,8 +54,51 @@ export default function WeeklyPlanner() {
   // Template Switcher Dropdown
   const [showTemplateMenu, setShowTemplateMenu] = useState(false)
 
-  // Today's day index
-  const todayDayIndex = new Date().getDay()
+  // Today's day index and dates
+  const today = new Date()
+  const todayStr = todayISO()
+  const todayDayIndex = today.getDay()
+  const monday = new Date(today)
+  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7))
+
+  const templatesMap = useMemo(() => getWorkoutTemplates(S), [S.workoutTemplates])
+
+  const handleOpenGroupPicker = (dNum, targetIso, currentId) => {
+    workoutGroupPickerSheet({
+      title: t('Change {0} Workout', WEEKDAYS.find(w => w.d === dNum)?.name),
+      currentGroupId: currentId,
+      onSelect: (group) => {
+        update(s => {
+          s.week = s.week || {}
+          s.dayPlan = s.dayPlan || {}
+          if (group.id === 'rest') {
+            s.week[dNum] = null
+            s.dayPlan[targetIso] = 'rest'
+          } else {
+            s.week[dNum] = group.id
+            s.dayPlan[targetIso] = group.id
+          }
+        })
+        toast(t('{0} set to {1}', WEEKDAYS.find(w => w.d === dNum)?.name, group.name))
+      }
+    })
+  }
+
+  const handleStartWorkout = (group, targetIso) => {
+    if (!group || group.type === 'rest') return
+    if (group.type === 'cardio') {
+      cardioSheet(null, targetIso)
+      return
+    }
+    const session = createSessionFromTemplate(S, group.id, targetIso)
+    if (session) {
+      update(s => { s.active = session })
+      nav('/workout')
+    } else {
+      const routineId = S.week?.[group.dNum]
+      if (routineId) startFlow(routineId)
+    }
+  }
 
   // Reset to default schedule (4 Strength + 2 Cardio)
   const handleResetToDefault = () => {
@@ -272,12 +320,40 @@ export default function WeeklyPlanner() {
       {/* Weekday Cards (Monday to Sunday) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 30 }}>
         {WEEKDAYS.map(({ d, name }) => {
-          const routineId = S.week?.[d]
-          const routine = (S.routines || []).find(r => r.id === routineId)
-          const isToday = d === todayDayIndex
-          const isRest = !routineId || routine?.type === 'rest'
-          const isCardio = routine?.type === 'cardio'
-          const exerciseCount = routine?.ex?.length || 0
+          const dayOffset = d === 0 ? 6 : d - 1
+          const dayDate = new Date(monday)
+          dayDate.setDate(monday.getDate() + dayOffset)
+          const dayIso = isoOf(dayDate)
+          const dayDateFormatted = `${dayDate.getDate()} ${dayDate.toLocaleDateString(dateLocale(), { month: 'short' })}`
+
+          const overrideVal = S.dayPlan?.[dayIso]
+          const weekVal = S.week?.[d]
+          const rawVal = overrideVal !== undefined ? overrideVal : weekVal
+          const isSundayDefaultRest = d === 0 && overrideVal === undefined && !weekVal
+
+          const routine = (S.routines || []).find(r => r.id === rawVal)
+          const matchedGroup = rawVal && rawVal !== 'rest'
+            ? (PREDEFINED_WORKOUT_GROUPS.find(g => g.id === rawVal || (rawVal.toLowerCase().includes('cardio') && g.type === 'cardio'))
+              || (routine ? {
+                  id: routine.id,
+                  name: routine.name,
+                  type: routine.type || 'strength',
+                  category: routine.muscle || 'Strength',
+                  emoji: routine.emoji || 'dumbbell'
+                } : null))
+            : null
+
+          const isRest = !matchedGroup || rawVal === 'rest' || isSundayDefaultRest
+          const isCardio = matchedGroup?.type === 'cardio'
+          const isToday = dayIso === todayStr
+
+          const dayWorkout = (S.workouts || []).find(w => w.d === dayIso)
+          const dayCardio = (S.cardioLogs || []).find(c => c.d === dayIso)
+          const isCompleted = !!dayWorkout || !!dayCardio
+
+          const tplExercises = matchedGroup && !isCardio
+            ? (templatesMap[matchedGroup.id]?.exercises || routine?.ex || [])
+            : []
 
           return (
             <div
@@ -289,18 +365,21 @@ export default function WeeklyPlanner() {
                 borderLeft: isRest
                   ? '5px solid var(--label-3)'
                   : isCardio
-                  ? '5px solid var(--orange, #f97316)'
-                  : '5px solid var(--mint, #10b981)',
+                  ? '5px solid var(--mint, #10b981)'
+                  : '5px solid var(--blue, #3b82f6)',
                 background: isToday ? 'var(--surface)' : 'var(--surface)',
-                boxShadow: isToday ? '0 0 0 1.5px var(--mint), var(--card-shadow)' : 'var(--card-shadow)',
+                boxShadow: isToday ? '0 0 0 2px var(--mint), var(--card-shadow)' : 'var(--card-shadow)',
                 transition: 'transform var(--fast)'
               }}
             >
-              {/* Card Header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {/* Card Header: Day Name, Date, and Badges */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--label)' }}>
                     {t(name)}
+                  </span>
+                  <span style={{ fontSize: 13, color: 'var(--label-2)', fontWeight: 500 }}>
+                    {dayDateFormatted}
                   </span>
                   {isToday && (
                     <span
@@ -320,19 +399,31 @@ export default function WeeklyPlanner() {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {/* Badge */}
+                  {isCompleted && (
+                    <span
+                      className="tag acc"
+                      style={{
+                        fontSize: 11,
+                        padding: '2px 8px',
+                        borderRadius: 9999,
+                        fontWeight: 600
+                      }}
+                    >
+                      ✓ {t('Completed')}
+                    </span>
+                  )}
                   <span
-                    className={isRest ? 'tag' : isCardio ? 'tag' : 'tag acc'}
+                    className={isRest ? 'tag' : isCardio ? 'tag' : 'tag'}
                     style={{
                       fontSize: 12,
                       padding: '3px 10px',
                       borderRadius: 9999,
                       fontWeight: 600,
-                      background: isRest ? 'var(--surface-2)' : isCardio ? 'rgba(249, 115, 22, 0.12)' : 'var(--mint-light)',
-                      color: isRest ? 'var(--label-2)' : isCardio ? '#ea580c' : 'var(--mint)'
+                      background: isRest ? 'var(--surface-2)' : isCardio ? 'var(--mint-light)' : 'var(--surface-2)',
+                      color: isRest ? 'var(--label-2)' : isCardio ? 'var(--mint)' : 'var(--label)'
                     }}
                   >
-                    {isRest ? t('Rest Day') : isCardio ? t('Cardio') : t(routine?.muscle || 'Strength')}
+                    {isRest ? t('Rest Day') : isCardio ? t('Cardio') : t(matchedGroup?.name || 'Strength')}
                   </span>
                 </div>
               </div>
@@ -341,15 +432,18 @@ export default function WeeklyPlanner() {
               <div style={{ marginBottom: 12 }}>
                 {!isRest ? (
                   <>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--label)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Icon name={isCardio ? 'heartPulse' : 'dumbbell'} style={{ color: isCardio ? '#ea580c' : 'var(--mint)' }} />
-                      <span>{routine?.name || `${name} Workout`}</span>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--label)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Icon name={isCardio ? 'figureRun' : 'dumbbell'} style={{ color: isCardio ? 'var(--mint)' : 'var(--blue)' }} />
+                      <span>{matchedGroup?.name || `${name} Workout`}</span>
                     </div>
 
-                    {/* Exercise List Chips */}
-                    {exerciseCount > 0 ? (
+                    {isCardio ? (
+                      <div className="muted small" style={{ marginTop: 4, fontSize: 12 }}>
+                        {t('Dedicated Cardio Session · Walking, Running, or Jogging')}
+                      </div>
+                    ) : tplExercises.length > 0 ? (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                        {routine.ex.map((e, idx) => (
+                        {tplExercises.map((e, idx) => (
                           <span
                             key={`${e.id}_${idx}`}
                             style={{
@@ -367,13 +461,15 @@ export default function WeeklyPlanner() {
                       </div>
                     ) : (
                       <div style={{ fontSize: 12, color: 'var(--label-3)', marginTop: 4 }}>
-                        {t('No exercises added yet. Tap "Assign Exercises" to add from library.')}
+                        {t('Predefined template will load on workout start.')}
                       </div>
                     )}
                   </>
                 ) : (
                   <div style={{ fontSize: 13, color: 'var(--label-3)', fontStyle: 'italic' }}>
-                    {t('Rest and active recovery day.')}
+                    {d === 0
+                      ? t('Sunday scheduled Rest Day. You can select any workout group or log cardio if desired.')
+                      : t('Rest and active recovery day.')}
                   </div>
                 )}
               </div>
@@ -390,40 +486,51 @@ export default function WeeklyPlanner() {
                   flexWrap: 'wrap'
                 }}
               >
-                <div style={{ display: 'flex', gap: 6 }}>
-                  {/* Edit / Assign Exercises Button */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {/* Change Group Button */}
                   <Button
                     size="sm"
-                    variant={isRest ? 'ghost' : 'tinted'}
-                    icon="pen"
-                    onClick={() => nav(`/planner/day/${d}`)}
+                    variant="ghost"
+                    icon="shuffle"
+                    onClick={() => handleOpenGroupPicker(d, dayIso, matchedGroup?.id)}
                   >
-                    {isRest ? t('Plan Workout') : t('Assign Exercises ({0})', exerciseCount)}
+                    {isRest ? t('Choose Workout Group') : t('Change Group')}
                   </Button>
 
-                  {/* Toggle Rest Day */}
-                  <button
-                    className="btn sm ghost"
-                    style={{ fontSize: 12, padding: '5px 10px', borderRadius: 8 }}
-                    onClick={() => handleToggleRest(d)}
-                  >
-                    {isRest ? t('+ Activate Day') : t('Set as Rest')}
-                  </button>
+                  {/* Edit Template Link */}
+                  {!isRest && !isCardio && (
+                    <Button
+                      size="sm"
+                      variant="tinted"
+                      icon="list"
+                      onClick={() => nav('/exercise-library')}
+                    >
+                      {t('Exercise Template')}
+                    </Button>
+                  )}
 
-                  {/* Toggle Strength / Cardio */}
+                  {/* Toggle to Rest Day */}
                   {!isRest && (
                     <button
                       className="btn sm ghost"
                       style={{ fontSize: 12, padding: '5px 10px', borderRadius: 8 }}
-                      onClick={() => handleToggleType(d)}
+                      onClick={() => {
+                        update(s => {
+                          s.week = s.week || {}
+                          s.dayPlan = s.dayPlan || {}
+                          s.week[d] = null
+                          s.dayPlan[dayIso] = 'rest'
+                        })
+                        toast(t('{0} set to Rest Day', name))
+                      }}
                     >
-                      {isCardio ? t('Switch to Strength') : t('Switch to Cardio')}
+                      {t('Set as Rest')}
                     </button>
                   )}
                 </div>
 
-                {/* Start Today's Session */}
-                {!isRest && routineId && (
+                {/* Start Session Button */}
+                {!isRest && (
                   <button
                     className="btn sm"
                     style={{
@@ -434,10 +541,10 @@ export default function WeeklyPlanner() {
                       fontWeight: 600,
                       fontSize: 12
                     }}
-                    onClick={() => startFlow(routineId)}
+                    onClick={() => handleStartWorkout(matchedGroup, dayIso)}
                   >
-                    <Icon name="play" style={{ marginRight: 4 }} />
-                    {isToday ? t('Start Today') : t('Start')}
+                    <Icon name={isCardio ? 'figureRun' : 'play'} style={{ marginRight: 4 }} />
+                    {isToday ? (isCardio ? t('Log Cardio Today') : t('Start Today')) : (isCardio ? t('Log Cardio') : t('Start'))}
                   </button>
                 )}
               </div>

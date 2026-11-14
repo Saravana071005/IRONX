@@ -21,6 +21,86 @@ export const LIBRARY_CATEGORIES = [
 export const WORKOUT_TYPES = ['strength', 'cardio', 'rest', 'custom']
 
 /**
+ * 6 Predefined Workout Groups as required:
+ * 1. Shoulder
+ * 2. Chest + Triceps
+ * 3. Back + Biceps
+ * 4. Legs + Core
+ * 5. Cardio
+ * 6. Cardio
+ */
+export const PREDEFINED_WORKOUT_GROUPS = [
+  { id: 'shoulder', name: 'Shoulder', type: 'strength', category: 'Shoulder', emoji: 'dumbbell', color: 'var(--blue)' },
+  { id: 'chest_triceps', name: 'Chest + Triceps', type: 'strength', category: 'Chest + Triceps', emoji: 'dumbbell', color: 'var(--coral)' },
+  { id: 'back_biceps', name: 'Back + Biceps', type: 'strength', category: 'Back + Biceps', emoji: 'dumbbell', color: 'var(--teal)' },
+  { id: 'legs_core', name: 'Legs + Core', type: 'strength', category: 'Legs + Core', emoji: 'dumbbell', color: 'var(--purple)' },
+  { id: 'cardio_1', name: 'Cardio', type: 'cardio', category: 'Cardio', emoji: 'figureRun', color: 'var(--mint)' },
+  { id: 'cardio_2', name: 'Cardio', type: 'cardio', category: 'Cardio', emoji: 'figureRun', color: 'var(--mint)' }
+]
+
+/**
+ * Initial suggested editable exercise templates for each strength category.
+ */
+export const DEFAULT_WORKOUT_TEMPLATES = {
+  shoulder: {
+    id: 'shoulder',
+    name: 'Shoulder',
+    category: 'Shoulder',
+    type: 'strength',
+    emoji: 'dumbbell',
+    exercises: [
+      { id: 'lib_sh_db_press', name: 'Dumbbell Shoulder Press', sets: 4, reps: 12, weight: 0, rest: 90 },
+      { id: 'lib_sh_lat_raise', name: 'Lateral Raise', sets: 3, reps: 15, weight: 0, rest: 60 },
+      { id: 'lib_sh_rear_fly', name: 'Rear Delt Fly', sets: 3, reps: 12, weight: 0, rest: 60 },
+      { id: 'lib_sh_face_pull', name: 'Face Pull', sets: 3, reps: 15, weight: 0, rest: 60 }
+    ]
+  },
+  chest_triceps: {
+    id: 'chest_triceps',
+    name: 'Chest + Triceps',
+    category: 'Chest + Triceps',
+    type: 'strength',
+    emoji: 'dumbbell',
+    exercises: [
+      { id: 'lib_ch_bench_press', name: 'Bench Press', sets: 4, reps: 10, weight: 0, rest: 90 },
+      { id: 'lib_ch_inc_db_press', name: 'Incline Dumbbell Press', sets: 3, reps: 12, weight: 0, rest: 90 },
+      { id: 'lib_ch_chest_fly', name: 'Chest Fly', sets: 3, reps: 15, weight: 0, rest: 60 },
+      { id: 'lib_tri_pushdown', name: 'Triceps Pushdown', sets: 3, reps: 15, weight: 0, rest: 60 },
+      { id: 'lib_tri_oh_ext', name: 'Overhead Triceps Extension', sets: 3, reps: 12, weight: 0, rest: 60 }
+    ]
+  },
+  back_biceps: {
+    id: 'back_biceps',
+    name: 'Back + Biceps',
+    category: 'Back + Biceps',
+    type: 'strength',
+    emoji: 'dumbbell',
+    exercises: [
+      { id: 'lib_bk_lat_pulldown', name: 'Lat Pulldown', sets: 4, reps: 12, weight: 0, rest: 90 },
+      { id: 'lib_bk_seated_row', name: 'Seated Cable Row', sets: 3, reps: 12, weight: 0, rest: 90 },
+      { id: 'lib_bk_bent_over_row', name: 'Bent Over Row', sets: 3, reps: 10, weight: 0, rest: 90 },
+      { id: 'lib_bi_db_curl', name: 'Dumbbell Curl', sets: 3, reps: 12, weight: 0, rest: 60 },
+      { id: 'lib_bi_hammer_curl', name: 'Hammer Curl', sets: 3, reps: 12, weight: 0, rest: 60 }
+    ]
+  },
+  legs_core: {
+    id: 'legs_core',
+    name: 'Legs + Core',
+    category: 'Legs + Core',
+    type: 'strength',
+    emoji: 'dumbbell',
+    exercises: [
+      { id: 'lib_leg_squat_single', name: 'Squat', sets: 4, reps: 10, weight: 0, rest: 120 },
+      { id: 'lib_leg_press', name: 'Leg Press', sets: 3, reps: 12, weight: 0, rest: 90 },
+      { id: 'lib_leg_curl', name: 'Leg Curl', sets: 3, reps: 15, weight: 0, rest: 60 },
+      { id: 'lib_leg_calf_raise_single', name: 'Calf Raise', sets: 4, reps: 15, weight: 0, rest: 60 },
+      { id: 'lib_core_plank', name: 'Plank', sets: 3, reps: 60, weight: 0, rest: 60, type: 'timed' },
+      { id: 'lib_core_leg_raise_single', name: 'Leg Raise', sets: 3, reps: 15, weight: 0, rest: 45 }
+    ]
+  }
+}
+
+/**
  * Initial sample exercise library entries exactly as specified in requirements.
  */
 export const INITIAL_PREDEFINED_EXERCISES = [
@@ -32,7 +112,7 @@ export const INITIAL_PREDEFINED_EXERCISES = [
     muscleGroup: 'Shoulder',
     type: 'strength',
     equipment: 'Dumbbell',
-    defaultSets: 3,
+    defaultSets: 4,
     defaultReps: 12,
     defaultRestSec: 90,
     description: 'Seated or standing overhead press with dumbbells targeting anterior and lateral deltoids.'
@@ -124,13 +204,25 @@ export const INITIAL_PREDEFINED_EXERCISES = [
 
   // --- Chest ---
   {
+    id: 'lib_ch_bench_press',
+    name: 'Bench Press',
+    category: 'Chest',
+    muscleGroup: 'Chest',
+    type: 'strength',
+    equipment: 'Barbell',
+    defaultSets: 4,
+    defaultReps: 10,
+    defaultRestSec: 90,
+    description: 'Foundational barbell horizontal press for upper body strength and chest development.'
+  },
+  {
     id: 'lib_ch_flat_bench',
     name: 'Flat Bench Press',
     category: 'Chest',
     muscleGroup: 'Chest',
     type: 'strength',
     equipment: 'Barbell',
-    defaultSets: 3,
+    defaultSets: 4,
     defaultReps: 10,
     defaultRestSec: 90,
     description: 'Foundational horizontal press for overall pectoralis major mass.'
@@ -179,7 +271,7 @@ export const INITIAL_PREDEFINED_EXERCISES = [
     type: 'strength',
     equipment: 'Dumbbell',
     defaultSets: 3,
-    defaultReps: 12,
+    defaultReps: 15,
     defaultRestSec: 60,
     description: 'Dumbbell adduction exercise emphasizing pectoral stretch and contraction.'
   },
@@ -209,6 +301,18 @@ export const INITIAL_PREDEFINED_EXERCISES = [
   },
 
   // --- Triceps ---
+  {
+    id: 'lib_tri_pushdown',
+    name: 'Triceps Pushdown',
+    category: 'Triceps',
+    muscleGroup: 'Triceps',
+    type: 'strength',
+    equipment: 'Cable',
+    defaultSets: 3,
+    defaultReps: 15,
+    defaultRestSec: 60,
+    description: 'Triceps pushdown targeting the lateral and medial heads.'
+  },
   {
     id: 'lib_tri_cable_pushdown',
     name: 'Cable Pushdown',
@@ -278,7 +382,7 @@ export const INITIAL_PREDEFINED_EXERCISES = [
     muscleGroup: 'Back',
     type: 'strength',
     equipment: 'Cable',
-    defaultSets: 3,
+    defaultSets: 4,
     defaultReps: 12,
     defaultRestSec: 90,
     description: 'Cable vertical pull building latissimus dorsi width.'
@@ -318,6 +422,18 @@ export const INITIAL_PREDEFINED_EXERCISES = [
     defaultReps: 12,
     defaultRestSec: 60,
     description: 'Unilateral row providing deep lat stretch and balanced strength.'
+  },
+  {
+    id: 'lib_bk_bent_over_row',
+    name: 'Bent Over Row',
+    category: 'Back',
+    muscleGroup: 'Back',
+    type: 'strength',
+    equipment: 'Barbell',
+    defaultSets: 3,
+    defaultReps: 10,
+    defaultRestSec: 90,
+    description: 'Bent over row building latissimus dorsi, rhomboids, and lower back stability.'
   },
   {
     id: 'lib_bk_bb_row',
@@ -420,6 +536,18 @@ export const INITIAL_PREDEFINED_EXERCISES = [
 
   // --- Legs ---
   {
+    id: 'lib_leg_squat_single',
+    name: 'Squat',
+    category: 'Legs',
+    muscleGroup: 'Legs',
+    type: 'strength',
+    equipment: 'Barbell',
+    defaultSets: 4,
+    defaultReps: 10,
+    defaultRestSec: 120,
+    description: 'Foundational compound barbell squat for lower body strength and hypertrophy.'
+  },
+  {
     id: 'lib_leg_squat',
     name: 'Squats',
     category: 'Legs',
@@ -463,7 +591,7 @@ export const INITIAL_PREDEFINED_EXERCISES = [
     type: 'strength',
     equipment: 'Machine',
     defaultSets: 3,
-    defaultReps: 12,
+    defaultReps: 15,
     defaultRestSec: 60,
     description: 'Seated or lying hamstring isolation exercise.'
   },
@@ -490,6 +618,18 @@ export const INITIAL_PREDEFINED_EXERCISES = [
     defaultReps: 12,
     defaultRestSec: 60,
     description: 'Walking or stationary lunges for unilateral leg power and balance.'
+  },
+  {
+    id: 'lib_leg_calf_raise_single',
+    name: 'Calf Raise',
+    category: 'Legs',
+    muscleGroup: 'Legs',
+    type: 'strength',
+    equipment: 'Machine',
+    defaultSets: 4,
+    defaultReps: 15,
+    defaultRestSec: 60,
+    description: 'Targeted calf raise building ankle stability and gastrocnemius power.'
   },
   {
     id: 'lib_leg_calf_raises',
@@ -540,6 +680,18 @@ export const INITIAL_PREDEFINED_EXERCISES = [
     defaultReps: 15,
     defaultRestSec: 45,
     description: 'Pelvic tilt raising hips towards chest for lower abdominal focus.'
+  },
+  {
+    id: 'lib_core_leg_raise_single',
+    name: 'Leg Raise',
+    category: 'Core / Abs',
+    muscleGroup: 'Core / Abs',
+    type: 'bodyweight',
+    equipment: 'Bodyweight',
+    defaultSets: 3,
+    defaultReps: 15,
+    defaultRestSec: 45,
+    description: 'Controlled leg raises targeting lower abdominals and hip flexor strength.'
   },
   {
     id: 'lib_core_leg_raises',
@@ -602,6 +754,18 @@ export const INITIAL_PREDEFINED_EXERCISES = [
     defaultReps: 30,
     defaultRestSec: 0,
     description: 'Outdoor or track running for cardiovascular stamina.'
+  },
+  {
+    id: 'lib_cardio_jogging',
+    name: 'Jogging',
+    category: 'Cardio',
+    muscleGroup: 'Cardio',
+    type: 'cardio',
+    equipment: 'None',
+    defaultSets: 1,
+    defaultReps: 30,
+    defaultRestSec: 0,
+    description: 'Moderate-intensity continuous jogging for cardiovascular health and endurance.'
   },
   {
     id: 'lib_cardio_cycling',
@@ -895,4 +1059,170 @@ export function ensureWeeklyPlannerState(S) {
     S.week = defaults.week
   }
   return S
+}
+
+/**
+ * Returns the active workout templates for the 4 strength groups,
+ * falling back to DEFAULT_WORKOUT_TEMPLATES if none are custom saved.
+ */
+export function getWorkoutTemplates(S) {
+  const userTemplates = S?.workoutTemplates || {}
+  const res = {}
+  for (const [key, defTpl] of Object.entries(DEFAULT_WORKOUT_TEMPLATES)) {
+    if (userTemplates[key]) {
+      res[key] = {
+        ...defTpl,
+        ...userTemplates[key],
+        exercises: userTemplates[key].exercises ? [...userTemplates[key].exercises] : [...defTpl.exercises]
+      }
+    } else {
+      res[key] = JSON.parse(JSON.stringify(defTpl))
+    }
+  }
+  return res
+}
+
+/**
+ * Retrieves a single workout template by group ID ('shoulder', 'chest_triceps', etc.).
+ */
+export function loadWorkoutTemplate(S, groupId) {
+  const all = getWorkoutTemplates(S)
+  return all[groupId] || DEFAULT_WORKOUT_TEMPLATES[groupId] || null
+}
+
+/**
+ * Persists an edited workout template for a specific strength group.
+ */
+export function saveWorkoutTemplate(update, groupId, templateData) {
+  update(s => {
+    s.workoutTemplates = s.workoutTemplates || {}
+    const base = DEFAULT_WORKOUT_TEMPLATES[groupId] || {}
+    s.workoutTemplates[groupId] = {
+      ...base,
+      ...(s.workoutTemplates[groupId] || {}),
+      ...templateData,
+      updatedAt: new Date().toISOString()
+    }
+  })
+}
+
+/**
+ * Creates an active workout session object from a saved template without overwriting the template.
+ */
+export function createSessionFromTemplate(S, groupId, dateStr = null) {
+  const tpl = loadWorkoutTemplate(S, groupId)
+  if (!tpl) return null
+
+  const targetDate = dateStr || todayISO()
+  const entries = (tpl.exercises || []).map(ex => {
+    const count = Number(ex.sets) || 3
+    const isTimed = ex.type === 'timed' || (ex.name || '').toLowerCase().includes('plank')
+    const sets = []
+    for (let i = 0; i < count; i++) {
+      if (isTimed) {
+        sets.push({ sec: Number(ex.reps) || 60, w: Number(ex.weight) || 0, done: false })
+      } else {
+        sets.push({ r: Number(ex.reps) || 10, w: Number(ex.weight) || 0, done: false })
+      }
+    }
+    return {
+      id: ex.id,
+      name: ex.name,
+      target: {
+        reps: Number(ex.reps) || 10,
+        sets: count,
+        weight: Number(ex.weight) || 0,
+        sec: isTimed ? (Number(ex.reps) || 60) : undefined
+      },
+      sets
+    }
+  })
+
+  return {
+    id: 'w_' + uid(),
+    routineId: 'tpl_' + groupId,
+    groupId,
+    name: tpl.name,
+    category: tpl.category,
+    type: 'strength',
+    d: targetDate,
+    start: Date.now(),
+    cur: 0,
+    entries
+  }
+}
+
+/**
+ * Explicit action: saves changes made during a live session back to the group's exercise template.
+ */
+export function saveSessionChangesToTemplate(update, activeSession) {
+  if (!activeSession || !activeSession.groupId) return false
+  const groupId = activeSession.groupId
+  const newExercises = (activeSession.entries || []).map(e => {
+    const firstSet = e.sets?.[0] || {}
+    const isTimed = firstSet.sec != null || (e.name || '').toLowerCase().includes('plank')
+    return {
+      id: e.id,
+      name: e.target?.name || e.name || e.id,
+      sets: e.sets?.length || 3,
+      reps: isTimed ? (firstSet.sec || 60) : (firstSet.r || e.target?.reps || 10),
+      weight: firstSet.w || e.target?.weight || 0,
+      type: isTimed ? 'timed' : 'strength'
+    }
+  })
+
+  update(s => {
+    s.workoutTemplates = s.workoutTemplates || {}
+    const base = DEFAULT_WORKOUT_TEMPLATES[groupId] || {}
+    s.workoutTemplates[groupId] = {
+      ...base,
+      ...(s.workoutTemplates[groupId] || {}),
+      exercises: newExercises,
+      updatedAt: new Date().toISOString()
+    }
+  })
+  return true
+}
+
+/**
+ * Dedicated Cardio Activities list.
+ */
+export const CARDIO_ACTIVITIES = ['Walking', 'Running', 'Jogging']
+
+/**
+ * Dedicated Cardio Metrics calculation:
+ * Strict rule: calculates ONLY duration and distance covered.
+ * Does NOT estimate calories burned, steps, heart rate, or unsupported metrics.
+ */
+export function calculateCardioMetrics(hours, minutes, distanceKm) {
+  const h = Math.max(0, parseInt(hours, 10) || 0)
+  const m = Math.max(0, parseInt(minutes, 10) || 0)
+  const totalDurationMinutes = h * 60 + m
+  const dist = Math.max(0, parseFloat(distanceKm) || 0)
+  return {
+    hours: h,
+    minutes: m,
+    durationHours: h,
+    durationMinutes: m,
+    totalDurationMinutes,
+    distanceKm: Math.round(dist * 100) / 100
+  }
+}
+
+/**
+ * Identifies and formats today's actual weekday and date (e.g. "Monday, 16 November").
+ */
+export function getTodayDisplayDate(targetDate = new Date()) {
+  const d = typeof targetDate === 'string'
+    ? (targetDate.includes('T') ? new Date(targetDate) : new Date(targetDate + 'T00:00:00'))
+    : targetDate
+  const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  const weekday = weekdays[d.getDay()]
+  const dayNum = d.getDate()
+  const month = months[d.getMonth()]
+  const dateFormatted = `${dayNum} ${month}`
+  const fullFormatted = `${weekday}, ${dateFormatted}`
+  const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return { weekday, dayNum, month, dateFormatted, fullFormatted, fullDisplay: fullFormatted, iso, dayIndex: d.getDay() }
 }

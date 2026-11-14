@@ -20,6 +20,8 @@ import { buildPlanBundle, parsePlan, mergePlan, printPlan } from './lib/plan-sha
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE, shareExport } from './lib/mobile.js'
+import CardioModal from './components/CardioModal.jsx'
+import { PREDEFINED_WORKOUT_GROUPS } from './lib/customPlanner.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -968,6 +970,41 @@ function FinishSummary({ w, prs, e1prs = [], close }) {
       {prs.map(id => <div key={id} className="small accent capitalize row" style={{ gap: 5 }}><Icon name="trophy" style={{ fontSize: 13 }} />{t('New PR:')} {(EXIDX[id] || {}).n || id}</div>)}
       {e1prs.map(p => <div key={p.id} className="small accent capitalize row" style={{ gap: 5 }}><Icon name="chartLine" style={{ fontSize: 13 }} />{t('Best estimated 1RM:')} {(EXIDX[p.id] || {}).n || p.id} · {fmtNum(p.est)} {st.unit}</div>)}
     </div>}
+
+    {/* Workout Summary Details: Group, Date, Completion Status, Exercises with sets, reps, weight */}
+    <div className="card" style={{ textAlign: 'left', background: 'var(--surface-2)', padding: '12px 14px', borderRadius: 12, marginTop: 12, marginBottom: 12 }}>
+      <div className="row between" style={{ alignItems: 'center', marginBottom: 6 }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--label-2)' }}>{t('Workout Group')}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)' }}>{w.name || t('Strength Workout')}</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <span className="tag acc" style={{ fontSize: 11 }}>✓ {t('Completed')}</span>
+          <div className="muted small" style={{ fontSize: 11, marginTop: 2 }}>{fmtDate(w.d)}</div>
+        </div>
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--sep)', paddingTop: 8, marginTop: 6 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-2)', marginBottom: 6 }}>{t('Completed Exercises')}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {w.entries.map((e, idx) => {
+            const exName = (EXIDX[e.id] || {}).n || e.name || e.id
+            const doneSets = (e.sets || []).filter(s => s.done)
+            const totalReps = doneSets.reduce((sum, s) => sum + (Number(s.r) || 0), 0)
+            const topW = Math.max(0, ...doneSets.map(s => Number(s.w) || 0))
+            return (
+              <div key={idx} className="row between" style={{ fontSize: 12, borderBottom: idx < w.entries.length - 1 ? '1px dashed var(--sep)' : 'none', paddingBottom: 4 }}>
+                <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{exName}</span>
+                <span className="muted">
+                  {doneSets.length} {t('sets')} {totalReps > 0 ? `· ${totalReps} ${t('reps')}` : ''} {topW > 0 ? `· ${topW} ${st.unit}` : ''}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+
     <h4 className="sec" style={{ textAlign: 'left' }}>{t('What you just trained')}</h4>
     <BodyMap load={loadOfWorkouts([w])} body={st.body} />
     {coachOn && <SessionRating w={w} />}
@@ -1066,4 +1103,125 @@ function doFinishWorkout() {
   useUI.getState().stopRest()
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
   ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} close={close} />, { kind: 'center', locked: true })
+}
+
+export function cardioSheet(initialEntry = null, defaultDate = null, onSaved = null) {
+  ui().openSheet(close => (
+    <CardioModal initialEntry={initialEntry} defaultDate={defaultDate} onClose={close} onSaved={onSaved} />
+  ))
+}
+
+export function workoutGroupPickerSheet({ title, currentGroupId, onSelect }) {
+  ui().openSheet(close => (
+    <div style={{ textAlign: 'left', maxWidth: 460, margin: '0 auto' }}>
+      <div className="row between" style={{ marginBottom: 14, alignItems: 'center' }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{title || t('Choose Workout Group')}</h3>
+          <div className="muted small" style={{ fontSize: 12 }}>{t('Select any training category or rest')}</div>
+        </div>
+        <button className="iconbtn" onClick={close}><Icon name="xmark" /></button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+        {PREDEFINED_WORKOUT_GROUPS.map((g, idx) => {
+          const isSelected = currentGroupId === g.id
+          return (
+            <div
+              key={g.id + '_' + idx}
+              className="card tappable"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 14px',
+                margin: 0,
+                borderRadius: 12,
+                cursor: 'pointer',
+                border: isSelected ? '2px solid var(--mint)' : '1px solid var(--sep)',
+                background: isSelected ? 'var(--mint-light)' : 'var(--surface-1)'
+              }}
+              onClick={() => {
+                close()
+                if (onSelect) onSelect(g)
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span
+                  className="lrow-i"
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: g.type === 'cardio' ? 'var(--mint-light)' : 'var(--surface-2)',
+                    color: g.type === 'cardio' ? 'var(--mint)' : 'var(--label)',
+                    fontSize: 18
+                  }}
+                >
+                  <Icon name={g.type === 'cardio' ? 'figureRun' : 'dumbbell'} />
+                </span>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--label)' }}>
+                    {g.name}
+                  </div>
+                  <div className="muted small" style={{ fontSize: 12 }}>
+                    {g.type === 'cardio' ? t('Walking · Running · Jogging') : t('Predefined Exercise Template')}
+                  </div>
+                </div>
+              </div>
+              <span className="tag" style={{ fontSize: 11, background: 'var(--surface-2)' }}>
+                {g.type === 'cardio' ? t('Cardio') : t('Strength')}
+              </span>
+            </div>
+          )
+        })}
+
+        {/* Rest Day Option */}
+        <div
+          className="card tappable"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 14px',
+            margin: 0,
+            borderRadius: 12,
+            cursor: 'pointer',
+            border: currentGroupId === 'rest' ? '2px solid var(--mint)' : '1px solid var(--sep)',
+            background: currentGroupId === 'rest' ? 'var(--mint-light)' : 'var(--surface-1)'
+          }}
+          onClick={() => {
+            close()
+            if (onSelect) onSelect({ id: 'rest', name: 'Rest Day', type: 'rest', category: 'Rest' })
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span
+              className="lrow-i"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: 'var(--surface-2)',
+                color: 'var(--label-2)',
+                fontSize: 18
+              }}
+            >
+              <Icon name="moon" />
+            </span>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--label)' }}>
+                {t('Rest Day')}
+              </div>
+              <div className="muted small" style={{ fontSize: 12 }}>
+                {t('Recovery and muscle repair')}
+              </div>
+            </div>
+          </div>
+          <span className="tag" style={{ fontSize: 11, background: 'var(--surface-2)' }}>
+            {t('Rest')}
+          </span>
+        </div>
+      </div>
+    </div>
+  ))
 }

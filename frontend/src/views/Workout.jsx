@@ -9,11 +9,17 @@ import { beep, vibrate } from '../lib/sound.js'
 import { t } from '../lib/i18n.js'
 import { api, API_BASE } from '../lib/api.js'
 import Media from '../components/Media.jsx'
-import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet } from '../sheets.jsx'
+import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, cardioSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
 import { glyphOf } from '../lib/glyphs.js'
+import {
+  PREDEFINED_WORKOUT_GROUPS,
+  loadWorkoutTemplate,
+  createSessionFromTemplate,
+  saveSessionChangesToTemplate
+} from '../lib/customPlanner.js'
 
 /* ---------- start chooser (no active workout) ---------- */
 function StartChooser() {
@@ -39,6 +45,59 @@ function StartChooser() {
       </div>
       <Button variant="primary" size="lg" icon="play" onClick={() => startFlow(todayR.id)}>{t('Start {0}', todayR.name)}</Button>
     </div>}
+
+    <h4 className="sec" style={{ marginTop: 16 }}>{t('Predefined Workout Groups (One-Click Loading)')}</h4>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
+      {PREDEFINED_WORKOUT_GROUPS.map((g, idx) => (
+        <div
+          key={g.id + '_' + idx}
+          className="card tappable"
+          style={{
+            margin: 0,
+            padding: '12px 14px',
+            borderRadius: 14,
+            cursor: 'pointer',
+            border: '1px solid var(--sep)',
+            background: 'var(--surface-1)'
+          }}
+          onClick={() => {
+            if (g.type === 'cardio') {
+              cardioSheet(null, todayISO())
+            } else {
+              const session = createSessionFromTemplate(S, g.id, todayISO())
+              if (session) {
+                useStore.getState().update(s => { s.active = session })
+              }
+            }
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <span
+              className="lrow-i"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: g.type === 'cardio' ? 'var(--mint-light)' : 'var(--surface-2)',
+                color: g.type === 'cardio' ? 'var(--mint)' : 'var(--blue)',
+                fontSize: 16
+              }}
+            >
+              <Icon name={g.type === 'cardio' ? 'figureRun' : 'dumbbell'} />
+            </span>
+            <span className="tag" style={{ fontSize: 10 }}>
+              {g.type === 'cardio' ? t('Cardio') : t('Strength')}
+            </span>
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--label)' }}>
+            {g.name}
+          </div>
+          <div className="muted small" style={{ fontSize: 11, marginTop: 2 }}>
+            {g.type === 'cardio' ? t('Walking · Running · Jogging') : t('1-click load template')}
+          </div>
+        </div>
+      ))}
+    </div>
     {others.length > 0 && <><h4 className="sec">{t('Other routines')}</h4>
       <div>{others.map(r => <div key={r.id} className="workout-card" onClick={() => startFlow(r.id)}>
         <div className="workout-card-thumb"><Icon name={glyphOf(r.emoji) || 'dumbbell'} /></div>
@@ -403,6 +462,25 @@ function ActiveWorkout() {
         {allDone ? t('Finish workout') : t('Finish workout early · {0} exercises', exDone + '/' + A.entries.length)}
       </button>
     })()}
+    {A.groupId && (
+      <>
+        <div style={{ height: 10 }} />
+        <Button
+          variant="tinted"
+          icon="bookmark"
+          onClick={() => {
+            const ok = saveSessionChangesToTemplate(update, A)
+            if (ok) {
+              useUI.getState().toast(t('Saved changes to {0} exercise template', A.name))
+            } else {
+              useUI.getState().toast(t('Template saved'))
+            }
+          }}
+        >
+          {t('Save Changes to Exercise Template')}
+        </Button>
+      </>
+    )}
     <div style={{ height: 40 }} />
   </div>
 }

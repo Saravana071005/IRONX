@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { api } from '../lib/api.js'
-import { localTZ } from '../lib/format.js'
+import { localTZ, uid, todayISO } from '../lib/format.js'
 import { registerCustom } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { MOBILE, nativeLoad, nativeSave, syncReminder } from '../lib/mobile.js'
@@ -19,7 +19,9 @@ export const DEF = {
   coach: null,
   favorites: [],
   nutritionTargets: { calorie: 1900, calories: 1900, protein: 140, carb: 220, carbs: 220, fat: 65, fibre: 30, diet: 'all', waterGoal: 2.5 },
-  meals: []
+  meals: [],
+  workoutTemplates: null,
+  cardioLogs: []
 }
 const clone = o => JSON.parse(JSON.stringify(o))
 
@@ -136,6 +138,33 @@ export const useStore = create((set, get) => {
     setNutritionTargets(targets) {
       get().update(s => {
         s.nutritionTargets = { ...(s.nutritionTargets || {}), ...targets }
+      })
+    },
+
+    logCardio(entry) {
+      const item = {
+        id: entry.id || 'cardio_' + uid(),
+        d: entry.d || todayISO(),
+        activity: entry.activity || 'Walking',
+        durationHours: Number(entry.durationHours) || 0,
+        durationMinutes: Number(entry.durationMinutes) || 0,
+        totalDurationMinutes: entry.totalDurationMinutes != null
+          ? Number(entry.totalDurationMinutes)
+          : ((Number(entry.durationHours) || 0) * 60 + (Number(entry.durationMinutes) || 0)),
+        distanceKm: entry.distanceKm != null ? Number(entry.distanceKm) : 0,
+        createdAt: entry.createdAt || new Date().toISOString()
+      }
+      get().update(s => {
+        s.cardioLogs = s.cardioLogs || []
+        const idx = s.cardioLogs.findIndex(c => c.id === item.id)
+        if (idx >= 0) s.cardioLogs[idx] = item
+        else s.cardioLogs.push(item)
+      })
+      return item
+    },
+    deleteCardio(id) {
+      get().update(s => {
+        s.cardioLogs = (s.cardioLogs || []).filter(c => c.id !== id)
       })
     },
 
