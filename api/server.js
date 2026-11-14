@@ -45,7 +45,7 @@ const isVercel = !!(process.env.VERCEL || process.env.NOW_REGION);
 const defaultDataDir = isVercel ? path.join(os.tmpdir(), 'opengym-data') : (fs.existsSync('/data') ? '/data' : path.resolve(process.cwd(), 'data'));
 const DATA = process.env.DATA_DIR || defaultDataDir;
 const RP_NAME = process.env.RP_NAME || 'openGym';
-const ORIGIN = process.env.ORIGIN || 'http://localhost:8080';
+const ORIGIN = (process.env.ORIGIN || 'http://localhost:8080').trim();
 const ORIGINS = Array.from(new Set([
   ORIGIN,
   'http://localhost:8080',
@@ -58,15 +58,16 @@ const ORIGINS = Array.from(new Set([
 ]));
 
 function getRpId(req) {
-  if (process.env.RP_ID && process.env.RP_ID !== 'localhost') return process.env.RP_ID;
+  const envRpId = (process.env.RP_ID || '').trim();
+  if (envRpId && envRpId !== 'localhost') return envRpId;
   if (req?.headers?.origin) {
     try {
       const h = new URL(req.headers.origin).hostname;
       if (h && h !== 'localhost' && h !== '127.0.0.1') return h;
     } catch {}
   }
-  if (process.env.RP_ID) return process.env.RP_ID;
-  const host = (req?.headers?.['x-forwarded-host'] || req?.headers?.host || '').split(':')[0];
+  if (envRpId) return envRpId;
+  const host = (req?.headers?.['x-forwarded-host'] || req?.headers?.host || '').split(':')[0].trim();
   if (host && host !== 'localhost' && host !== '127.0.0.1') return host;
   return host || 'localhost';
 }
@@ -108,6 +109,8 @@ const SECRET = process.env.SECRET || (fs.existsSync(secretFile) ? fs.readFileSyn
 const dbFile = path.join(DATA, 'db.json');
 let db = { users: [], creds: [], subs: [], invites: [] };
 try { db = JSON.parse(fs.readFileSync(dbFile, 'utf8')); } catch {}
+db.users = db.users || [];
+db.creds = db.creds || [];
 db.subs = db.subs || [];
 db.invites = db.invites || [];
 
@@ -119,22 +122,26 @@ async function syncFromMongo() {
     const users = await mongo.collection('users').find({}).toArray();
     const creds = await mongo.collection('credentials').find({}).toArray();
     const invites = await mongo.collection('invites').find({}).toArray();
-    if (users?.length) db.users = users;
-    if (creds?.length) db.creds = creds;
-    if (invites?.length) db.invites = invites;
+    if (users && Array.isArray(users)) db.users = users;
+    if (creds && Array.isArray(creds)) db.creds = creds;
+    if (invites && Array.isArray(invites)) db.invites = invites;
   } catch (err) {
     console.error('Mongo sync error:', err.message);
+    throw err;
   }
 }
 let syncPromise = null;
 async function ensureMongoSync() {
   if (!process.env.MONGODB_URI) return;
   if (!syncPromise) {
-    syncPromise = syncFromMongo();
+    syncPromise = syncFromMongo().catch(err => {
+      console.error('ensureMongoSync error:', err.message);
+      syncPromise = null; // Reset so future requests can retry connecting
+    });
   }
   return syncPromise;
 }
-syncFromMongo();
+syncFromMongo().catch(() => {});
 
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
 function saveDb() {
@@ -411,23 +418,37 @@ setInterval(() => { for (const [k, v] of presence) if (Date.now() - v.updatedAt 
 
 /* ---------- routes ---------- */
 const routes = {
+  'GET /': async (req, res) => {
+    json(res, 200, {
+      status: 'ok',
+      service: 'OpenGym API',
+      message: 'Backend server is running'
+    });
+  },
   'GET /api/health': async (req, res) => {
     let mongoStatus = { connected: false, configured: false };
     if (process.env.MONGODB_URI) {
-      mongoStatus = await pingMongo();
+      try {
+        mongoStatus = await pingMongo();
+      } catch (e) {
+        mongoStatus = { connected: false, configured: true, error: e.message };
+      }
     }
     const isDbConnected = process.env.MONGODB_URI ? mongoStatus.connected : true;
     if (req.url && (req.url.includes('format=simple') || req.url.endsWith('/db'))) {
       return json(res, isDbConnected ? 200 : 503, { database: isDbConnected ? 'connected' : 'unavailable' });
     }
-    json(res, isDbConnected ? 200 : 503, {
-      ok: isDbConnected,
+    // Process health check (liveness probe) always returns 200 to indicate process is up and listening
+    json(res, 200, {
+      ok: true,
+      status: 'healthy',
       database: isDbConnected ? 'connected' : 'unavailable',
-      users: db.users.length,
+      users: (db.users || []).length,
       details: {
         type: process.env.MONGODB_URI ? 'mongodb' : 'sqlite_file',
         connected: isDbConnected,
-        configured: !!process.env.MONGODB_URI
+        configured: !!process.env.MONGODB_URI,
+        ...(mongoStatus.error ? { error: mongoStatus.error } : {})
       }
     });
   },
@@ -435,7 +456,11 @@ const routes = {
   'GET /api/health/db': async (req, res) => {
     let mongoStatus = { connected: false, configured: false };
     if (process.env.MONGODB_URI) {
-      mongoStatus = await pingMongo();
+      try {
+        mongoStatus = await pingMongo();
+      } catch (e) {
+        mongoStatus = { connected: false, configured: true, error: e.message };
+      }
     }
     const isDbConnected = process.env.MONGODB_URI ? mongoStatus.connected : true;
     json(res, isDbConnected ? 200 : 503, {
@@ -825,7 +850,6 @@ if (!isVercel) {
 }
 
 export async function handleRequest(req, res) {
-  await ensureMongoSync();
   // Handle CORS
   const reqOrigin = req.headers.origin;
   if (reqOrigin) {
@@ -850,6 +874,17 @@ export async function handleRequest(req, res) {
   if (!pathname.startsWith('/api') && routes[req.method + ' /api' + pathname]) {
     pathname = '/api' + pathname;
   }
+
+  // Health check probes and root informational endpoint must never be blocked by or fail from background database sync
+  const isHealthCheck = pathname === '/' || pathname === '/api/health' || pathname === '/api/health/db';
+  if (!isHealthCheck) {
+    try {
+      await ensureMongoSync();
+    } catch (err) {
+      console.error('ensureMongoSync non-blocking error:', err.message);
+    }
+  }
+
   const key = req.method + ' ' + pathname;
   const handler = routes[key];
   if (!handler) return json(res, 404, { error: 'not found' });

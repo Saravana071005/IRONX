@@ -32,6 +32,19 @@ function createMockReqRes(method, url) {
   return { req, res };
 }
 
+test('GET / returns 200 informational payload', async () => {
+  const { req, res } = createMockReqRes('GET', '/');
+  await handleRequest(req, res);
+
+  assert.equal(res.statusCode, 200);
+  const data = JSON.parse(res.body);
+  assert.deepEqual(data, {
+    status: 'ok',
+    service: 'OpenGym API',
+    message: 'Backend server is running'
+  });
+});
+
 test('GET /api/health returns valid database status without leaking secrets', async () => {
   const { req, res } = createMockReqRes('GET', '/api/health');
   await handleRequest(req, res);
