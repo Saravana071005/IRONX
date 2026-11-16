@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { exOr } from '../lib/exercises.js'
+import { exOr, allExercises, BODYPARTS, registerCustom } from '../lib/exercises.js'
 import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, EFFORT, effortOf, stepEffort, capEffort } from '../lib/history.js'
-import { fmtNum, fmtDate, todayISO, exCount, DAYN } from '../lib/format.js'
+import { fmtNum, fmtDate, todayISO, exCount, DAYN, uid } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
 import { t } from '../lib/i18n.js'
 import { api, API_BASE } from '../lib/api.js'
@@ -15,99 +15,643 @@ import { Button, Check, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
 import { glyphOf } from '../lib/glyphs.js'
 import {
-  PREDEFINED_WORKOUT_GROUPS,
-  loadWorkoutTemplate,
+  getUserTemplates,
+  getTodayScheduledWorkout,
   createSessionFromTemplate,
-  saveSessionChangesToTemplate
+  saveSessionChangesToTemplate,
+  getTodayDisplayDate
 } from '../lib/customPlanner.js'
 
 /* ---------- start chooser (no active workout) ---------- */
 function StartChooser() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
-  const todayR = effectiveRoutine(S, todayISO())
-  const todayOvr = S.dayPlan[todayISO()] !== undefined
-  const others = S.routines.filter(r => r !== todayR)
-  return <div className="narrow">
-    <div className="hdr"><div><h1>{t('Start workout')}</h1><div className="sub">{t(DAYN[new Date().getDay()])} — {todayR ? t('today is {0}', todayR.name) : t('rest day, but no one’s stopping you')}</div></div></div>
-    {todayR && <div className="card" style={{ borderLeft: '4px solid var(--mint)', marginBottom: 16 }}>
-      <div className="row between" style={{ marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span className="lrow-i" style={{ width: 44, height: 44, borderRadius: 14, fontSize: 22, background: 'var(--mint-light)', color: 'var(--mint)' }}>
-            <Icon name={glyphOf(todayR.emoji)} />
-          </span>
-          <div>
-            <div className="accent" style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase' }}>{t("Today's Plan")}{todayOvr ? ' · ' + t('rescheduled') : ''}</div>
-            <div className="big" style={{ fontSize: 20, marginTop: 2 }}>{todayR.name}</div>
-            <div className="muted small">{exCount(todayR.ex.length)}</div>
+  const update = useStore(s => s.update)
+  const { toast } = useUI()
+
+  const todayStr = todayISO()
+  const today = new Date()
+  const todayInfo = getTodayDisplayDate(today)
+  const todayScheduled = getTodayScheduledWorkout(S, today)
+  const userTemplates = useMemo(() => getUserTemplates(S), [S.workoutTemplates])
+
+  // Complete exercise dataset excluding pure cardio
+  const allEx = useMemo(() => allExercises(S), [S.customEx])
+
+  // Search & filter state
+  const [search, setSearch] = useState('')
+  const [selectedBp, setSelectedBp] = useState('All')
+  const [selectedExIds, setSelectedExIds] = useState([])
+
+  // Modal for + Add Custom Exercise
+  const [customModalOpen, setCustomModalOpen] = useState(false)
+  const [customForm, setCustomForm] = useState({
+    name: '',
+    category: 'Shoulder',
+    type: 'strength',
+    equipment: 'Dumbbell',
+    defaultSets: 3,
+    defaultReps: 10,
+    defaultWeight: 0
+  })
+  const [customError, setCustomError] = useState('')
+
+  const availableCategories = useMemo(() => {
+    const list = BODYPARTS.filter(b => b && b.toLowerCase() !== 'cardio')
+    return ['All', ...list]
+  }, [])
+
+  const filteredExercises = useMemo(() => {
+    return allEx.filter(e => {
+      if (e.mode === 'cardio' || (e.bp && e.bp.toLowerCase() === 'cardio')) return false
+      const matchCat = selectedBp === 'All' || e.bp === selectedBp || e.category === selectedBp
+      const matchSearch = !search.trim() || e.name.toLowerCase().includes(search.toLowerCase().trim())
+      return matchCat && matchSearch
+    })
+  }, [allEx, selectedBp, search])
+
+  const toggleSelectEx = (exId) => {
+    setSelectedExIds(prev =>
+      prev.includes(exId) ? prev.filter(id => id !== exId) : [...prev, exId]
+    )
+  }
+
+  const handleStartSelected = () => {
+    if (selectedExIds.length === 0) return
+    const selectedList = selectedExIds.map(id => allEx.find(e => e.id === id)).filter(Boolean)
+    const entries = selectedList.map(ex => {
+      const sCount = ex.defaultSets || 3
+      const rCount = ex.defaultReps || 10
+      const wCount = ex.defaultWeight || 0
+      const sets = []
+      for (let i = 0; i < sCount; i++) {
+        sets.push({
+          setNum: i + 1,
+          w: wCount,
+          r: rCount,
+          done: false
+        })
+      }
+      return {
+        id: ex.id,
+        name: ex.name,
+        target: { reps: rCount, weight: wCount, sets: sCount },
+        sets
+      }
+    })
+
+    const session = {
+      id: uid(),
+      d: todayStr,
+      start: Date.now(),
+      name: selectedList.length === 1 ? selectedList[0].name : t('Custom Workout'),
+      bw: null,
+      cur: 0,
+      entries
+    }
+    update(s => { s.active = session })
+    toast(t('Started workout with {0} exercises', entries.length))
+  }
+
+  const handleSaveCustom = (e) => {
+    e?.preventDefault()
+    if (!customForm.name.trim()) {
+      setCustomError(t('Exercise name is required'))
+      return
+    }
+    const newEx = {
+      id: 'cust_' + uid(),
+      name: customForm.name.trim(),
+      category: customForm.category,
+      bp: customForm.category,
+      type: customForm.type,
+      equipment: customForm.equipment,
+      eq: customForm.equipment,
+      defaultSets: Number(customForm.defaultSets) || 3,
+      defaultReps: Number(customForm.defaultReps) || 10,
+      defaultWeight: Number(customForm.defaultWeight) || 0,
+      createdAt: new Date().toISOString()
+    }
+
+    update(s => {
+      s.customEx = [...(s.customEx || []), newEx]
+      s.libraryEx = [...(s.libraryEx || []), newEx]
+    })
+    registerCustom([newEx])
+
+    // Automatically select the newly created exercise
+    setSelectedExIds(prev => [...prev, newEx.id])
+    setCustomModalOpen(false)
+    setCustomForm({
+      name: '',
+      category: 'Shoulder',
+      type: 'strength',
+      equipment: 'Dumbbell',
+      defaultSets: 3,
+      defaultReps: 10,
+      defaultWeight: 0
+    })
+    toast(t('Added and selected {0}', newEx.name))
+  }
+
+  return (
+    <div className="narrow">
+      {/* Header */}
+      <div className="hdr" style={{ marginBottom: 16 }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{t('Start Workout')}</h1>
+          <div className="sub" style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 2 }}>
+            {todayInfo.fullFormatted}
           </div>
         </div>
       </div>
-      <Button variant="primary" size="lg" icon="play" onClick={() => startFlow(todayR.id)}>{t('Start {0}', todayR.name)}</Button>
-    </div>}
 
-    <h4 className="sec" style={{ marginTop: 16 }}>{t('Predefined Workout Groups (One-Click Loading)')}</h4>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
-      {PREDEFINED_WORKOUT_GROUPS.map((g, idx) => (
-        <div
-          key={g.id + '_' + idx}
-          className="card tappable"
-          style={{
-            margin: 0,
-            padding: '12px 14px',
-            borderRadius: 14,
-            cursor: 'pointer',
-            border: '1px solid var(--sep)',
-            background: 'var(--surface-1)'
-          }}
-          onClick={() => {
-            if (g.type === 'cardio') {
-              cardioSheet(null, todayISO())
-            } else {
-              const session = createSessionFromTemplate(S, g.id, todayISO())
-              if (session) {
-                useStore.getState().update(s => { s.active = session })
-              }
-            }
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+      {/* 1. Dedicated Cardio Section (Kept Strictly Separate from Strength Lists) */}
+      <div
+        className="card"
+        style={{
+          padding: '14px 16px',
+          marginBottom: 16,
+          background: 'var(--surface-1)',
+          border: '1px solid var(--sep)',
+          borderRadius: 14
+        }}
+      >
+        <div className="row between" style={{ alignItems: 'center' }}>
+          <div className="row" style={{ gap: 10, alignItems: 'center' }}>
             <span
               className="lrow-i"
               style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: g.type === 'cardio' ? 'var(--mint-light)' : 'var(--surface-2)',
-                color: g.type === 'cardio' ? 'var(--mint)' : 'var(--blue)',
-                fontSize: 16
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: 'var(--mint-light)',
+                color: 'var(--mint)',
+                fontSize: 18
               }}
             >
-              <Icon name={g.type === 'cardio' ? 'figureRun' : 'dumbbell'} />
+              <Icon name="figureRun" />
             </span>
-            <span className="tag" style={{ fontSize: 10 }}>
-              {g.type === 'cardio' ? t('Cardio') : t('Strength')}
-            </span>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--label)' }}>
+                {t('Cardio Session')}
+              </div>
+              <div className="muted small" style={{ fontSize: 12 }}>
+                {t('Walking · Running · Jogging')}
+              </div>
+            </div>
           </div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--label)' }}>
-            {g.name}
-          </div>
-          <div className="muted small" style={{ fontSize: 11, marginTop: 2 }}>
-            {g.type === 'cardio' ? t('Walking · Running · Jogging') : t('1-click load template')}
+          <Button
+            size="sm"
+            variant="tinted"
+            icon="figureRun"
+            onClick={() => cardioSheet(null, todayStr)}
+          >
+            {t('Log Cardio')}
+          </Button>
+        </div>
+      </div>
+
+      {/* 2. Today's Scheduled Workout (from Weekly Workout Planner) */}
+      {todayScheduled?.template && (
+        <div className="card" style={{ borderLeft: '4px solid var(--mint)', marginBottom: 16 }}>
+          <div className="row between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--mint)', letterSpacing: '0.05em' }}>
+                {t("TODAY'S SCHEDULED WORKOUT")}
+              </div>
+              <div style={{ fontSize: 19, fontWeight: 800, color: 'var(--label)', marginTop: 2 }}>
+                {todayScheduled.template.name}
+              </div>
+              <div className="muted small" style={{ fontSize: 12 }}>
+                {todayScheduled.template.exercises?.length || 0} {t('exercises in template')}
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              size="md"
+              icon="play"
+              onClick={() => {
+                const session = createSessionFromTemplate(S, todayScheduled.template.id, todayStr)
+                if (session) {
+                  update(s => { s.active = session })
+                }
+              }}
+            >
+              {t('Start Scheduled')}
+            </Button>
           </div>
         </div>
-      ))}
+      )}
+
+      {/* 3. Your Saved Custom Templates (One-Click Start) */}
+      {userTemplates.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div className="row between" style={{ alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', color: 'var(--label-2)', letterSpacing: '0.04em' }}>
+              {t('Your Saved Templates')} ({userTemplates.length})
+            </div>
+            <button
+              className="btn sm ghost"
+              style={{ fontSize: 12 }}
+              onClick={() => nav('/library')}
+            >
+              {t('Manage Templates')}
+            </button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8 }}>
+            {userTemplates.map(tpl => (
+              <div
+                key={tpl.id}
+                className="card tappable"
+                style={{
+                  margin: 0,
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  border: '1px solid var(--sep)',
+                  background: 'var(--surface-1)',
+                  cursor: 'pointer'
+                }}
+                onClick={() => {
+                  const session = createSessionFromTemplate(S, tpl.id, todayStr)
+                  if (session) {
+                    update(s => { s.active = session })
+                  }
+                }}
+              >
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--label)' }}>
+                  {tpl.name}
+                </div>
+                <div className="muted small" style={{ fontSize: 11, marginTop: 2 }}>
+                  {tpl.exercises?.length || 0} {t('exercises')}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4. Complete Project Exercise Dataset Selection Screen */}
+      <div className="card" style={{ padding: '16px', marginBottom: 16 }}>
+        <div className="row between" style={{ alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>
+              {t('Select Exercises from Library')}
+            </h3>
+            <div className="muted small" style={{ fontSize: 12 }}>
+              {t('Choose any exercises to start a workout session')}
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="tinted"
+            icon="plus"
+            onClick={() => {
+              setCustomError('')
+              setCustomModalOpen(true)
+            }}
+          >
+            {t('+ Add Custom Exercise')}
+          </Button>
+        </div>
+
+        {/* Search Bar */}
+        <div style={{ position: 'relative', marginBottom: 12 }}>
+          <span style={{ position: 'absolute', left: 12, top: 11, color: 'var(--label-3)' }}>
+            <Icon name="search" />
+          </span>
+          <input
+            type="search"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder={t('Search exercise by name…')}
+            className="field"
+            style={{
+              width: '100%',
+              paddingLeft: 36,
+              paddingRight: search ? 36 : 12,
+              height: 40,
+              borderRadius: 10,
+              boxSizing: 'border-box'
+            }}
+          />
+          {search && (
+            <button
+              className="iconbtn"
+              style={{ position: 'absolute', right: 6, top: 6, width: 28, height: 28 }}
+              onClick={() => setSearch('')}
+            >
+              <Icon name="xmark" />
+            </button>
+          )}
+        </div>
+
+        {/* Category Filter Chips */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 6,
+            overflowX: 'auto',
+            paddingBottom: 8,
+            marginBottom: 12,
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
+          {availableCategories.map(cat => (
+            <button
+              key={cat}
+              type="button"
+              className="btn sm"
+              style={{
+                borderRadius: 9999,
+                padding: '4px 12px',
+                fontSize: 12,
+                fontWeight: selectedBp === cat ? 700 : 500,
+                background: selectedBp === cat ? 'var(--mint)' : 'var(--surface-2)',
+                color: selectedBp === cat ? '#fff' : 'var(--label)',
+                border: 'none',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+              onClick={() => setSelectedBp(cat)}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Exercise List */}
+        <div style={{ maxHeight: 380, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {filteredExercises.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '28px 12px', color: 'var(--label-3)' }}>
+              <Icon name="dumbbell" style={{ fontSize: 24, marginBottom: 6 }} />
+              <div style={{ fontSize: 13 }}>{t('No exercises found matching your filter')}</div>
+              <button
+                className="btn sm ghost"
+                style={{ marginTop: 8, color: 'var(--mint)' }}
+                onClick={() => {
+                  setCustomError('')
+                  setCustomModalOpen(true)
+                }}
+              >
+                {t('+ Add Custom Exercise')}
+              </button>
+            </div>
+          ) : (
+            filteredExercises.slice(0, 100).map(ex => {
+              const isSelected = selectedExIds.includes(ex.id)
+              return (
+                <div
+                  key={ex.id}
+                  onClick={() => toggleSelectEx(ex.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    background: isSelected ? 'var(--mint-light)' : 'var(--surface-1)',
+                    border: isSelected ? '1px solid var(--mint)' : '1px solid var(--sep)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                    <div
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 6,
+                        border: isSelected ? 'none' : '2px solid var(--label-3)',
+                        background: isSelected ? 'var(--mint)' : 'transparent',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 12,
+                        flex: 'none'
+                      }}
+                    >
+                      {isSelected && '✓'}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--label)' }}>
+                        {ex.name}
+                      </div>
+                      <div className="muted small" style={{ fontSize: 11, display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                        <span style={{ textTransform: 'capitalize' }}>{ex.bp || ex.category || 'General'}</span>
+                        {ex.eq && <span>· {ex.eq}</span>}
+                        {ex.type && <span>· {ex.type}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <span
+                    className="tag"
+                    style={{
+                      fontSize: 11,
+                      background: isSelected ? 'var(--mint)' : 'var(--surface-2)',
+                      color: isSelected ? '#fff' : 'var(--label-2)',
+                      borderRadius: 6
+                    }}
+                  >
+                    {isSelected ? t('Selected') : t('Select')}
+                  </span>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Selection Action Bar */}
+        {selectedExIds.length > 0 && (
+          <div
+            style={{
+              marginTop: 14,
+              paddingTop: 12,
+              borderTop: '1px solid var(--sep)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--label)' }}>
+                {selectedExIds.length} {t(selectedExIds.length === 1 ? 'exercise selected' : 'exercises selected')}
+              </div>
+              <button
+                className="btn sm ghost"
+                style={{ fontSize: 11, padding: 0, color: 'var(--label-3)' }}
+                onClick={() => setSelectedExIds([])}
+              >
+                {t('Clear selection')}
+              </button>
+            </div>
+            <Button
+              variant="primary"
+              size="md"
+              icon="play"
+              onClick={handleStartSelected}
+            >
+              {t('Start Workout ({0})', selectedExIds.length)}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* 5. Custom Exercise Modal */}
+      {customModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: 16
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              maxWidth: 420,
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              background: 'var(--surface-1)',
+              padding: '20px',
+              borderRadius: 16
+            }}
+          >
+            <div className="row between" style={{ marginBottom: 14, alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+                {t('Create Custom Exercise')}
+              </h3>
+              <button className="iconbtn" onClick={() => setCustomModalOpen(false)}>
+                <Icon name="xmark" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCustom}>
+              {customError && (
+                <div style={{ color: 'var(--coral)', fontSize: 12, marginBottom: 10 }}>
+                  {customError}
+                </div>
+              )}
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                  {t('Exercise Name *')}
+                </label>
+                <input
+                  type="text"
+                  className="field"
+                  value={customForm.name}
+                  onChange={e => setCustomForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. Arnold Dumbbell Press"
+                  required
+                  autoFocus
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                    {t('Category')}
+                  </label>
+                  <select
+                    className="field"
+                    value={customForm.category}
+                    onChange={e => setCustomForm(f => ({ ...f, category: e.target.value }))}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  >
+                    {['Shoulder', 'Chest', 'Back', 'Legs', 'Arms', 'Core', 'Full Body'].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                    {t('Equipment')}
+                  </label>
+                  <select
+                    className="field"
+                    value={customForm.equipment}
+                    onChange={e => setCustomForm(f => ({ ...f, equipment: e.target.value }))}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  >
+                    {['Dumbbell', 'Barbell', 'Cable', 'Machine', 'Bodyweight', 'Kettlebell'].map(eq => (
+                      <option key={eq} value={eq}>{eq}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
+                    {t('Sets')}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    className="field"
+                    value={customForm.defaultSets}
+                    onChange={e => setCustomForm(f => ({ ...f, defaultSets: e.target.value }))}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
+                    {t('Reps')}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    className="field"
+                    value={customForm.defaultReps}
+                    onChange={e => setCustomForm(f => ({ ...f, defaultReps: e.target.value }))}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
+                    {t('Weight (kg)')}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    className="field"
+                    value={customForm.defaultWeight}
+                    onChange={e => setCustomForm(f => ({ ...f, defaultWeight: e.target.value }))}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <div className="row" style={{ gap: 8, justifyContent: 'flex-end' }}>
+                <Button variant="ghost" onClick={() => setCustomModalOpen(false)}>
+                  {t('Cancel')}
+                </Button>
+                <Button variant="primary" type="submit">
+                  {t('Save & Select')}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
-    {others.length > 0 && <><h4 className="sec">{t('Other routines')}</h4>
-      <div>{others.map(r => <div key={r.id} className="workout-card" onClick={() => startFlow(r.id)}>
-        <div className="workout-card-thumb"><Icon name={glyphOf(r.emoji) || 'dumbbell'} /></div>
-        <div className="workout-card-info"><div className="workout-card-title">{r.name}</div><div className="workout-card-meta">{exCount(r.ex.length)}</div></div>
-        <button className="btn sm" style={{ background: 'var(--mint)', color: '#fff', borderRadius: 9999, fontWeight: 600 }}>{t('Start')}</button>
-      </div>)}</div></>}
-    <div style={{ height: 14 }} />
-    <Button icon="shuffle" onClick={() => startFlow(null)}>{t('Freestyle workout (pick as you go)')}</Button>
-    {!S.routines.length && <><div style={{ height: 10 }} /><Button variant="primary" onClick={() => nav('/plan')}>{t('Build a plan first')}</Button></>}
-  </div>
+  )
 }
 
 /* ---------- elapsed clock (isolated so the workout tree doesn't re-render every second) ---------- */

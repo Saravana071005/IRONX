@@ -11,6 +11,13 @@ import {
   getWorkoutTemplates,
   loadWorkoutTemplate,
   saveWorkoutTemplate,
+  getUserTemplates,
+  getUserTemplateById,
+  saveUserTemplate,
+  deleteUserTemplate,
+  getWeeklySchedule,
+  saveWeeklySchedule,
+  getTodayScheduledWorkout,
   createSessionFromTemplate,
   saveSessionChangesToTemplate,
   CARDIO_ACTIVITIES,
@@ -122,26 +129,61 @@ describe('Custom Workout Planner, Exercise Templates & Cardio Logging (All 12 Ph
     expect(tpl.exercises[1].name).toBe('Arnold Press')
   })
 
-  // 6. One-click exercise loading & template isolation
-  it('6. One-click exercise loading: loads predefined exercises into active session without altering saved template', () => {
-    const mockStore = { workoutTemplates: null }
-    const session = createSessionFromTemplate(mockStore, 'chest_triceps', '2026-11-17')
+  // 6. User-created templates: initially empty, supports custom creation and session loading
+  it('6. Custom template lifecycle: starts empty, allows user creation, and loads into active session', () => {
+    // A new user has no predefined templates forced on them
+    const freshStore = { workoutTemplates: [] }
+    expect(getUserTemplates(freshStore)).toEqual([])
+
+    // User creates a custom "Chest + Triceps" template
+    let state = { workoutTemplates: [] }
+    const update = fn => fn(state)
+
+    const saved = saveUserTemplate(update, {
+      name: 'Chest + Triceps',
+      category: 'Chest',
+      exercises: [
+        { id: 'lib_ch_bench_press', name: 'Bench Press', sets: 4, reps: 10, weight: 60, rest: 90 },
+        { id: 'lib_ch_inc_db_press', name: 'Incline Dumbbell Press', sets: 3, reps: 12, weight: 24, rest: 90 },
+        { id: 'lib_ch_chest_fly', name: 'Chest Fly', sets: 3, reps: 15, weight: 14, rest: 60 },
+        { id: 'lib_tri_pushdown', name: 'Triceps Pushdown', sets: 3, reps: 15, weight: 25, rest: 60 },
+        { id: 'lib_tri_oh_ext', name: 'Overhead Triceps Extension', sets: 3, reps: 12, weight: 20, rest: 60 }
+      ]
+    })
+
+    expect(saved).toBeDefined()
+    expect(saved.id).toBeDefined()
+    expect(saved.name).toBe('Chest + Triceps')
+    expect(state.workoutTemplates.length).toBe(1)
+
+    // Load template into active workout session
+    const session = createSessionFromTemplate(state, saved.id, '2026-11-17')
     expect(session).toBeDefined()
     expect(session.name).toBe('Chest + Triceps')
-    expect(session.groupId).toBe('chest_triceps')
     expect(session.entries.length).toBe(5)
     expect(session.entries[0].name).toBe('Bench Press')
     expect(session.entries[0].sets.length).toBe(4)
     expect(session.entries[0].sets[0].r).toBe(10)
+    expect(session.entries[0].sets[0].w).toBe(60)
 
-    // Base template remains untouched
-    const tpl = loadWorkoutTemplate(mockStore, 'chest_triceps')
-    expect(tpl.exercises[0].sets).toBe(4)
+    // Base template remains untouched when session is modified
+    expect(saved.exercises[0].sets).toBe(4)
   })
 
   // 7 & 8. Set, repetition, and weight logging
   it('7 & 8. Set and repetition logging: tracks target, actual reps, weight in kg, and completion checkmarks', () => {
-    const session = createSessionFromTemplate({}, 'shoulder', '2026-11-16')
+    let state = { workoutTemplates: [] }
+    const update = fn => fn(state)
+    const tpl = saveUserTemplate(update, {
+      name: 'Shoulder',
+      category: 'Shoulder',
+      exercises: [
+        { id: 'lib_sh_db_press', name: 'Dumbbell Shoulder Press', sets: 4, reps: 12, weight: 20, rest: 90 }
+      ]
+    })
+
+    const session = createSessionFromTemplate(state, tpl.id, '2026-11-16')
+    expect(session).toBeDefined()
     const exEntry = session.entries[0]
 
     // Complete set 1 with 12 reps at 20 kg
@@ -158,6 +200,48 @@ describe('Custom Workout Planner, Exercise Templates & Cardio Logging (All 12 Ph
     expect(exEntry.sets[0].w).toBe(20)
     expect(exEntry.sets[1].w).toBe(22.5)
     expect(exEntry.sets[2].done).toBe(false)
+  })
+
+  // 8b. User-defined Weekly Schedule & Single Source of Truth
+  it('8b. Weekly Schedule: saves 7-day user schedule and accurately resolves today scheduled workout', () => {
+    let state = { workoutTemplates: [], weeklySchedule: {}, dayPlan: {} }
+    const update = fn => fn(state)
+
+    const shoulderTpl = saveUserTemplate(update, {
+      name: 'Shoulder Power',
+      exercises: [{ id: 'ex1', name: 'Shoulder Press', sets: 3, reps: 10, weight: 20 }]
+    })
+
+    // User assigns Monday (1) to Shoulder, Wednesday (3) to Shoulder, others to rest
+    saveWeeklySchedule(update, {
+      1: shoulderTpl.id,
+      2: 'rest',
+      3: shoulderTpl.id,
+      4: 'rest',
+      5: 'rest',
+      6: 'rest',
+      0: 'rest'
+    })
+
+    // On Monday (2026-11-16), scheduled workout resolves to Shoulder Power
+    const mondayRes = getTodayScheduledWorkout(state, new Date(2026, 10, 16))
+    expect(mondayRes.isRest).toBe(false)
+    expect(mondayRes.template).toBeDefined()
+    expect(mondayRes.template.name).toBe('Shoulder Power')
+
+    // On Tuesday (2026-11-17), scheduled workout resolves to rest
+    const tuesdayRes = getTodayScheduledWorkout(state, new Date(2026, 10, 17))
+    expect(tuesdayRes.isRest).toBe(true)
+    expect(tuesdayRes.template).toBeNull()
+
+    // Safe deletion: deleting the template resets scheduled day to 'rest'
+    deleteUserTemplate(update, shoulderTpl.id)
+    expect(getUserTemplates(state).length).toBe(0)
+    expect(state.weeklySchedule[1]).toBe('rest')
+
+    const mondayAfterDelete = getTodayScheduledWorkout(state, new Date(2026, 10, 16))
+    expect(mondayAfterDelete.isRest).toBe(true)
+    expect(mondayAfterDelete.template).toBeNull()
   })
 
   // 9. Cardio activity selection

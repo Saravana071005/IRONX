@@ -961,6 +961,41 @@ const routes = {
               { $set: { userId: user.id, templates: body.state.workoutTemplates, updatedAt: new Date().toISOString() } },
               { upsert: true }
             ).catch(() => {});
+
+            const tpls = Array.isArray(body.state.workoutTemplates)
+              ? body.state.workoutTemplates
+              : (body.state.workoutTemplates && typeof body.state.workoutTemplates === 'object'
+                  ? Object.values(body.state.workoutTemplates)
+                  : []);
+            if (tpls.length > 0) {
+              const tplOps = tpls.map(t => ({
+                updateOne: {
+                  filter: { userId: user.id, id: t.id },
+                  update: { $set: { ...t, userId: user.id, updatedAt: new Date().toISOString() } },
+                  upsert: true
+                }
+              }));
+              await mongo.collection('user_templates').bulkWrite(tplOps, { ordered: false }).catch(() => {});
+            }
+          }
+
+          if (body.state.weeklySchedule) {
+            await mongo.collection('weekly_schedules').updateOne(
+              { userId: user.id },
+              { $set: { userId: user.id, schedule: body.state.weeklySchedule, updatedAt: new Date().toISOString() } },
+              { upsert: true }
+            ).catch(() => {});
+          }
+
+          if (Array.isArray(body.state.customEx) && body.state.customEx.length > 0) {
+            const customOps = body.state.customEx.map(ex => ({
+              updateOne: {
+                filter: { userId: user.id, id: ex.id },
+                update: { $set: { ...ex, userId: user.id, updatedAt: new Date().toISOString() } },
+                upsert: true
+              }
+            }));
+            await mongo.collection('custom_exercises').bulkWrite(customOps, { ordered: false }).catch(() => {});
           }
 
           if (Array.isArray(body.state.cardioLogs) && body.state.cardioLogs.length > 0) {
@@ -994,6 +1029,40 @@ const routes = {
       }
     }
     json(res, 200, { ok: true, ts: body.state._ts || null });
+  },
+
+  'GET /api/templates': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          const doc = await mongo.collection('workout_templates').findOne({ userId: user.id });
+          return json(res, 200, { templates: doc?.templates || [] });
+        }
+      } catch (err) {
+        console.error('Mongo get templates error:', err.message);
+      }
+    }
+    json(res, 200, { templates: [] });
+  },
+
+  'GET /api/schedule': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          const doc = await mongo.collection('weekly_schedules').findOne({ userId: user.id });
+          return json(res, 200, { schedule: doc?.schedule || {} });
+        }
+      } catch (err) {
+        console.error('Mongo get schedule error:', err.message);
+      }
+    }
+    json(res, 200, { schedule: {} });
   },
 
   'GET /api/push/public-key': async (req, res) => json(res, 200, { key: vapid.publicKey }),

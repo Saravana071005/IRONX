@@ -14,8 +14,10 @@ import { useCoachStatus } from '../lib/coach-api.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import {
-  PREDEFINED_WORKOUT_GROUPS,
-  loadWorkoutTemplate,
+  getUserTemplates,
+  getUserTemplateById,
+  getWeeklySchedule,
+  getTodayScheduledWorkout,
   createSessionFromTemplate,
   getTodayDisplayDate
 } from '../lib/customPlanner.js'
@@ -63,22 +65,10 @@ export default function Home() {
   const prevBW = S.bodyweight.length > 1 ? S.bodyweight[S.bodyweight.length - 2] : null
   const delta = bw && prevBW ? bw.w - prevBW.w : null
 
-  // Resolve today's workout group from S.dayPlan or S.week
-  const todayPlanVal = S.dayPlan[todayStr]
-  const todayWeekVal = S.week?.[todayInfo.dayIndex]
-  const todayGroupKey = todayPlanVal !== undefined ? todayPlanVal : todayWeekVal
-  const isSundayDefaultRest = todayInfo.dayIndex === 0 && todayPlanVal === undefined && !todayWeekVal
-
-  const todayGroup = todayGroupKey && todayGroupKey !== 'rest'
-    ? (PREDEFINED_WORKOUT_GROUPS.find(g => g.id === todayGroupKey || (todayGroupKey.toLowerCase().includes('cardio') && g.type === 'cardio'))
-      || (routine ? {
-          id: routine.id,
-          name: routine.name,
-          type: routine.type || 'strength',
-          category: routine.muscle || 'Strength',
-          emoji: routine.emoji || 'dumbbell'
-        } : null))
-    : null
+  // Read today's scheduled workout from weekly planner (single source of truth)
+  const todayScheduled = getTodayScheduledWorkout(S, today)
+  const scheduledTemplate = todayScheduled?.template || null
+  const isScheduledRest = todayScheduled?.isRest || !scheduledTemplate
 
   // Read today's health log (food, water, cardio)
   const todayHealth = useMemo(() => {
@@ -122,8 +112,9 @@ export default function Home() {
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday); d.setDate(monday.getDate() + i)
     const iso = isoOf(d)
-    const eff = effectiveRoutineId(S, iso)
-    const ovr = S.dayPlan[iso] !== undefined
+    const sched = getTodayScheduledWorkout(S, d)
+    const isSchedPlanned = !sched.isRest && !!sched.template
+    const eff = isSchedPlanned || effectiveRoutineId(S, iso)
     const done = doneDays.has(iso)
     const dayWorkout = S.workouts.find(w => w.d === iso)
     const durM = dayWorkout ? Math.round((dayWorkout.dur || 0) / 60000) : 0
@@ -136,10 +127,11 @@ export default function Home() {
       dateNum: d.getDate(),
       isToday: iso === todayStr,
       done,
-      ovr,
+      ovr: false,
       planned: !!eff,
       fillPercent,
-      workout: dayWorkout
+      workout: dayWorkout,
+      templateName: sched.template?.name || null
     })
   }
 
@@ -160,35 +152,15 @@ export default function Home() {
       nav('/workout')
       return
     }
-    if (!todayGroup) {
-      workoutGroupPickerSheet({
-        title: t("Choose Today's Workout"),
-        currentGroupId: todayGroupKey,
-        onSelect: handleSelectGroupForToday
-      })
-      return
+    if (scheduledTemplate) {
+      const session = createSessionFromTemplate(S, scheduledTemplate.id, todayStr)
+      if (session) {
+        update(s => { s.active = session })
+        nav('/workout')
+        return
+      }
     }
-    if (todayGroup.type === 'cardio') {
-      cardioSheet(null, todayStr)
-      return
-    }
-    // Strength group: one-click load template
-    const session = createSessionFromTemplate(S, todayGroup.id, todayStr)
-    if (session) {
-      update(s => { s.active = session })
-      nav('/workout')
-    } else if (routine) {
-      startFlow(routine.id)
-    } else {
-      nav('/workout')
-    }
-  }
-
-  const handleSelectGroupForToday = (grp) => {
-    update(s => {
-      s.dayPlan = s.dayPlan || {}
-      s.dayPlan[todayStr] = grp.id
-    })
+    nav('/planner')
   }
 
   const onToday = handleStartTodayWorkout
@@ -313,7 +285,7 @@ export default function Home() {
               <span>{t('Workout')}</span>
             </div>
             <span className="progress-hero-metric-val">
-              {totalWorkoutMin > 0 ? `${totalWorkoutMin} min` : (routine ? routine.name : t('Rest day'))}
+              {totalWorkoutMin > 0 ? `${totalWorkoutMin} min` : (scheduledTemplate ? scheduledTemplate.name : t('Rest day'))}
             </span>
           </div>
 
@@ -402,10 +374,10 @@ export default function Home() {
             <Icon name={S.active ? 'play' : 'dumbbell'} />
           </div>
           <div className="quick-action-title">
-            {S.active ? t('Resume Workout') : t('Start Workout')}
+            {S.active ? t('Resume Workout') : (scheduledTemplate ? t('Start Workout') : t('Workout Planner'))}
           </div>
           <div className="quick-action-desc">
-            {S.active ? t('In progress') : (todayGroup ? todayGroup.name : t('Pick workout group'))}
+            {S.active ? t('In progress') : (scheduledTemplate ? scheduledTemplate.name : t('No workout scheduled'))}
           </div>
         </div>
 
@@ -442,21 +414,52 @@ export default function Home() {
 
       {coachOn && <CoachCard nav={nav} />}
 
-      {/* Today's Workout Section (Phase 1 & 8) */}
-      {todayGroup ? (
-        <div
-          className="card"
-          style={{
-            borderLeft: S.active
-              ? '4px solid var(--coral)'
-              : todayCompleted
+      {/* TODAY'S SCHEDULED WORKOUT (Single source of truth: Weekly Workout Planner) */}
+      <div
+        className="card"
+        style={{
+          borderLeft: S.active
+            ? '4px solid var(--coral)'
+            : todayCompleted
+              ? '4px solid var(--mint)'
+              : scheduledTemplate
                 ? '4px solid var(--mint)'
-                : '4px solid var(--blue)',
-            marginBottom: 14
-          }}
-        >
-          <div className="row between" style={{ alignItems: 'flex-start' }}>
-            <div className="row" style={{ gap: 12, minWidth: 0 }}>
+                : '4px solid var(--sep)',
+          marginBottom: 16
+        }}
+      >
+        <div className="row between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--mint)', letterSpacing: '0.06em' }}>
+              {t("TODAY'S SCHEDULED WORKOUT")}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--label)', marginTop: 2 }}>
+              {todayInfo.fullFormatted}
+            </div>
+          </div>
+          <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+            {todayCompleted && (
+              <span className="tag acc" style={{ fontSize: 11, padding: '2px 8px' }}>
+                ✓ {t('Completed')}
+              </span>
+            )}
+            {S.active && (
+              <span className="tag" style={{ fontSize: 11, padding: '2px 8px', background: 'var(--coral-light)', color: 'var(--coral)' }}>
+                {t('In Progress')}
+              </span>
+            )}
+            {isScheduledRest && !S.active && (
+              <span className="tag" style={{ fontSize: 11, padding: '2px 8px', background: 'var(--surface-2)', color: 'var(--label-2)' }}>
+                <Icon name="moon" style={{ marginRight: 4 }} />
+                {t('Rest Day')}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {scheduledTemplate || S.active ? (
+          <div style={{ marginTop: 12 }}>
+            <div className="row" style={{ gap: 12, alignItems: 'center' }}>
               <span
                 className="lrow-i"
                 style={{
@@ -464,168 +467,102 @@ export default function Home() {
                     ? 'var(--coral)'
                     : todayCompleted
                       ? 'var(--mint)'
-                      : todayGroup.type === 'cardio'
-                        ? 'var(--mint-light)'
-                        : 'var(--surface-2)',
-                  color: (S.active || todayCompleted) ? '#fff' : (todayGroup.type === 'cardio' ? 'var(--mint)' : 'var(--label)'),
-                  width: 42,
-                  height: 42,
+                      : 'var(--mint-light)',
+                  color: (S.active || todayCompleted) ? '#fff' : 'var(--mint)',
+                  width: 44,
+                  height: 44,
                   borderRadius: 12,
-                  fontSize: 20
+                  fontSize: 22
                 }}
               >
-                <Icon name={S.active ? 'timer' : todayGroup.type === 'cardio' ? 'figureRun' : 'dumbbell'} />
+                <Icon name={S.active ? 'timer' : 'dumbbell'} />
               </span>
-              <div style={{ minWidth: 0 }}>
-                <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <div className="lbl2" style={{ fontSize: 12, color: 'var(--label-2)' }}>{t("Today's Plan")}</div>
-                  <span className="tag" style={{ fontSize: 11, padding: '1px 6px', background: 'var(--surface-2)' }}>
-                    {todayGroup.type === 'cardio' ? t('Cardio') : t('Strength')}
-                  </span>
-                  {todayCompleted && (
-                    <span className="tag acc" style={{ fontSize: 11, padding: '1px 6px' }}>
-                      ✓ {t('Completed')}
-                    </span>
-                  )}
-                  {S.active && (
-                    <span className="tag" style={{ fontSize: 11, padding: '1px 6px', background: 'var(--coral-light)', color: 'var(--coral)' }}>
-                      {t('In Progress')}
-                    </span>
-                  )}
-                </div>
-                <div className="ttl" style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>
-                  {S.active ? t('{0} — in progress', S.active.name) : todayGroup.name}
-                  {todayOvr && !S.active ? ' · ' + t('selected') : ''}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 19, fontWeight: 800, color: 'var(--label)' }}>
+                  {S.active ? t('{0} — in progress', S.active.name) : scheduledTemplate.name}
                 </div>
                 <div className="muted small" style={{ marginTop: 2, fontSize: 12 }}>
-                  {todayGroup.type === 'cardio'
-                    ? t('Dedicated cardio session (Walking, Running, or Jogging)')
-                    : t('Predefined template loaded with default sets & reps')}
+                  {scheduledTemplate.exercises?.length || 0} {t(scheduledTemplate.exercises?.length === 1 ? 'exercise' : 'exercises')}
+                  {scheduledTemplate.category ? ` · ${scheduledTemplate.category}` : ''}
                 </div>
               </div>
             </div>
 
-            <button
-              className="btn sm ghost"
-              style={{ fontSize: 12 }}
-              onClick={() => workoutGroupPickerSheet({
-                title: t("Change Today's Workout"),
-                currentGroupId: todayGroupKey,
-                onSelect: handleSelectGroupForToday
-              })}
-            >
-              {t('Change')}
-            </button>
-          </div>
-
-          <div style={{ height: 12 }} />
-          <div className="row" style={{ gap: 8 }}>
-            <Button
-              variant="primary"
-              size="md"
-              icon={S.active ? 'play' : todayGroup.type === 'cardio' ? 'figureRun' : 'dumbbell'}
-              onClick={handleStartTodayWorkout}
-              style={{ flex: 1 }}
-            >
-              {S.active ? t('Resume Workout') : todayGroup.type === 'cardio' ? t('Start Cardio') : t('Start Workout')}
-            </Button>
-            <Button
-              variant="ghost"
-              size="md"
-              onClick={() => workoutGroupPickerSheet({
-                title: t("Choose Workout Group"),
-                currentGroupId: todayGroupKey,
-                onSelect: handleSelectGroupForToday
-              })}
-            >
-              {t('Choose Different Group')}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        /* Choose Today's Workout (when no workout group is selected, or on default Rest day) */
-        <div className="card" style={{ marginBottom: 14 }}>
-          <div className="row between" style={{ marginBottom: 8, alignItems: 'center' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>
-                {t("Choose Today's Workout")}
-              </h3>
-              <div className="muted small" style={{ fontSize: 12, marginTop: 2 }}>
-                {isSundayDefaultRest
-                  ? t('Sunday defaults to Rest Day. Select any group below if you want to train:')
-                  : t('Select any workout group to train today:')}
-              </div>
-            </div>
-            {isSundayDefaultRest && (
-              <span className="tag" style={{ background: 'var(--surface-2)', fontSize: 11 }}>
-                <Icon name="moon" style={{ marginRight: 4 }} />{t('Rest Day')}
-              </span>
-            )}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: 8, marginTop: 10 }}>
-            {PREDEFINED_WORKOUT_GROUPS.map((g, idx) => (
-              <button
-                key={g.id + '_' + idx}
-                type="button"
-                className="btn ghost"
-                style={{
-                  height: 64,
-                  padding: '8px 10px',
-                  borderRadius: 12,
-                  border: '1px solid var(--sep)',
-                  background: 'var(--surface-1)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 4,
-                  textAlign: 'center'
-                }}
-                onClick={() => handleSelectGroupForToday(g)}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Icon name={g.type === 'cardio' ? 'figureRun' : 'dumbbell'} style={{ color: g.type === 'cardio' ? 'var(--mint)' : 'var(--blue)' }} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
-                    {g.name}
+            {/* List of exercises in the template */}
+            {!S.active && scheduledTemplate.exercises && scheduledTemplate.exercises.length > 0 && (
+              <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {scheduledTemplate.exercises.map((ex, idx) => (
+                  <span
+                    key={ex.id || idx}
+                    style={{
+                      fontSize: 11,
+                      padding: '4px 8px',
+                      background: 'var(--surface-2)',
+                      borderRadius: 8,
+                      color: 'var(--label-2)',
+                      border: '1px solid var(--sep)'
+                    }}
+                  >
+                    {ex.name} <strong style={{ color: 'var(--label)' }}>{ex.sets}×{ex.reps}</strong>
+                    {ex.weight > 0 ? ` @ ${ex.weight}kg` : ''}
                   </span>
-                </div>
-                <span className="muted small" style={{ fontSize: 10 }}>
-                  {g.type === 'cardio' ? t('Cardio') : t('Strength')}
-                </span>
-              </button>
-            ))}
-            <button
-              type="button"
-              className="btn ghost"
-              style={{
-                height: 64,
-                padding: '8px 10px',
-                borderRadius: 12,
-                border: '1px dashed var(--sep)',
-                background: 'var(--surface-2)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 4,
-                textAlign: 'center'
-              }}
-              onClick={() => handleSelectGroupForToday({ id: 'rest', name: 'Rest Day', type: 'rest', category: 'Rest' })}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Icon name="moon" style={{ color: 'var(--label-2)' }} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--label-2)' }}>
-                  {t('Rest Day')}
-                </span>
+                ))}
               </div>
-              <span className="muted small" style={{ fontSize: 10 }}>
-                {t('Recovery')}
-              </span>
-            </button>
+            )}
+
+            <div style={{ height: 14 }} />
+            <div className="row" style={{ gap: 8 }}>
+              <Button
+                variant="primary"
+                size="md"
+                icon={S.active ? 'play' : 'dumbbell'}
+                onClick={handleStartTodayWorkout}
+                style={{ flex: 1 }}
+              >
+                {S.active ? t('Resume Workout') : t('Start Workout')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="md"
+                icon="calendar"
+                onClick={() => nav('/planner')}
+              >
+                {t('View Workout Planner')}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)' }}>
+              {t('No workout scheduled for today.')}
+            </div>
+            <div className="muted small" style={{ fontSize: 13, marginTop: 4, lineHeight: 1.4 }}>
+              {t('Take a rest day to recover, or assign a template in the Weekly Workout Planner.')}
+            </div>
+
+            <div style={{ height: 14 }} />
+            <div className="row" style={{ gap: 8 }}>
+              <Button
+                variant="primary"
+                size="md"
+                icon="calendar"
+                onClick={() => nav('/planner')}
+                style={{ flex: 1 }}
+              >
+                {t('View Workout Planner')}
+              </Button>
+              <Button
+                variant="tinted"
+                size="md"
+                icon="figureRun"
+                onClick={() => cardioSheet(null, todayStr)}
+              >
+                {t('Log Cardio')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Weekly Planner Shortcut Banner */}
       <div
@@ -640,7 +577,7 @@ export default function Home() {
             </span>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700 }}>{t('Weekly Workout Planner')}</div>
-              <div className="muted small" style={{ fontSize: 12 }}>{t('6-Day Split: 4 Strength + 2 Cardio · Custom Templates')}</div>
+              <div className="muted small" style={{ fontSize: 12 }}>{t('User-Defined Weekly Schedule · Custom Templates')}</div>
             </div>
           </div>
           <Icon name="chevronRight" className="chev" style={{ fontSize: 16 }} />
@@ -668,7 +605,7 @@ export default function Home() {
             {t('Load starter plan (PPL)')}
           </Button>
           <div style={{ height: 8 }} />
-          <Button variant="outline" onClick={() => nav('/planner')}>{t('Custom Weekly Planner (6-Day Split)')}</Button>
+          <Button variant="outline" onClick={() => nav('/planner')}>{t('Weekly Workout Planner')}</Button>
           <div style={{ height: 8 }} />
           <Button onClick={() => nav('/plan')}>{t('Build my own plan')}</Button>
         </div>

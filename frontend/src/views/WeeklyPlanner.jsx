@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
@@ -6,17 +6,13 @@ import { t, dateLocale } from '../lib/i18n.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import {
-  PREDEFINED_WORKOUT_GROUPS,
-  DEFAULT_WORKOUT_TEMPLATES,
-  loadWorkoutTemplate,
-  createSessionFromTemplate,
-  getWorkoutTemplates,
-  DEFAULT_WEEKLY_SCHEDULE,
-  buildDefaultPlannerState,
-  ensureWeeklyPlannerState
+  getUserTemplates,
+  getWeeklySchedule,
+  saveWeeklySchedule,
+  createSessionFromTemplate
 } from '../lib/customPlanner.js'
-import { uid, todayISO, isoOf } from '../lib/format.js'
-import { startFlow, cardioSheet, workoutGroupPickerSheet } from '../sheets.jsx'
+import { todayISO, isoOf } from '../lib/format.js'
+import { cardioSheet } from '../sheets.jsx'
 
 const WEEKDAYS = [
   { d: 1, name: 'Monday' },
@@ -32,201 +28,47 @@ export default function WeeklyPlanner() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
-  const { toast, confirmSheet } = useUI()
+  const { toast } = useUI()
 
-  // Ensure state is ready
-  ensureWeeklyPlannerState(S)
+  // User templates (only templates the user has created)
+  const userTemplates = useMemo(() => getUserTemplates(S), [S.workoutTemplates])
 
-  // Current template & split mode
-  const planner = S.weeklyPlanner || {}
-  const templates = planner.templates || []
-  const activeTemplateId = planner.activeTemplateId || templates[0]?.id || 'default_split_4_2_1'
-  const activeTemplate = templates.find(t => t.id === activeTemplateId) || templates[0]
+  // Local schedule state: map of weekday (0..6) -> templateId | 'rest'
+  const [schedule, setSchedule] = useState(() => getWeeklySchedule(S))
+  const [isDirty, setIsDirty] = useState(false)
 
-  // View / Split Mode: 'fixed' (4 strength + 2 cardio) or 'custom'
-  const [splitMode, setSplitMode] = useState(planner.splitMode || '4_strength_2_cardio')
+  useEffect(() => {
+    setSchedule(getWeeklySchedule(S))
+    setIsDirty(false)
+  }, [S.weeklySchedule, S.week])
 
-  // Save Template Modal State
-  const [saveTemplateModal, setSaveTemplateModal] = useState(false)
-  const [templateName, setTemplateName] = useState('')
-  const [templateDesc, setTemplateDesc] = useState('')
-
-  // Template Switcher Dropdown
-  const [showTemplateMenu, setShowTemplateMenu] = useState(false)
-
-  // Today's day index and dates
+  // Current dates for week
   const today = new Date()
   const todayStr = todayISO()
-  const todayDayIndex = today.getDay()
   const monday = new Date(today)
   monday.setDate(today.getDate() - ((today.getDay() + 6) % 7))
 
-  const templatesMap = useMemo(() => getWorkoutTemplates(S), [S.workoutTemplates])
-
-  const handleOpenGroupPicker = (dNum, targetIso, currentId) => {
-    workoutGroupPickerSheet({
-      title: t('Change {0} Workout', WEEKDAYS.find(w => w.d === dNum)?.name),
-      currentGroupId: currentId,
-      onSelect: (group) => {
-        update(s => {
-          s.week = s.week || {}
-          s.dayPlan = s.dayPlan || {}
-          if (group.id === 'rest') {
-            s.week[dNum] = null
-            s.dayPlan[targetIso] = 'rest'
-          } else {
-            s.week[dNum] = group.id
-            s.dayPlan[targetIso] = group.id
-          }
-        })
-        toast(t('{0} set to {1}', WEEKDAYS.find(w => w.d === dNum)?.name, group.name))
-      }
-    })
+  const handleDayTemplateChange = (weekdayNum, templateId) => {
+    setSchedule(prev => ({
+      ...prev,
+      [weekdayNum]: templateId
+    }))
+    setIsDirty(true)
   }
 
-  const handleStartWorkout = (group, targetIso) => {
-    if (!group || group.type === 'rest') return
-    if (group.type === 'cardio') {
-      cardioSheet(null, targetIso)
-      return
-    }
-    const session = createSessionFromTemplate(S, group.id, targetIso)
+  const handleSaveWeeklyPlan = () => {
+    saveWeeklySchedule(update, schedule)
+    setIsDirty(false)
+    toast(t('Weekly workout plan saved successfully!'))
+  }
+
+  const handleStartWorkout = (template, targetIso) => {
+    if (!template) return
+    const session = createSessionFromTemplate(S, template.id, targetIso)
     if (session) {
       update(s => { s.active = session })
       nav('/workout')
-    } else {
-      const routineId = S.week?.[group.dNum]
-      if (routineId) startFlow(routineId)
     }
-  }
-
-  // Reset to default schedule (4 Strength + 2 Cardio)
-  const handleResetToDefault = () => {
-    confirmSheet({
-      title: t('Reset to Default Schedule?'),
-      message: t('This will reset Monday-Sunday to the default 4-day Strength + 2-day Cardio split (Monday Shoulder, Tuesday Chest+Triceps, Wednesday Back+Biceps, Thursday Legs+Core, Friday/Saturday Cardio, Sunday Rest).'),
-      confirmText: t('Reset Schedule'),
-      danger: false,
-      onConfirm: () => {
-        const defaults = buildDefaultPlannerState(S)
-        update(s => {
-          s.routines = defaults.routines
-          s.week = defaults.week
-          s.weeklyPlanner = defaults.weeklyPlanner
-        })
-        toast(t('Reset to default 4 Strength + 2 Cardio schedule'))
-      }
-    })
-  }
-
-  // Quick Toggle Rest Day
-  const handleToggleRest = (dayIndex) => {
-    update(s => {
-      s.week = s.week || {}
-      s.weeklyPlanner = s.weeklyPlanner || {}
-      s.weeklyPlanner.templates = s.weeklyPlanner.templates || []
-
-      const curRoutineId = s.week[dayIndex]
-      const isRest = !curRoutineId
-
-      if (isRest) {
-        // Toggle from Rest to Strength/Cardio
-        const spec = DEFAULT_WEEKLY_SCHEDULE[dayIndex]
-        const newRoutineId = 'r_plan_' + dayIndex + '_' + uid()
-        const newRoutine = {
-          id: newRoutineId,
-          name: spec?.routineName || `${WEEKDAYS.find(w => w.d === dayIndex)?.name} Workout`,
-          type: spec?.type === 'cardio' ? 'cardio' : 'strength',
-          muscle: spec?.muscle || 'Full Body',
-          emoji: spec?.type === 'cardio' ? 'heartPulse' : 'dumbbell',
-          ex: []
-        }
-        s.routines = s.routines || []
-        s.routines.push(newRoutine)
-        s.week[dayIndex] = newRoutineId
-
-        if (s.weeklyPlanner.templates[0]?.days) {
-          s.weeklyPlanner.templates[0].days[dayIndex] = {
-            type: newRoutine.type,
-            muscle: newRoutine.muscle,
-            name: newRoutine.name,
-            routineId: newRoutineId
-          }
-        }
-        toast(t('Added workout session to {0}', WEEKDAYS.find(w => w.d === dayIndex)?.name))
-      } else {
-        // Toggle to Rest
-        s.week[dayIndex] = null
-        if (s.weeklyPlanner.templates[0]?.days) {
-          s.weeklyPlanner.templates[0].days[dayIndex] = {
-            type: 'rest',
-            muscle: 'Rest',
-            name: `${WEEKDAYS.find(w => w.d === dayIndex)?.name} — Rest`,
-            routineId: null
-          }
-        }
-        toast(t('{0} set to Rest Day', WEEKDAYS.find(w => w.d === dayIndex)?.name))
-      }
-    })
-  }
-
-  // Quick Toggle Type between Strength and Cardio
-  const handleToggleType = (dayIndex) => {
-    update(s => {
-      s.week = s.week || {}
-      const rId = s.week[dayIndex]
-      const r = (s.routines || []).find(x => x.id === rId)
-      if (!r) return
-
-      const nextType = r.type === 'cardio' ? 'strength' : 'cardio'
-      r.type = nextType
-      r.emoji = nextType === 'cardio' ? 'heartPulse' : 'dumbbell'
-      if (nextType === 'cardio') r.muscle = 'Cardio'
-
-      if (s.weeklyPlanner?.templates?.[0]?.days?.[dayIndex]) {
-        s.weeklyPlanner.templates[0].days[dayIndex].type = nextType
-        s.weeklyPlanner.templates[0].days[dayIndex].muscle = r.muscle
-      }
-      toast(t('Changed {0} to {1}', WEEKDAYS.find(w => w.d === dayIndex)?.name, nextType))
-    })
-  }
-
-  // Save Schedule as New Template
-  const handleSaveAsTemplate = () => {
-    if (!templateName.trim()) return
-    const newTpl = {
-      id: 'tpl_' + uid(),
-      name: templateName.trim(),
-      description: templateDesc.trim() || t('Custom weekly workout schedule'),
-      days: JSON.parse(JSON.stringify(activeTemplate?.days || {})),
-      weekMapping: JSON.parse(JSON.stringify(S.week || {})),
-      createdAt: new Date().toISOString()
-    }
-
-    update(s => {
-      s.weeklyPlanner = s.weeklyPlanner || {}
-      s.weeklyPlanner.templates = s.weeklyPlanner.templates || []
-      s.weeklyPlanner.templates.push(newTpl)
-      s.weeklyPlanner.activeTemplateId = newTpl.id
-    })
-
-    toast(t('Saved template "{0}"', newTpl.name))
-    setSaveTemplateModal(false)
-    setTemplateName('')
-    setTemplateDesc('')
-  }
-
-  // Switch Active Template
-  const handleSwitchTemplate = (tpl) => {
-    update(s => {
-      s.weeklyPlanner = s.weeklyPlanner || {}
-      s.weeklyPlanner.activeTemplateId = tpl.id
-      if (tpl.weekMapping) {
-        s.week = JSON.parse(JSON.stringify(tpl.weekMapping))
-      }
-    })
-    toast(t('Switched to "{0}" schedule', tpl.name))
-    setShowTemplateMenu(false)
   }
 
   return (
@@ -238,86 +80,95 @@ export default function WeeklyPlanner() {
             {t('Weekly Workout Planner')}
           </h1>
           <div className="sub" style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 2 }}>
-            {splitMode === '4_strength_2_cardio'
-              ? t('4 Days Strength · 2 Days Cardio · 1 Day Rest')
-              : t('Fully Customized Weekly Schedule')}
+            {t('Configure your weekly schedule using your custom workout templates')}
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            className="iconbtn"
-            style={{ background: 'var(--surface-2)' }}
-            onClick={() => setSaveTemplateModal(true)}
-            title={t('Save as Template')}
+          <Button
+            size="sm"
+            variant="tinted"
+            icon="list"
+            onClick={() => nav('/exercise-library')}
           >
-            <Icon name="bookmark" />
-          </button>
-          <button
-            className="iconbtn"
-            style={{ background: 'var(--surface-2)' }}
-            onClick={handleResetToDefault}
-            title={t('Reset to Default Split')}
+            {t('Templates & Library')}
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            icon="check"
+            onClick={handleSaveWeeklyPlan}
           >
-            <Icon name="refresh" />
-          </button>
+            {t('Save Weekly Plan')}
+          </Button>
         </div>
       </div>
 
-      {/* Mode Switch & Quick Action Bar */}
-      <div className="card" style={{ padding: '12px 14px', marginBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', gap: 6, background: 'var(--surface-2)', padding: 4, borderRadius: 10 }}>
-            <button
-              className={`btn sm ${splitMode === '4_strength_2_cardio' ? 'primary' : 'ghost'}`}
-              style={{ padding: '6px 12px', fontSize: 12, borderRadius: 8 }}
-              onClick={() => {
-                setSplitMode('4_strength_2_cardio')
-                update(s => {
-                  s.weeklyPlanner = s.weeklyPlanner || {}
-                  s.weeklyPlanner.splitMode = '4_strength_2_cardio'
-                })
-              }}
-            >
-              {t('4 Strength + 2 Cardio')}
-            </button>
-            <button
-              className={`btn sm ${splitMode === 'custom' ? 'primary' : 'ghost'}`}
-              style={{ padding: '6px 12px', fontSize: 12, borderRadius: 8 }}
-              onClick={() => {
-                setSplitMode('custom')
-                update(s => {
-                  s.weeklyPlanner = s.weeklyPlanner || {}
-                  s.weeklyPlanner.splitMode = 'custom'
-                })
-              }}
-            >
-              {t('Custom Split')}
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8 }}>
+      {/* Info / Empty Templates Notice */}
+      {userTemplates.length === 0 && (
+        <div
+          className="card"
+          style={{
+            padding: '16px 18px',
+            marginBottom: 16,
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+            borderRadius: 14
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--label)' }}>
+                {t('No workout templates created yet')}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 4, lineHeight: 1.4 }}>
+                {t('Create custom templates (e.g. Shoulder, Chest + Biceps, Back + Chest, Legs + Core) in Workout Library to assign them to your weekdays.')}
+              </div>
+            </div>
             <Button
+              variant="primary"
               size="sm"
-              variant="tinted"
-              icon="list"
+              icon="plus"
               onClick={() => nav('/exercise-library')}
             >
-              {t('Exercise Library')}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              icon="history"
-              onClick={() => nav('/history')}
-            >
-              {t('History')}
+              {t('+ Create New Template')}
             </Button>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Weekday Cards (Monday to Sunday) */}
+      {/* Sticky Save Bar if changes are unsaved */}
+      {isDirty && (
+        <div
+          style={{
+            position: 'sticky',
+            top: 10,
+            zIndex: 100,
+            background: 'var(--mint)',
+            color: '#fff',
+            padding: '10px 16px',
+            borderRadius: 12,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)',
+            marginBottom: 16
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 700 }}>
+            {t('You have unsaved changes to your weekly schedule')}
+          </span>
+          <Button
+            size="sm"
+            style={{ background: '#fff', color: 'var(--mint)', fontWeight: 800 }}
+            onClick={handleSaveWeeklyPlan}
+          >
+            {t('Save Weekly Plan')}
+          </Button>
+        </div>
+      )}
+
+      {/* 7 Days List: Monday through Sunday */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 30 }}>
         {WEEKDAYS.map(({ d, name }) => {
           const dayOffset = d === 0 ? 6 : d - 1
@@ -325,35 +176,16 @@ export default function WeeklyPlanner() {
           dayDate.setDate(monday.getDate() + dayOffset)
           const dayIso = isoOf(dayDate)
           const dayDateFormatted = `${dayDate.getDate()} ${dayDate.toLocaleDateString(dateLocale(), { month: 'short' })}`
-
-          const overrideVal = S.dayPlan?.[dayIso]
-          const weekVal = S.week?.[d]
-          const rawVal = overrideVal !== undefined ? overrideVal : weekVal
-          const isSundayDefaultRest = d === 0 && overrideVal === undefined && !weekVal
-
-          const routine = (S.routines || []).find(r => r.id === rawVal)
-          const matchedGroup = rawVal && rawVal !== 'rest'
-            ? (PREDEFINED_WORKOUT_GROUPS.find(g => g.id === rawVal || (rawVal.toLowerCase().includes('cardio') && g.type === 'cardio'))
-              || (routine ? {
-                  id: routine.id,
-                  name: routine.name,
-                  type: routine.type || 'strength',
-                  category: routine.muscle || 'Strength',
-                  emoji: routine.emoji || 'dumbbell'
-                } : null))
-            : null
-
-          const isRest = !matchedGroup || rawVal === 'rest' || isSundayDefaultRest
-          const isCardio = matchedGroup?.type === 'cardio'
           const isToday = dayIso === todayStr
 
+          const assignedTemplateId = schedule[d] || 'rest'
+          const isRest = assignedTemplateId === 'rest'
+          const assignedTemplate = !isRest ? userTemplates.find(t => t.id === assignedTemplateId) : null
+
+          // Completed workout or cardio on this day
           const dayWorkout = (S.workouts || []).find(w => w.d === dayIso)
           const dayCardio = (S.cardioLogs || []).find(c => c.d === dayIso)
           const isCompleted = !!dayWorkout || !!dayCardio
-
-          const tplExercises = matchedGroup && !isCardio
-            ? (templatesMap[matchedGroup.id]?.exercises || routine?.ex || [])
-            : []
 
           return (
             <div
@@ -364,18 +196,15 @@ export default function WeeklyPlanner() {
                 borderRadius: 16,
                 borderLeft: isRest
                   ? '5px solid var(--label-3)'
-                  : isCardio
-                  ? '5px solid var(--mint, #10b981)'
-                  : '5px solid var(--blue, #3b82f6)',
-                background: isToday ? 'var(--surface)' : 'var(--surface)',
-                boxShadow: isToday ? '0 0 0 2px var(--mint), var(--card-shadow)' : 'var(--card-shadow)',
-                transition: 'transform var(--fast)'
+                  : '5px solid var(--mint)',
+                background: 'var(--surface)',
+                boxShadow: isToday ? '0 0 0 2px var(--mint), var(--card-shadow)' : 'var(--card-shadow)'
               }}
             >
-              {/* Card Header: Day Name, Date, and Badges */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+              {/* Day Header Row */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--label)' }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--label)' }}>
                     {t(name)}
                   </span>
                   <span style={{ fontSize: 13, color: 'var(--label-2)', fontWeight: 500 }}>
@@ -402,237 +231,133 @@ export default function WeeklyPlanner() {
                   {isCompleted && (
                     <span
                       className="tag acc"
-                      style={{
-                        fontSize: 11,
-                        padding: '2px 8px',
-                        borderRadius: 9999,
-                        fontWeight: 600
-                      }}
+                      style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, fontWeight: 700 }}
                     >
                       ✓ {t('Completed')}
                     </span>
                   )}
                   <span
-                    className={isRest ? 'tag' : isCardio ? 'tag' : 'tag'}
                     style={{
-                      fontSize: 12,
-                      padding: '3px 10px',
+                      fontSize: 11,
+                      padding: '2px 8px',
                       borderRadius: 9999,
-                      fontWeight: 600,
-                      background: isRest ? 'var(--surface-2)' : isCardio ? 'var(--mint-light)' : 'var(--surface-2)',
-                      color: isRest ? 'var(--label-2)' : isCardio ? 'var(--mint)' : 'var(--label)'
+                      fontWeight: 700,
+                      background: isRest ? 'var(--surface-2)' : 'var(--mint-light)',
+                      color: isRest ? 'var(--label-2)' : 'var(--mint)'
                     }}
                   >
-                    {isRest ? t('Rest Day') : isCardio ? t('Cardio') : t(matchedGroup?.name || 'Strength')}
+                    {isRest ? t('Rest Day') : assignedTemplate?.name || t('Custom Workout')}
                   </span>
                 </div>
               </div>
 
-              {/* Routine Details */}
-              <div style={{ marginBottom: 12 }}>
-                {!isRest ? (
-                  <>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--label)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Icon name={isCardio ? 'figureRun' : 'dumbbell'} style={{ color: isCardio ? 'var(--mint)' : 'var(--blue)' }} />
-                      <span>{matchedGroup?.name || `${name} Workout`}</span>
-                    </div>
-
-                    {isCardio ? (
-                      <div className="muted small" style={{ marginTop: 4, fontSize: 12 }}>
-                        {t('Dedicated Cardio Session · Walking, Running, or Jogging')}
-                      </div>
-                    ) : tplExercises.length > 0 ? (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                        {tplExercises.map((e, idx) => (
-                          <span
-                            key={`${e.id}_${idx}`}
-                            style={{
-                              fontSize: 12,
-                              background: 'var(--surface-2)',
-                              color: 'var(--label-2)',
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                              fontWeight: 500
-                            }}
-                          >
-                            {e.name || e.id} ({e.sets}×{e.reps})
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: 12, color: 'var(--label-3)', marginTop: 4 }}>
-                        {t('Predefined template will load on workout start.')}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div style={{ fontSize: 13, color: 'var(--label-3)', fontStyle: 'italic' }}>
-                    {d === 0
-                      ? t('Sunday scheduled Rest Day. You can select any workout group or log cardio if desired.')
-                      : t('Rest and active recovery day.')}
-                  </div>
-                )}
+              {/* Template Selection Dropdown */}
+              <div style={{ marginTop: 8 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--label-2)', marginBottom: 4 }}>
+                  {t('Select Template')}:
+                </label>
+                <select
+                  className="input"
+                  value={assignedTemplateId}
+                  onChange={e => handleDayTemplateChange(d, e.target.value)}
+                  style={{
+                    width: '100%',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    background: 'var(--surface-2)',
+                    borderRadius: 10,
+                    padding: '10px 12px',
+                    color: 'var(--label)',
+                    border: '1px solid var(--border)'
+                  }}
+                >
+                  <option value="rest">{t('Rest Day')}</option>
+                  {userTemplates.map(tpl => (
+                    <option key={tpl.id} value={tpl.id}>
+                      {tpl.name} ({tpl.exercises.length} {t(tpl.exercises.length === 1 ? 'exercise' : 'exercises')})
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {/* Day Action Buttons */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  borderTop: '1px solid var(--surface-2)',
-                  paddingTop: 10,
-                  gap: 8,
-                  flexWrap: 'wrap'
-                }}
-              >
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {/* Change Group Button */}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon="shuffle"
-                    onClick={() => handleOpenGroupPicker(d, dayIso, matchedGroup?.id)}
-                  >
-                    {isRest ? t('Choose Workout Group') : t('Change Group')}
-                  </Button>
+              {/* Template Exercises Preview */}
+              {assignedTemplate && (
+                <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--surface-2)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-2)', marginBottom: 6 }}>
+                    {assignedTemplate.exercises.length} {t('Planned Exercises')}:
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {assignedTemplate.exercises.map((ex, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          background: 'var(--surface-2)',
+                          padding: '4px 8px',
+                          borderRadius: 6,
+                          fontSize: 12,
+                          color: 'var(--label-2)',
+                          fontWeight: 500
+                        }}
+                      >
+                        {ex.name} ({ex.sets}×{ex.reps})
+                      </span>
+                    ))}
+                  </div>
 
-                  {/* Edit Template Link */}
-                  {!isRest && !isCardio && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                     <Button
                       size="sm"
-                      variant="tinted"
-                      icon="list"
+                      variant="primary"
+                      icon="play"
+                      onClick={() => handleStartWorkout(assignedTemplate, dayIso)}
+                    >
+                      {t('Start Workout')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon="pen"
                       onClick={() => nav('/exercise-library')}
                     >
-                      {t('Exercise Template')}
+                      {t('Edit Template')}
                     </Button>
-                  )}
-
-                  {/* Toggle to Rest Day */}
-                  {!isRest && (
-                    <button
-                      className="btn sm ghost"
-                      style={{ fontSize: 12, padding: '5px 10px', borderRadius: 8 }}
-                      onClick={() => {
-                        update(s => {
-                          s.week = s.week || {}
-                          s.dayPlan = s.dayPlan || {}
-                          s.week[d] = null
-                          s.dayPlan[dayIso] = 'rest'
-                        })
-                        toast(t('{0} set to Rest Day', name))
-                      }}
-                    >
-                      {t('Set as Rest')}
-                    </button>
-                  )}
+                  </div>
                 </div>
+              )}
 
-                {/* Start Session Button */}
-                {!isRest && (
+              {/* Rest Day Quick Option to Log Cardio */}
+              {isRest && (
+                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: 'var(--label-3)' }}>
+                    {t('Rest and recovery. You can also log cardio if you train:')}
+                  </span>
                   <button
-                    className="btn sm"
-                    style={{
-                      background: isToday ? 'var(--mint)' : 'var(--surface-2)',
-                      color: isToday ? '#fff' : 'var(--label)',
-                      padding: '6px 14px',
-                      borderRadius: 9999,
-                      fontWeight: 600,
-                      fontSize: 12
-                    }}
-                    onClick={() => handleStartWorkout(matchedGroup, dayIso)}
+                    className="btn sm ghost"
+                    style={{ fontSize: 12, padding: '4px 10px', color: 'var(--mint)' }}
+                    onClick={() => cardioSheet(null, dayIso)}
                   >
-                    <Icon name={isCardio ? 'figureRun' : 'play'} style={{ marginRight: 4 }} />
-                    {isToday ? (isCardio ? t('Log Cardio Today') : t('Start Today')) : (isCardio ? t('Log Cardio') : t('Start'))}
+                    <Icon name="figureRun" style={{ marginRight: 4 }} />
+                    {t('Log Cardio')}
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )
         })}
       </div>
 
-      {/* --- SAVE TEMPLATE MODAL --- */}
-      {saveTemplateModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.55)',
-            backdropFilter: 'blur(3px)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16
-          }}
-          onClick={() => setSaveTemplateModal(false)}
+      {/* Bottom Save Action */}
+      <div style={{ textAlign: 'center', marginBottom: 40 }}>
+        <Button
+          variant="primary"
+          size="lg"
+          icon="check"
+          onClick={handleSaveWeeklyPlan}
+          style={{ minWidth: 220 }}
         >
-          <div
-            className="card"
-            style={{
-              width: '100%',
-              maxWidth: 420,
-              padding: 22,
-              borderRadius: 18,
-              background: 'var(--surface)'
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="row between" style={{ marginBottom: 14 }}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--label)' }}>
-                {t('Save Schedule Template')}
-              </h3>
-              <button className="iconbtn" onClick={() => setSaveTemplateModal(false)}>
-                <Icon name="xmark" />
-              </button>
-            </div>
-
-            <p style={{ fontSize: 13, color: 'var(--label-2)', marginBottom: 14 }}>
-              {t('Save your current 7-day layout as a reusable template to switch whenever you like.')}
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--label-2)', marginBottom: 4 }}>
-                  {t('Template Name')} *
-                </label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder={t('e.g. My Heavy 4+2 Split')}
-                  value={templateName}
-                  onChange={e => setTemplateName(e.target.value)}
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--label-2)', marginBottom: 4 }}>
-                  {t('Description (Optional)')}
-                </label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder={t('e.g. 4 days upper/lower + 2 weekend cardio')}
-                  value={templateDesc}
-                  onChange={e => setTemplateDesc(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-              <Button variant="ghost" style={{ flex: 1 }} onClick={() => setSaveTemplateModal(false)}>
-                {t('Cancel')}
-              </Button>
-              <Button variant="primary" style={{ flex: 1 }} onClick={handleSaveAsTemplate} disabled={!templateName.trim()}>
-                {t('Save Template')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+          {t('Save Weekly Plan')}
+        </Button>
+      </div>
     </div>
   )
 }

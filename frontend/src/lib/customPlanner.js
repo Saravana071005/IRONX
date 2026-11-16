@@ -1062,55 +1062,181 @@ export function ensureWeeklyPlannerState(S) {
 }
 
 /**
- * Returns the active workout templates for the 4 strength groups,
- * falling back to DEFAULT_WORKOUT_TEMPLATES if none are custom saved.
+ * Returns ONLY user-created workout templates.
+ * When a user has not created any templates, returns an empty array [].
+ * No predefined or hardcoded muscle-group templates are ever returned.
  */
-export function getWorkoutTemplates(S) {
-  const userTemplates = S?.workoutTemplates || {}
-  const res = {}
-  for (const [key, defTpl] of Object.entries(DEFAULT_WORKOUT_TEMPLATES)) {
-    if (userTemplates[key]) {
-      res[key] = {
-        ...defTpl,
-        ...userTemplates[key],
-        exercises: userTemplates[key].exercises ? [...userTemplates[key].exercises] : [...defTpl.exercises]
-      }
-    } else {
-      res[key] = JSON.parse(JSON.stringify(defTpl))
-    }
+export function getUserTemplates(S) {
+  if (!S || !S.workoutTemplates) return []
+  if (Array.isArray(S.workoutTemplates)) {
+    return S.workoutTemplates.filter(t => t && typeof t === 'object' && t.id && t.name && !t._deleted)
   }
-  return res
+  if (typeof S.workoutTemplates === 'object') {
+    return Object.values(S.workoutTemplates).filter(t => t && typeof t === 'object' && t.id && t.name && !t._deleted)
+  }
+  return []
 }
 
 /**
- * Retrieves a single workout template by group ID ('shoulder', 'chest_triceps', etc.).
+ * Retrieves a single user workout template by its ID.
  */
-export function loadWorkoutTemplate(S, groupId) {
-  const all = getWorkoutTemplates(S)
-  return all[groupId] || DEFAULT_WORKOUT_TEMPLATES[groupId] || null
+export function getUserTemplateById(S, id) {
+  if (!id || id === 'rest' || id === 'none') return null
+  const list = getUserTemplates(S)
+  return list.find(t => t.id === id) || null
 }
 
 /**
- * Persists an edited workout template for a specific strength group.
+ * Persists a new or edited user workout template.
+ * Allows choosing any exercises from the existing dataset, regardless of muscle group.
  */
-export function saveWorkoutTemplate(update, groupId, templateData) {
+export function saveUserTemplate(update, templateData) {
+  const id = templateData.id || ('tpl_' + uid())
+  const name = (templateData.name || '').trim() || 'Custom Workout'
+  const exercises = (templateData.exercises || []).map(ex => {
+    const isTimed = ex.type === 'timed' || (ex.name || '').toLowerCase().includes('plank')
+    return {
+      id: ex.id || ('ex_' + uid()),
+      name: ex.name || ex.n || 'Exercise',
+      sets: Math.max(1, Number(ex.sets) || 3),
+      reps: Math.max(1, Number(ex.reps) || (isTimed ? 60 : 10)),
+      weight: Math.max(0, Number(ex.weight) || 0),
+      rest: Number(ex.rest) || 60,
+      type: isTimed ? 'timed' : (ex.type || 'strength'),
+      category: ex.category || ex.bp || 'Strength',
+      equipment: ex.equipment || ex.eq || 'None'
+    }
+  })
+
+  const newTpl = {
+    id,
+    name,
+    exercises,
+    createdAt: templateData.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+
   update(s => {
-    s.workoutTemplates = s.workoutTemplates || {}
-    const base = DEFAULT_WORKOUT_TEMPLATES[groupId] || {}
-    s.workoutTemplates[groupId] = {
-      ...base,
-      ...(s.workoutTemplates[groupId] || {}),
-      ...templateData,
-      updatedAt: new Date().toISOString()
+    let list = []
+    if (Array.isArray(s.workoutTemplates)) {
+      list = [...s.workoutTemplates]
+    } else if (s.workoutTemplates && typeof s.workoutTemplates === 'object') {
+      list = Object.values(s.workoutTemplates).filter(t => t && t.id && t.name)
+    }
+
+    const idx = list.findIndex(t => t.id === id)
+    if (idx >= 0) {
+      list[idx] = newTpl
+    } else {
+      list.push(newTpl)
+    }
+    s.workoutTemplates = list
+  })
+
+  return newTpl
+}
+
+/**
+ * Deletes a user workout template and safely clears any weekly schedule references
+ * so no broken references remain.
+ */
+export function deleteUserTemplate(update, templateId) {
+  if (!templateId) return
+  update(s => {
+    if (Array.isArray(s.workoutTemplates)) {
+      s.workoutTemplates = s.workoutTemplates.filter(t => t.id !== templateId)
+    } else if (s.workoutTemplates && typeof s.workoutTemplates === 'object') {
+      delete s.workoutTemplates[templateId]
+    }
+
+    // Safely reset weekly schedule assignments pointing to this deleted template
+    if (s.weeklySchedule) {
+      for (const k in s.weeklySchedule) {
+        if (s.weeklySchedule[k] === templateId) {
+          s.weeklySchedule[k] = 'rest'
+        }
+      }
+    }
+    if (s.week) {
+      for (const k in s.week) {
+        if (s.week[k] === templateId) {
+          s.week[k] = null
+        }
+      }
+    }
+    if (s.dayPlan) {
+      for (const k in s.dayPlan) {
+        if (s.dayPlan[k] === templateId) {
+          delete s.dayPlan[k]
+        }
+      }
     }
   })
 }
 
 /**
+ * Returns the weekly schedule mapping (Monday: 1 .. Saturday: 6, Sunday: 0)
+ * Defaults all days to 'rest' if not yet assigned.
+ */
+export function getWeeklySchedule(S) {
+  const sched = S?.weeklySchedule || {}
+  const week = S?.week || {}
+  const res = {}
+  for (let d = 0; d < 7; d++) {
+    const val = sched[d] !== undefined ? sched[d] : (week[d] || 'rest')
+    res[d] = val === null || val === '' ? 'rest' : val
+  }
+  return res
+}
+
+/**
+ * Persists the entire weekly workout schedule.
+ */
+export function saveWeeklySchedule(update, schedule) {
+  update(s => {
+    s.weeklySchedule = { ...(s.weeklySchedule || {}), ...schedule }
+    s.week = s.week || {}
+    for (const [d, val] of Object.entries(schedule)) {
+      s.week[d] = val === 'rest' ? null : val
+    }
+  })
+}
+
+/**
+ * Determines today's scheduled workout from the Weekly Workout Planner (single source of truth).
+ * If no template is assigned, returns isRest: true.
+ */
+export function getTodayScheduledWorkout(S, targetDate = new Date()) {
+  const d = typeof targetDate === 'string'
+    ? (targetDate.includes('T') ? new Date(targetDate) : new Date(targetDate + 'T00:00:00'))
+    : targetDate
+  const weekdayIdx = d.getDay()
+  const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+  // Check specific day override first, then weekly schedule
+  let templateId = S?.dayPlan?.[iso] !== undefined ? S.dayPlan[iso] : null
+  if (templateId === undefined || templateId === null) {
+    const schedule = getWeeklySchedule(S)
+    templateId = schedule[weekdayIdx]
+  }
+
+  if (!templateId || templateId === 'rest' || templateId === 'none') {
+    return { isRest: true, template: null, templateId: null, iso, weekdayIdx }
+  }
+
+  const template = getUserTemplateById(S, templateId)
+  if (!template) {
+    return { isRest: true, template: null, templateId: null, iso, weekdayIdx }
+  }
+
+  return { isRest: false, template, templateId: template.id, iso, weekdayIdx }
+}
+
+/**
  * Creates an active workout session object from a saved template without overwriting the template.
  */
-export function createSessionFromTemplate(S, groupId, dateStr = null) {
-  const tpl = loadWorkoutTemplate(S, groupId)
+export function createSessionFromTemplate(S, templateId, dateStr = null) {
+  const tpl = getUserTemplateById(S, templateId)
   if (!tpl) return null
 
   const targetDate = dateStr || todayISO()
@@ -1129,6 +1255,7 @@ export function createSessionFromTemplate(S, groupId, dateStr = null) {
       id: ex.id,
       name: ex.name,
       target: {
+        name: ex.name,
         reps: Number(ex.reps) || 10,
         sets: count,
         weight: Number(ex.weight) || 0,
@@ -1140,10 +1267,11 @@ export function createSessionFromTemplate(S, groupId, dateStr = null) {
 
   return {
     id: 'w_' + uid(),
-    routineId: 'tpl_' + groupId,
-    groupId,
+    routineId: tpl.id,
+    groupId: tpl.id,
+    templateId: tpl.id,
     name: tpl.name,
-    category: tpl.category,
+    category: tpl.name,
     type: 'strength',
     d: targetDate,
     start: Date.now(),
@@ -1153,11 +1281,11 @@ export function createSessionFromTemplate(S, groupId, dateStr = null) {
 }
 
 /**
- * Explicit action: saves changes made during a live session back to the group's exercise template.
+ * Explicit action: saves changes made during a live session back to the user's exercise template.
  */
 export function saveSessionChangesToTemplate(update, activeSession) {
-  if (!activeSession || !activeSession.groupId) return false
-  const groupId = activeSession.groupId
+  if (!activeSession || (!activeSession.templateId && !activeSession.groupId)) return false
+  const tplId = activeSession.templateId || activeSession.groupId
   const newExercises = (activeSession.entries || []).map(e => {
     const firstSet = e.sets?.[0] || {}
     const isTimed = firstSet.sec != null || (e.name || '').toLowerCase().includes('plank')
@@ -1172,17 +1300,26 @@ export function saveSessionChangesToTemplate(update, activeSession) {
   })
 
   update(s => {
-    s.workoutTemplates = s.workoutTemplates || {}
-    const base = DEFAULT_WORKOUT_TEMPLATES[groupId] || {}
-    s.workoutTemplates[groupId] = {
-      ...base,
-      ...(s.workoutTemplates[groupId] || {}),
-      exercises: newExercises,
-      updatedAt: new Date().toISOString()
+    const list = getUserTemplates(s)
+    const existing = list.find(t => t.id === tplId)
+    if (existing) {
+      existing.exercises = newExercises
+      existing.updatedAt = new Date().toISOString()
+    } else {
+      saveUserTemplate(update, {
+        id: tplId,
+        name: activeSession.name || 'Custom Workout',
+        exercises: newExercises
+      })
     }
   })
   return true
 }
+
+// Backwards-compatible aliases
+export const getWorkoutTemplates = getUserTemplates
+export const loadWorkoutTemplate = getUserTemplateById
+export const saveWorkoutTemplate = (update, id, data) => saveUserTemplate(update, { id, ...(data || {}) })
 
 /**
  * Dedicated Cardio Activities list.
