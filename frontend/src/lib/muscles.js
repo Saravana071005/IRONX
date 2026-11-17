@@ -40,7 +40,7 @@ const ALIAS = {
   traps: 'trapezius', adductors: 'adductors', 'serratus anterior': 'serratus',
   abductors: 'gluteal', 'levator scapulae': 'trapezius', 'cardiovascular system': null,
   // secondaries
-  shoulders: 'deltoids', deltoids: 'deltoids', 'rear deltoids': 'deltoids',
+  shoulder: 'deltoids', shoulders: 'deltoids', deltoids: 'deltoids', 'rear deltoids': 'deltoids',
   'rotator cuff': 'deltoids', quadriceps: 'quadriceps', core: 'abs', abdominals: 'abs',
   'lower abs': 'abs', chest: 'chest', 'upper chest': 'chest', 'hip flexors': 'hip-flexors',
   obliques: 'obliques', 'lower back': 'lower-back', rhomboids: 'upper-back',
@@ -57,7 +57,7 @@ const ALIAS = {
 const BY_BODYPART = {
   chest: { chest: 1 },
   back: { 'upper-back': 0.75, 'lower-back': 0.25 },
-  shoulders: { deltoids: 1 },
+  shoulders: { deltoids: 1 }, shoulder: { deltoids: 1 }, arms: { biceps: 0.5, triceps: 0.5 }, legs: { quadriceps: 0.4, hamstring: 0.35, gluteal: 0.25 }, core: { abs: 0.7, obliques: 0.3 },
   'upper arms': { biceps: 0.5, triceps: 0.5 },
   'lower arms': { forearm: 1 },
   waist: { abs: 0.7, obliques: 0.3 },

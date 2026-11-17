@@ -8,6 +8,7 @@ import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, loadSta
 import LineChart from '../components/LineChart.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
+import TodayMuscleChart from '../components/TodayMuscleChart.jsx'
 import { glyphOf } from '../lib/glyphs.js'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { useCoachStatus } from '../lib/coach-api.js'
@@ -563,6 +564,9 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Today's Muscle Activity & Target Chart */}
+      <TodayMuscleChart S={S} body={S.body || 'male'} />
 
       {/* Weekly Planner Shortcut Banner */}
       <div

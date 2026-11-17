@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { uid } from '../lib/format.js'
-import { beep, vibrate } from '../lib/sound.js'
+import { beep, vibrate, playRestAlert, triggerRestNotification } from '../lib/sound.js'
+import { onRestTimerStart, onRestTimerComplete, onRestTimerStop } from '../lib/spotify.js'
 import { api } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { useStore } from './useStore.js'
@@ -41,19 +42,54 @@ export const useUI = create((set, get) => ({
   startRest(sec) {
     get().stopRest()
     const endsAt = Date.now() + sec * 1000
-    set({ timer: { left: sec, total: sec, initialTotal: sec, endsAt, paused: false } })
+    set({ timer: { left: sec, total: sec, initialTotal: sec, endsAt, paused: false, alertFired: false } })
     pushRestTimer(sec)
+
+    // Attempt Spotify auto-pause if user enabled it and music is playing
+    const S = useStore.getState().S
+    onRestTimerStart(S)
+
     timerTick = () => {
       const tm = get().timer
       if (!tm || tm.paused) return
       const left = Math.max(0, Math.round((tm.endsAt - Date.now()) / 1000))
       if (left === tm.left) return
-      const snd = useStore.getState().S.sound
+
       if (left <= 0) {
-        beep(snd, 880, 0.15); beep(snd, 880, 0.15, 0.25); beep(snd, 1320, 0.4, 0.5)
-        vibrate([200, 100, 200]); get().toast(t('Rest over — next set!')); get().stopRest(); return
+        if (!tm.alertFired) {
+          tm.alertFired = true
+          const currentS = useStore.getState().S
+          
+          // 1. Play rest timer alert sound (default enabled, customizable tone and volume)
+          if (currentS.restAlertEnabled !== false) {
+            const tone = currentS.restAlertTone || 'chime'
+            const volume = currentS.restAlertVolume !== undefined ? currentS.restAlertVolume : 0.8
+            playRestAlert(tone, volume)
+          }
+
+          // 2. Haptic vibration
+          vibrate([200, 100, 200])
+
+          // 3. Browser system notification
+          if (currentS.restNotifications) {
+            triggerRestNotification(t('Rest Complete!'), t('Ready for your next set — let’s crush it!'))
+          }
+
+          // 4. Auto-resume Spotify if OpenGym paused it
+          onRestTimerComplete(currentS)
+
+          get().toast(t('Rest over — next set!'))
+        }
+        get().stopRest()
+        return
       }
-      if (left <= 3) beep(snd, 660, 0.1)
+
+      if (left <= 3) {
+        const currentS = useStore.getState().S
+        if (currentS.restAlertEnabled !== false) {
+          beep(true, 660, 0.08)
+        }
+      }
       set({ timer: { ...tm, left } })
     }
     timerInt = setInterval(timerTick, 1000)
@@ -93,6 +129,7 @@ export const useUI = create((set, get) => ({
     if (timerInt) clearInterval(timerInt); timerInt = null
     if (timerTick) document.removeEventListener('visibilitychange', timerTick); timerTick = null
     if (get().timer) cancelPushRestTimer()
+    onRestTimerStop()
     set({ timer: null })
   },
 

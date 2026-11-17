@@ -27,6 +27,18 @@ import {
   mergeGuestState,
   ensureMongoAuthIndexes
 } from './auth/google.js';
+import {
+  encryptSpotifyData,
+  decryptSpotifyData,
+  signSpotifyState,
+  verifySpotifyState,
+  getSpotifyAuthUrl,
+  exchangeSpotifyCode,
+  getValidAccessToken,
+  getSpotifyPlaybackState,
+  pauseSpotifyPlayback,
+  resumeSpotifyPlayback
+} from './auth/spotify.js';
 
 // Load server environment variables from .env if present
 const envCandidates = [path.resolve(process.cwd(), '.env'), path.resolve(process.cwd(), '../.env')];
@@ -60,6 +72,8 @@ const ORIGIN = (process.env.ORIGIN || 'http://localhost:8080').trim();
 const FRONTEND_ORIGIN = (process.env.FRONTEND_ORIGIN || process.env.ORIGIN || 'https://opengym-frontend-229c.onrender.com').trim();
 const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
 const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
+const SPOTIFY_CLIENT_ID = (process.env.SPOTIFY_CLIENT_ID || '').trim();
+const SPOTIFY_CLIENT_SECRET = (process.env.SPOTIFY_CLIENT_SECRET || '').trim();
 
 function getGoogleCallbackUrl(req) {
   if (process.env.GOOGLE_CALLBACK_URL) return process.env.GOOGLE_CALLBACK_URL.trim();
@@ -364,6 +378,71 @@ function getClearCookie(req) {
 }
 const clearCookie = `gymsid=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Lax`;
 
+/* ---------- Spotify OAuth & playback helpers ---------- */
+function getSpotifyCallbackUrl(req) {
+  if (process.env.SPOTIFY_REDIRECT_URI) return process.env.SPOTIFY_REDIRECT_URI;
+  const host = req?.headers?.['x-forwarded-host'] || req?.headers?.host;
+  const proto = (req?.headers?.['x-forwarded-proto'] || (req?.socket?.encrypted ? 'https' : 'http')).trim();
+  if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+    return `${proto}://${host}/api/spotify/callback`;
+  }
+  if (host) return `${proto}://${host}/api/spotify/callback`;
+  return 'https://opengym-backend-ikdi.onrender.com/api/spotify/callback';
+}
+
+const spotifyTokenMemoryStore = new Map();
+
+function getSpotifySubject(req) {
+  const user = readSession(req);
+  if (user) return { id: user.id, isGuest: false };
+  const cookies = Object.fromEntries((req?.headers?.cookie || '').split(';').map(c => {
+    const i = c.indexOf('='); return i < 0 ? ['', ''] : [c.slice(0, i).trim(), c.slice(i + 1).trim()];
+  }));
+  const guestId = cookies.gym_guest_id || req?.headers?.['x-guest-id'] || 'guest_default';
+  return { id: guestId, isGuest: true };
+}
+
+async function loadSpotifyTokens(subjectId) {
+  let encrypted = null;
+  const mongo = await getMongoDb();
+  if (mongo) {
+    try {
+      const doc = await mongo.collection('spotify_tokens').findOne({ userId: subjectId });
+      if (doc && doc.data) encrypted = doc.data;
+    } catch {}
+  }
+  if (!encrypted) {
+    encrypted = spotifyTokenMemoryStore.get(subjectId);
+  }
+  if (!encrypted) return null;
+  return decryptSpotifyData(encrypted, SECRET);
+}
+
+async function saveSpotifyTokens(subjectId, tokens) {
+  const encrypted = encryptSpotifyData(tokens, SECRET);
+  spotifyTokenMemoryStore.set(subjectId, encrypted);
+  const mongo = await getMongoDb();
+  if (mongo) {
+    try {
+      await mongo.collection('spotify_tokens').updateOne(
+        { userId: subjectId },
+        { $set: { userId: subjectId, data: encrypted, updatedAt: new Date() } },
+        { upsert: true }
+      );
+    } catch {}
+  }
+}
+
+async function deleteSpotifyTokens(subjectId) {
+  spotifyTokenMemoryStore.delete(subjectId);
+  const mongo = await getMongoDb();
+  if (mongo) {
+    try {
+      await mongo.collection('spotify_tokens').deleteOne({ userId: subjectId });
+    } catch {}
+  }
+}
+
 /* ---------- challenge store (in-memory + signed token fallback for serverless) ---------- */
 const challenges = new Map(); // cid -> {challenge, name?, uid?, exp}
 function putChallenge(data) {
@@ -512,6 +591,7 @@ const routes = {
     json(res, 200, {
       auth_provider: 'google',
       google_client_id: GOOGLE_CLIENT_ID || null,
+      spotify_configured: !!(SPOTIFY_CLIENT_ID && SPOTIFY_CLIENT_SECRET),
       invite_only: INVITE_ONLY,
       ...(coach ? { coach } : {})
     });
@@ -681,6 +761,168 @@ const routes = {
       res.writeHead(302, { Location: `${frontendBase}/#/login?error=${encodeURIComponent(err.message)}` });
       res.end();
     }
+  },
+
+  /* ---------- Spotify OAuth & Playback Control ---------- */
+  'GET /api/spotify/auth': async (req, res) => {
+    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
+      return json(res, 400, {
+        error: 'spotify_not_configured',
+        message: 'Spotify is not configured. Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in environment variables.'
+      });
+    }
+    const parsedUrl = new URL(req.url, 'http://localhost');
+    const returnUrl = parsedUrl.searchParams.get('returnUrl') || '/settings';
+    const subject = getSpotifySubject(req);
+    const state = signSpotifyState({ userId: subject.id, returnUrl }, SECRET);
+    const redirectUri = getSpotifyCallbackUrl(req);
+    const authUrl = getSpotifyAuthUrl({ clientId: SPOTIFY_CLIENT_ID, redirectUri, state });
+
+    if (parsedUrl.searchParams.get('format') === 'json' || req.headers.accept?.includes('application/json')) {
+      return json(res, 200, { url: authUrl });
+    }
+    res.writeHead(302, { Location: authUrl });
+    res.end();
+  },
+
+  'GET /api/spotify/callback': async (req, res) => {
+    const parsedUrl = new URL(req.url, 'http://localhost');
+    const code = parsedUrl.searchParams.get('code');
+    const state = parsedUrl.searchParams.get('state');
+    const error = parsedUrl.searchParams.get('error');
+
+    const originHeader = req?.headers?.origin || req?.headers?.referer;
+    let frontendBase = FRONTEND_ORIGIN || 'https://opengym-frontend-229c.onrender.com';
+    if (originHeader) {
+      try {
+        const o = new URL(originHeader).origin;
+        if (ALLOWED_ORIGINS.has(o)) frontendBase = o;
+      } catch {}
+    }
+
+    if (error) {
+      res.writeHead(302, { Location: `${frontendBase}/#/settings?spotify_error=${encodeURIComponent(error)}` });
+      return res.end();
+    }
+
+    if (!code || !state) {
+      res.writeHead(302, { Location: `${frontendBase}/#/settings?spotify_error=missing_code_or_state` });
+      return res.end();
+    }
+
+    const verifiedState = verifySpotifyState(state, SECRET);
+    if (!verifiedState || !verifiedState.userId) {
+      res.writeHead(302, { Location: `${frontendBase}/#/settings?spotify_error=invalid_state` });
+      return res.end();
+    }
+
+    try {
+      const redirectUri = getSpotifyCallbackUrl(req);
+      const tokens = await exchangeSpotifyCode({
+        code,
+        clientId: SPOTIFY_CLIENT_ID,
+        clientSecret: SPOTIFY_CLIENT_SECRET,
+        redirectUri
+      });
+
+      await saveSpotifyTokens(verifiedState.userId, tokens);
+
+      const returnPath = verifiedState.returnUrl || '/settings';
+      const sep = returnPath.includes('?') ? '&' : '?';
+      res.writeHead(302, { Location: `${frontendBase}/#${returnPath}${sep}spotify=connected` });
+      res.end();
+    } catch (err) {
+      console.error('Spotify callback error:', err.message);
+      res.writeHead(302, { Location: `${frontendBase}/#/settings?spotify_error=${encodeURIComponent(err.message)}` });
+      res.end();
+    }
+  },
+
+  'GET /api/spotify/status': async (req, res) => {
+    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
+      return json(res, 200, { configured: false, connected: false });
+    }
+    const subject = getSpotifySubject(req);
+    const tokens = await loadSpotifyTokens(subject.id);
+    if (!tokens || !tokens.accessToken) {
+      return json(res, 200, { configured: true, connected: false });
+    }
+
+    try {
+      const validToken = await getValidAccessToken({
+        tokens,
+        clientId: SPOTIFY_CLIENT_ID,
+        clientSecret: SPOTIFY_CLIENT_SECRET,
+        onTokenRefreshed: async (newTokens) => {
+          await saveSpotifyTokens(subject.id, newTokens);
+        }
+      });
+
+      const playback = await getSpotifyPlaybackState({ accessToken: validToken });
+      return json(res, 200, { configured: true, ...playback });
+    } catch (err) {
+      return json(res, 200, { configured: true, connected: false, error: err.message });
+    }
+  },
+
+  'POST /api/spotify/pause': async (req, res) => {
+    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
+      return json(res, 400, { ok: false, error: 'spotify_not_configured' });
+    }
+    const subject = getSpotifySubject(req);
+    const tokens = await loadSpotifyTokens(subject.id);
+    if (!tokens || !tokens.accessToken) {
+      return json(res, 400, { ok: false, error: 'not_connected' });
+    }
+
+    try {
+      const validToken = await getValidAccessToken({
+        tokens,
+        clientId: SPOTIFY_CLIENT_ID,
+        clientSecret: SPOTIFY_CLIENT_SECRET,
+        onTokenRefreshed: async (newTokens) => {
+          await saveSpotifyTokens(subject.id, newTokens);
+        }
+      });
+
+      const result = await pauseSpotifyPlayback({ accessToken: validToken });
+      return json(res, result.ok ? 200 : 400, result);
+    } catch (err) {
+      return json(res, 500, { ok: false, error: err.message });
+    }
+  },
+
+  'POST /api/spotify/play': async (req, res) => {
+    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
+      return json(res, 400, { ok: false, error: 'spotify_not_configured' });
+    }
+    const subject = getSpotifySubject(req);
+    const tokens = await loadSpotifyTokens(subject.id);
+    if (!tokens || !tokens.accessToken) {
+      return json(res, 400, { ok: false, error: 'not_connected' });
+    }
+
+    try {
+      const validToken = await getValidAccessToken({
+        tokens,
+        clientId: SPOTIFY_CLIENT_ID,
+        clientSecret: SPOTIFY_CLIENT_SECRET,
+        onTokenRefreshed: async (newTokens) => {
+          await saveSpotifyTokens(subject.id, newTokens);
+        }
+      });
+
+      const result = await resumeSpotifyPlayback({ accessToken: validToken });
+      return json(res, result.ok ? 200 : 400, result);
+    } catch (err) {
+      return json(res, 500, { ok: false, error: err.message });
+    }
+  },
+
+  'POST /api/spotify/disconnect': async (req, res) => {
+    const subject = getSpotifySubject(req);
+    await deleteSpotifyTokens(subject.id);
+    return json(res, 200, { ok: true, connected: false });
   },
 
   /* ---------- Personal Fitness Profile ---------- */
@@ -1270,7 +1512,7 @@ export async function handleRequest(req, res) {
   }
 
   // Health check probes, root informational endpoint, and OAuth routes must never be blocked by or fail from background database sync
-  const isHealthCheck = pathname === '/' || pathname === '/api/health' || pathname === '/api/health/db' || pathname.startsWith('/api/auth/google');
+  const isHealthCheck = pathname === '/' || pathname === '/api/health' || pathname === '/api/health/db' || pathname.startsWith('/api/auth/google') || pathname.startsWith('/api/spotify');
   if (!isHealthCheck) {
     try {
       await ensureMongoSync();
