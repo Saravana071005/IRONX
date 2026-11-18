@@ -5,6 +5,8 @@ import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
+import ExercisePreviewCard from '../components/ExercisePreviewCard.jsx'
+import { Thumb } from '../components/Media.jsx'
 import {
   LIBRARY_CATEGORIES,
   getExerciseLibrary,
@@ -13,7 +15,7 @@ import {
   saveUserTemplate,
   deleteUserTemplate
 } from '../lib/customPlanner.js'
-import { allExercises, BODYPARTS } from '../lib/exercises.js'
+import { allExercises, BODYPARTS, exOr } from '../lib/exercises.js'
 import { uid } from '../lib/format.js'
 
 export default function ExerciseLibrary() {
@@ -73,6 +75,63 @@ export default function ExerciseLibrary() {
   const [addExSearch, setAddExSearch] = useState('')
   const [addExBodyPart, setAddExBodyPart] = useState('All')
   const [addExSelectedIds, setAddExSelectedIds] = useState(new Set())
+
+  // --- Exercise Previews State ---
+  const [createExpandedPreviews, setCreateExpandedPreviews] = useState(new Set())
+  const [addExExpandedPreviews, setAddExExpandedPreviews] = useState(new Set())
+  const [templateExpandedPreviews, setTemplateExpandedPreviews] = useState(new Set())
+  const [configureExpandedPreviews, setConfigureExpandedPreviews] = useState(new Set())
+  const [libraryExpandedPreviews, setLibraryExpandedPreviews] = useState(new Set())
+
+  const toggleCreatePreview = (id, e) => {
+    if (e) e.stopPropagation()
+    setCreateExpandedPreviews(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAddExPreview = (id, e) => {
+    if (e) e.stopPropagation()
+    setAddExExpandedPreviews(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleTemplatePreview = (id, e) => {
+    if (e) e.stopPropagation()
+    setTemplateExpandedPreviews(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleConfigurePreview = (id, e) => {
+    if (e) e.stopPropagation()
+    setConfigureExpandedPreviews(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleLibraryPreview = (id, e) => {
+    if (e) e.stopPropagation()
+    setLibraryExpandedPreviews(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   // Complete exercise dataset
   const fullDataset = useMemo(() => allExercises(S), [S.customEx])
@@ -186,6 +245,8 @@ export default function ExerciseLibrary() {
     setConfiguredNewExercises([])
     setDatasetSearch('')
     setDatasetBodyPart('All')
+    setCreateExpandedPreviews(new Set())
+    setConfigureExpandedPreviews(new Set())
     setCreateStep(1)
     setCreateModalOpen(true)
   }
@@ -242,6 +303,7 @@ export default function ExerciseLibrary() {
     setAddExSearch('')
     setAddExBodyPart('All')
     setAddExSelectedIds(new Set())
+    setAddExExpandedPreviews(new Set())
     setAddExModalOpen(true)
   }
 
@@ -558,146 +620,217 @@ export default function ExerciseLibrary() {
                   {/* Exercises in Template */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
                     {draftExercises.length > 0 ? (
-                      draftExercises.map((ex, idx) => (
-                        <div
-                          key={ex.id || idx}
-                          style={{
-                            background: 'var(--surface-2)',
-                            borderRadius: 12,
-                            padding: '12px 14px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: 12,
-                            flexWrap: 'wrap'
-                          }}
-                        >
-                          {/* Reorder and Name */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 160 }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                              <button
-                                disabled={idx === 0}
-                                onClick={() => handleMoveDraftExercise(idx, -1)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  cursor: idx === 0 ? 'default' : 'pointer',
-                                  opacity: idx === 0 ? 0.25 : 0.8,
-                                  padding: 2,
-                                  color: 'var(--label)'
-                                }}
-                                aria-label="Move up"
-                              >
-                                <Icon name="chevronUp" style={{ fontSize: 12 }} />
-                              </button>
-                              <button
-                                disabled={idx === draftExercises.length - 1}
-                                onClick={() => handleMoveDraftExercise(idx, 1)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  cursor: idx === draftExercises.length - 1 ? 'default' : 'pointer',
-                                  opacity: idx === draftExercises.length - 1 ? 0.25 : 0.8,
-                                  padding: 2,
-                                  color: 'var(--label)'
-                                }}
-                                aria-label="Move down"
-                              >
-                                <Icon name="chevronDown" style={{ fontSize: 12 }} />
-                              </button>
-                            </div>
-
-                            <div>
-                              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--label)' }}>
-                                {idx + 1}. {ex.name}
-                              </div>
-                              <div style={{ fontSize: 11, color: 'var(--label-2)', marginTop: 2 }}>
-                                {ex.category ? `${ex.category} · ` : ''}{ex.equipment || 'Exercise'}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Sets, Reps, Weight Inputs */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <span style={{ fontSize: 12, color: 'var(--label-2)', fontWeight: 600 }}>{t('Sets')}:</span>
-                              <input
-                                type="number"
-                                min="1"
-                                max="20"
-                                value={ex.sets}
-                                onChange={e => handleUpdateDraftExercise(idx, 'sets', Math.max(1, parseInt(e.target.value, 10) || 1))}
-                                style={{
-                                  width: 48,
-                                  padding: '4px 6px',
-                                  borderRadius: 6,
-                                  border: 'var(--card-border)',
-                                  background: 'var(--surface)',
-                                  color: 'var(--label)',
-                                  fontSize: 13,
-                                  fontWeight: 700,
-                                  textAlign: 'center'
-                                }}
-                              />
-                            </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <span style={{ fontSize: 12, color: 'var(--label-2)', fontWeight: 600 }}>
-                                {ex.type === 'timed' ? t('Sec') : t('Reps')}:
-                              </span>
-                              <input
-                                type="number"
-                                min="1"
-                                max="500"
-                                value={ex.reps}
-                                onChange={e => handleUpdateDraftExercise(idx, 'reps', Math.max(1, parseInt(e.target.value, 10) || 1))}
-                                style={{
-                                  width: 50,
-                                  padding: '4px 6px',
-                                  borderRadius: 6,
-                                  border: 'var(--card-border)',
-                                  background: 'var(--surface)',
-                                  color: 'var(--label)',
-                                  fontSize: 13,
-                                  fontWeight: 700,
-                                  textAlign: 'center'
-                                }}
-                              />
-                            </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <span style={{ fontSize: 12, color: 'var(--label-2)', fontWeight: 600 }}>{t('Kg')}:</span>
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.5"
-                                value={ex.weight || 0}
-                                onChange={e => handleUpdateDraftExercise(idx, 'weight', Math.max(0, parseFloat(e.target.value) || 0))}
-                                style={{
-                                  width: 52,
-                                  padding: '4px 6px',
-                                  borderRadius: 6,
-                                  border: 'var(--card-border)',
-                                  background: 'var(--surface)',
-                                  color: 'var(--label)',
-                                  fontSize: 13,
-                                  fontWeight: 700,
-                                  textAlign: 'center'
-                                }}
-                              />
-                            </div>
-
-                            <button
-                              className="iconbtn"
-                              style={{ color: 'var(--red)', width: 30, height: 30 }}
-                              onClick={() => handleRemoveDraftExercise(idx)}
-                              title={t('Remove from template')}
+                      draftExercises.map((ex, idx) => {
+                        const previewKey = ex.id || `draft_${idx}`
+                        const isExpanded = templateExpandedPreviews.has(previewKey)
+                        return (
+                          <div key={previewKey} style={{ display: 'flex', flexDirection: 'column' }}>
+                            <div
+                              style={{
+                                background: 'var(--surface-2)',
+                                borderRadius: isExpanded ? '12px 12px 0 0' : 12,
+                                border: '1px solid var(--card-border)',
+                                borderBottom: isExpanded ? '1px dashed var(--border)' : undefined,
+                                padding: '12px 14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 12,
+                                flexWrap: 'wrap',
+                                transition: 'all 0.15s ease'
+                              }}
                             >
-                              <Icon name="trash" style={{ fontSize: 13 }} />
-                            </button>
+                              {/* Reorder, Thumbnail & Name */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 160 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <button
+                                    disabled={idx === 0}
+                                    onClick={() => handleMoveDraftExercise(idx, -1)}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: idx === 0 ? 'default' : 'pointer',
+                                      opacity: idx === 0 ? 0.25 : 0.8,
+                                      padding: 2,
+                                      color: 'var(--label)'
+                                    }}
+                                    aria-label="Move up"
+                                    title={t('Move up')}
+                                  >
+                                    <Icon name="chevronUp" style={{ fontSize: 12 }} />
+                                  </button>
+                                  <button
+                                    disabled={idx === draftExercises.length - 1}
+                                    onClick={() => handleMoveDraftExercise(idx, 1)}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: idx === draftExercises.length - 1 ? 'default' : 'pointer',
+                                      opacity: idx === draftExercises.length - 1 ? 0.25 : 0.8,
+                                      padding: 2,
+                                      color: 'var(--label)'
+                                    }}
+                                    aria-label="Move down"
+                                    title={t('Move down')}
+                                  >
+                                    <Icon name="chevronDown" style={{ fontSize: 12 }} />
+                                  </button>
+                                </div>
+
+                                {/* Thumbnail Preview Trigger */}
+                                <div
+                                  onClick={(e) => toggleTemplatePreview(previewKey, e)}
+                                  style={{
+                                    width: 38,
+                                    height: 38,
+                                    borderRadius: 8,
+                                    overflow: 'hidden',
+                                    flexShrink: 0,
+                                    background: 'var(--surface)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    position: 'relative',
+                                    cursor: 'pointer',
+                                    border: isExpanded ? '1.5px solid var(--mint)' : '1px solid var(--border)'
+                                  }}
+                                  title={isExpanded ? t('Collapse preview') : t('Tap to preview exercise demonstration')}
+                                >
+                                  <Thumb ex={exOr(ex.id) || ex} />
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      inset: 0,
+                                      background: 'rgba(0,0,0,0.3)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center'
+                                    }}
+                                  >
+                                    <Icon name={isExpanded ? 'chevronUp' : 'play'} style={{ fontSize: 13, color: '#fff' }} />
+                                  </div>
+                                </div>
+
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--label)' }}>
+                                    {idx + 1}. {ex.name}
+                                  </div>
+                                  <div style={{ fontSize: 11, color: 'var(--label-2)', marginTop: 2 }}>
+                                    {ex.category ? `${ex.category} · ` : ''}{ex.equipment || 'Exercise'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Sets, Reps, Weight Inputs & Actions */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <span style={{ fontSize: 12, color: 'var(--label-2)', fontWeight: 600 }}>{t('Sets')}:</span>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="20"
+                                    value={ex.sets}
+                                    onChange={e => handleUpdateDraftExercise(idx, 'sets', Math.max(1, parseInt(e.target.value, 10) || 1))}
+                                    style={{
+                                      width: 46,
+                                      padding: '4px 6px',
+                                      borderRadius: 6,
+                                      border: 'var(--card-border)',
+                                      background: 'var(--surface)',
+                                      color: 'var(--label)',
+                                      fontSize: 13,
+                                      fontWeight: 700,
+                                      textAlign: 'center'
+                                    }}
+                                  />
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <span style={{ fontSize: 12, color: 'var(--label-2)', fontWeight: 600 }}>
+                                    {ex.type === 'timed' ? t('Sec') : t('Reps')}:
+                                  </span>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="500"
+                                    value={ex.reps}
+                                    onChange={e => handleUpdateDraftExercise(idx, 'reps', Math.max(1, parseInt(e.target.value, 10) || 1))}
+                                    style={{
+                                      width: 48,
+                                      padding: '4px 6px',
+                                      borderRadius: 6,
+                                      border: 'var(--card-border)',
+                                      background: 'var(--surface)',
+                                      color: 'var(--label)',
+                                      fontSize: 13,
+                                      fontWeight: 700,
+                                      textAlign: 'center'
+                                    }}
+                                  />
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <span style={{ fontSize: 12, color: 'var(--label-2)', fontWeight: 600 }}>{t('Kg')}:</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.5"
+                                    value={ex.weight || 0}
+                                    onChange={e => handleUpdateDraftExercise(idx, 'weight', Math.max(0, parseFloat(e.target.value) || 0))}
+                                    style={{
+                                      width: 50,
+                                      padding: '4px 6px',
+                                      borderRadius: 6,
+                                      border: 'var(--card-border)',
+                                      background: 'var(--surface)',
+                                      color: 'var(--label)',
+                                      fontSize: 13,
+                                      fontWeight: 700,
+                                      textAlign: 'center'
+                                    }}
+                                  />
+                                </div>
+
+                                {/* Preview Toggle Button */}
+                                <button
+                                  type="button"
+                                  className="iconbtn"
+                                  style={{
+                                    width: 30,
+                                    height: 30,
+                                    borderRadius: 6,
+                                    color: isExpanded ? 'var(--mint)' : 'var(--label-2)',
+                                    border: isExpanded ? '1px solid var(--mint)' : '1px solid var(--border)',
+                                    background: isExpanded ? 'var(--surface)' : 'transparent'
+                                  }}
+                                  onClick={(e) => toggleTemplatePreview(previewKey, e)}
+                                  title={isExpanded ? t('Collapse preview') : t('Preview exercise demonstration')}
+                                  aria-expanded={isExpanded}
+                                >
+                                  <Icon name={isExpanded ? 'chevronUp' : 'chevronDown'} style={{ fontSize: 13 }} />
+                                </button>
+
+                                <button
+                                  className="iconbtn"
+                                  style={{ color: 'var(--red)', width: 30, height: 30 }}
+                                  onClick={() => handleRemoveDraftExercise(idx)}
+                                  title={t('Remove from template')}
+                                >
+                                  <Icon name="trash" style={{ fontSize: 13 }} />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Expanded Preview inside Saved Template View */}
+                            {isExpanded && (
+                              <ExercisePreviewCard
+                                exercise={exOr(ex.id) || ex}
+                                onClose={() => toggleTemplatePreview(previewKey)}
+                              />
+                            )}
                           </div>
-                        </div>
-                      ))
+                        )
+                      })
                     ) : (
                       <div style={{ textAlign: 'center', padding: '24px 10px', color: 'var(--label-2)' }}>
                         {t('No exercises in this template. Click below to add exercises.')}
@@ -853,6 +986,26 @@ export default function ExerciseLibrary() {
 
                     {/* Actions */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {/* Preview Demonstration Button */}
+                      <button
+                        type="button"
+                        className="btn sm"
+                        style={{
+                          background: libraryExpandedPreviews.has(ex.id) ? 'var(--mint)' : 'var(--surface-2)',
+                          color: libraryExpandedPreviews.has(ex.id) ? '#fff' : 'var(--label)',
+                          fontWeight: 600,
+                          padding: '6px 10px',
+                          fontSize: 12,
+                          borderRadius: 8,
+                          border: '1px solid var(--border)'
+                        }}
+                        onClick={() => toggleLibraryPreview(ex.id)}
+                        title={libraryExpandedPreviews.has(ex.id) ? t('Collapse preview') : t('Preview exercise')}
+                      >
+                        <Icon name={libraryExpandedPreviews.has(ex.id) ? 'chevronUp' : 'eye'} style={{ marginRight: 4 }} />
+                        {libraryExpandedPreviews.has(ex.id) ? t('Close') : t('Preview')}
+                      </button>
+
                       {userTemplates.length > 0 && (
                         <button
                           className="btn sm"
@@ -915,6 +1068,14 @@ export default function ExerciseLibrary() {
                       )}
                     </div>
                   </div>
+
+                  {/* Expanded Preview inside Library Tab */}
+                  {libraryExpandedPreviews.has(ex.id) && (
+                    <ExercisePreviewCard
+                      exercise={exOr(ex.id) || ex}
+                      onClose={() => toggleLibraryPreview(ex.id)}
+                    />
+                  )}
                 </div>
               ))
             ) : (
@@ -1068,51 +1229,137 @@ export default function ExerciseLibrary() {
                   ))}
                 </div>
 
-                {/* Exercises Multi-select List */}
-                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, paddingRight: 4 }}>
+                {/* Exercises Multi-select List with Interactive Previews */}
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 380, paddingRight: 4 }}>
                   {filteredDatasetForCreate.slice(0, 100).map(ex => {
                     const isSelected = selectedExIds.has(ex.id)
+                    const isExpanded = createExpandedPreviews.has(ex.id)
                     return (
-                      <div
-                        key={ex.id}
-                        onClick={() => handleToggleSelectExercise(ex)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '10px 12px',
-                          borderRadius: 10,
-                          cursor: 'pointer',
-                          background: isSelected ? 'var(--mint-light)' : 'var(--surface-2)',
-                          border: isSelected ? '1px solid var(--mint)' : '1px solid transparent',
-                          transition: 'all 0.1s ease'
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--label)' }}>
-                            {ex.n || ex.name}
+                      <div key={ex.id} style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 12px',
+                            borderRadius: isExpanded ? '10px 10px 0 0' : 10,
+                            background: isSelected ? 'var(--mint-light)' : 'var(--surface-2)',
+                            border: isSelected ? '1px solid var(--mint)' : '1px solid transparent',
+                            borderBottom: isExpanded ? '1px dashed var(--border)' : undefined,
+                            transition: 'all 0.1s ease',
+                            gap: 10
+                          }}
+                        >
+                          {/* Left: Thumbnail & Name / Muscle Info */}
+                          <div
+                            style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, cursor: 'pointer' }}
+                            onClick={() => handleToggleSelectExercise(ex)}
+                          >
+                            {/* Thumbnail Preview Trigger */}
+                            <div
+                              onClick={(e) => toggleCreatePreview(ex.id, e)}
+                              style={{
+                                width: 38,
+                                height: 38,
+                                borderRadius: 8,
+                                overflow: 'hidden',
+                                flexShrink: 0,
+                                background: 'var(--surface)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                position: 'relative',
+                                cursor: 'pointer',
+                                border: isExpanded ? '1.5px solid var(--mint)' : '1px solid var(--border)'
+                              }}
+                              title={isExpanded ? t('Collapse preview') : t('Tap to preview exercise demonstration')}
+                            >
+                              <Thumb ex={ex} />
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  inset: 0,
+                                  background: 'rgba(0,0,0,0.3)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                              >
+                                <Icon name={isExpanded ? 'chevronUp' : 'play'} style={{ fontSize: 13, color: '#fff' }} />
+                              </div>
+                            </div>
+
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--label)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {ex.n || ex.name}
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--label-2)', textTransform: 'capitalize', marginTop: 2 }}>
+                                {ex.bp || ex.category} · {ex.eq || ex.equipment || 'No equipment'}
+                              </div>
+                            </div>
                           </div>
-                          <div style={{ fontSize: 11, color: 'var(--label-2)', textTransform: 'capitalize', marginTop: 2 }}>
-                            {ex.bp || ex.category} · {ex.eq || ex.equipment || 'No equipment'}
+
+                          {/* Right Actions: Preview Button + Checkbox */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              className="iconbtn"
+                              onClick={(e) => toggleCreatePreview(ex.id, e)}
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: 8,
+                                background: isExpanded ? 'var(--surface)' : 'transparent',
+                                color: isExpanded ? 'var(--mint)' : 'var(--label-2)',
+                                border: isExpanded ? '1px solid var(--mint)' : '1px solid var(--border)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer'
+                              }}
+                              title={isExpanded ? t('Collapse preview') : t('Preview exercise')}
+                              aria-label={isExpanded ? t('Collapse preview') : t('Preview exercise')}
+                              aria-expanded={isExpanded}
+                            >
+                              <Icon name={isExpanded ? 'chevronUp' : 'chevronDown'} style={{ fontSize: 14 }} />
+                            </button>
+
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleToggleSelectExercise(ex)
+                              }}
+                              style={{
+                                width: 24,
+                                height: 24,
+                                borderRadius: 6,
+                                border: isSelected ? 'none' : '2px solid var(--label-3)',
+                                background: isSelected ? 'var(--mint)' : 'transparent',
+                                color: '#fff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 13,
+                                cursor: 'pointer'
+                              }}
+                              role="checkbox"
+                              aria-checked={isSelected}
+                              title={isSelected ? t('Selected') : t('Select exercise')}
+                            >
+                              {isSelected && <Icon name="check" />}
+                            </div>
                           </div>
                         </div>
 
-                        <div
-                          style={{
-                            width: 22,
-                            height: 22,
-                            borderRadius: 6,
-                            border: isSelected ? 'none' : '2px solid var(--label-3)',
-                            background: isSelected ? 'var(--mint)' : 'transparent',
-                            color: '#fff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 12
-                          }}
-                        >
-                          {isSelected && <Icon name="check" />}
-                        </div>
+                        {/* Interactive Exercise Preview Section */}
+                        {isExpanded && (
+                          <ExercisePreviewCard
+                            exercise={ex}
+                            isSelected={isSelected}
+                            onToggleSelect={() => handleToggleSelectExercise(ex)}
+                            onClose={() => toggleCreatePreview(ex.id)}
+                          />
+                        )}
                       </div>
                     )
                   })}
@@ -1147,106 +1394,159 @@ export default function ExerciseLibrary() {
                   {t('Template: ')}<strong>{newTemplateName}</strong> ({configuredNewExercises.length} {t('exercises')})
                 </div>
 
-                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 340, paddingRight: 4 }}>
-                  {configuredNewExercises.map((ex, idx) => (
-                    <div
-                      key={ex.id || idx}
-                      style={{
-                        background: 'var(--surface-2)',
-                        padding: '10px 12px',
-                        borderRadius: 10,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 10,
-                        flexWrap: 'wrap'
-                      }}
-                    >
-                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--label)', flex: 1, minWidth: 140 }}>
-                        {idx + 1}. {ex.name}
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 380, paddingRight: 4 }}>
+                  {configuredNewExercises.map((ex, idx) => {
+                    const previewKey = ex.id || `cfg_${idx}`
+                    const isExpanded = configureExpandedPreviews.has(previewKey)
+                    return (
+                      <div key={previewKey} style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div
+                          style={{
+                            background: 'var(--surface-2)',
+                            padding: '10px 12px',
+                            borderRadius: isExpanded ? '10px 10px 0 0' : 10,
+                            border: '1px solid var(--card-border)',
+                            borderBottom: isExpanded ? '1px dashed var(--border)' : undefined,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 10,
+                            flexWrap: 'wrap'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 140 }}>
+                            <div
+                              onClick={(e) => toggleConfigurePreview(previewKey, e)}
+                              style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: 6,
+                                overflow: 'hidden',
+                                flexShrink: 0,
+                                background: 'var(--surface)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                position: 'relative',
+                                cursor: 'pointer',
+                                border: isExpanded ? '1.5px solid var(--mint)' : '1px solid var(--border)'
+                              }}
+                              title={isExpanded ? t('Collapse preview') : t('Preview exercise demonstration')}
+                            >
+                              <Thumb ex={exOr(ex.id) || ex} />
+                            </div>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--label)', flex: 1, minWidth: 100 }}>
+                              {idx + 1}. {ex.name}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                              <span style={{ fontSize: 11, color: 'var(--label-2)', fontWeight: 600 }}>{t('Sets')}:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                max="20"
+                                value={ex.sets}
+                                onChange={e => {
+                                  const updated = [...configuredNewExercises]
+                                  updated[idx].sets = Math.max(1, parseInt(e.target.value, 10) || 1)
+                                  setConfiguredNewExercises(updated)
+                                }}
+                                style={{
+                                  width: 44,
+                                  padding: '3px 4px',
+                                  borderRadius: 6,
+                                  border: 'var(--card-border)',
+                                  background: 'var(--surface)',
+                                  color: 'var(--label)',
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  textAlign: 'center'
+                                }}
+                              />
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                              <span style={{ fontSize: 11, color: 'var(--label-2)', fontWeight: 600 }}>{t('Reps')}:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                max="500"
+                                value={ex.reps}
+                                onChange={e => {
+                                  const updated = [...configuredNewExercises]
+                                  updated[idx].reps = Math.max(1, parseInt(e.target.value, 10) || 1)
+                                  setConfiguredNewExercises(updated)
+                                }}
+                                style={{
+                                  width: 48,
+                                  padding: '3px 4px',
+                                  borderRadius: 6,
+                                  border: 'var(--card-border)',
+                                  background: 'var(--surface)',
+                                  color: 'var(--label)',
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  textAlign: 'center'
+                                }}
+                              />
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                              <span style={{ fontSize: 11, color: 'var(--label-2)', fontWeight: 600 }}>{t('Kg')}:</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.5"
+                                value={ex.weight || 0}
+                                onChange={e => {
+                                  const updated = [...configuredNewExercises]
+                                  updated[idx].weight = Math.max(0, parseFloat(e.target.value) || 0)
+                                  setConfiguredNewExercises(updated)
+                                }}
+                                style={{
+                                  width: 50,
+                                  padding: '3px 4px',
+                                  borderRadius: 6,
+                                  border: 'var(--card-border)',
+                                  background: 'var(--surface)',
+                                  color: 'var(--label)',
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  textAlign: 'center'
+                                }}
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              className="iconbtn"
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 6,
+                                color: isExpanded ? 'var(--mint)' : 'var(--label-2)',
+                                border: isExpanded ? '1px solid var(--mint)' : '1px solid var(--border)',
+                                background: isExpanded ? 'var(--surface)' : 'transparent'
+                              }}
+                              onClick={(e) => toggleConfigurePreview(previewKey, e)}
+                              title={isExpanded ? t('Collapse preview') : t('Preview exercise demonstration')}
+                            >
+                              <Icon name={isExpanded ? 'chevronUp' : 'chevronDown'} style={{ fontSize: 12 }} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <ExercisePreviewCard
+                            exercise={exOr(ex.id) || ex}
+                            onClose={() => toggleConfigurePreview(previewKey)}
+                          />
+                        )}
                       </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <span style={{ fontSize: 11, color: 'var(--label-2)', fontWeight: 600 }}>{t('Sets')}:</span>
-                          <input
-                            type="number"
-                            min="1"
-                            max="20"
-                            value={ex.sets}
-                            onChange={e => {
-                              const updated = [...configuredNewExercises]
-                              updated[idx].sets = Math.max(1, parseInt(e.target.value, 10) || 1)
-                              setConfiguredNewExercises(updated)
-                            }}
-                            style={{
-                              width: 44,
-                              padding: '3px 4px',
-                              borderRadius: 6,
-                              border: 'var(--card-border)',
-                              background: 'var(--surface)',
-                              color: 'var(--label)',
-                              fontSize: 12,
-                              fontWeight: 700,
-                              textAlign: 'center'
-                            }}
-                          />
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <span style={{ fontSize: 11, color: 'var(--label-2)', fontWeight: 600 }}>{t('Reps')}:</span>
-                          <input
-                            type="number"
-                            min="1"
-                            max="500"
-                            value={ex.reps}
-                            onChange={e => {
-                              const updated = [...configuredNewExercises]
-                              updated[idx].reps = Math.max(1, parseInt(e.target.value, 10) || 1)
-                              setConfiguredNewExercises(updated)
-                            }}
-                            style={{
-                              width: 48,
-                              padding: '3px 4px',
-                              borderRadius: 6,
-                              border: 'var(--card-border)',
-                              background: 'var(--surface)',
-                              color: 'var(--label)',
-                              fontSize: 12,
-                              fontWeight: 700,
-                              textAlign: 'center'
-                            }}
-                          />
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <span style={{ fontSize: 11, color: 'var(--label-2)', fontWeight: 600 }}>{t('Kg')}:</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.5"
-                            value={ex.weight || 0}
-                            onChange={e => {
-                              const updated = [...configuredNewExercises]
-                              updated[idx].weight = Math.max(0, parseFloat(e.target.value) || 0)
-                              setConfiguredNewExercises(updated)
-                            }}
-                            style={{
-                              width: 50,
-                              padding: '3px 4px',
-                              borderRadius: 6,
-                              border: 'var(--card-border)',
-                              background: 'var(--surface)',
-                              color: 'var(--label)',
-                              fontSize: 12,
-                              fontWeight: 700,
-                              textAlign: 'center'
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
@@ -1355,56 +1655,156 @@ export default function ExerciseLibrary() {
               ))}
             </div>
 
-            {/* Exercise List */}
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, paddingRight: 4 }}>
+            {/* Exercise List with Interactive Previews */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 380, paddingRight: 4 }}>
               {filteredDatasetForAdd.slice(0, 100).map(ex => {
                 const isSelected = addExSelectedIds.has(ex.id)
+                const isExpanded = addExExpandedPreviews.has(ex.id)
                 return (
-                  <div
-                    key={ex.id}
-                    onClick={() => {
-                      setAddExSelectedIds(prev => {
-                        const next = new Set(prev)
-                        if (next.has(ex.id)) next.delete(ex.id)
-                        else next.add(ex.id)
-                        return next
-                      })
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 12px',
-                      borderRadius: 10,
-                      cursor: 'pointer',
-                      background: isSelected ? 'var(--mint-light)' : 'var(--surface-2)',
-                      border: isSelected ? '1px solid var(--mint)' : '1px solid transparent'
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--label)' }}>
-                        {ex.n || ex.name}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--label-2)', textTransform: 'capitalize', marginTop: 2 }}>
-                        {ex.bp || ex.category} · {ex.eq || ex.equipment || 'No equipment'}
-                      </div>
-                    </div>
+                  <div key={ex.id} style={{ display: 'flex', flexDirection: 'column' }}>
                     <div
                       style={{
-                        width: 22,
-                        height: 22,
-                        borderRadius: 6,
-                        border: isSelected ? 'none' : '2px solid var(--label-3)',
-                        background: isSelected ? 'var(--mint)' : 'transparent',
-                        color: '#fff',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 12
+                        justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        borderRadius: isExpanded ? '10px 10px 0 0' : 10,
+                        background: isSelected ? 'var(--mint-light)' : 'var(--surface-2)',
+                        border: isSelected ? '1px solid var(--mint)' : '1px solid transparent',
+                        borderBottom: isExpanded ? '1px dashed var(--border)' : undefined,
+                        transition: 'all 0.1s ease',
+                        gap: 10
                       }}
                     >
-                      {isSelected && <Icon name="check" />}
+                      {/* Left: Thumbnail & Name / Muscle Info */}
+                      <div
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, cursor: 'pointer' }}
+                        onClick={() => {
+                          setAddExSelectedIds(prev => {
+                            const next = new Set(prev)
+                            if (next.has(ex.id)) next.delete(ex.id)
+                            else next.add(ex.id)
+                            return next
+                          })
+                        }}
+                      >
+                        {/* Thumbnail Preview Trigger */}
+                        <div
+                          onClick={(e) => toggleAddExPreview(ex.id, e)}
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 8,
+                            overflow: 'hidden',
+                            flexShrink: 0,
+                            background: 'var(--surface)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            position: 'relative',
+                            cursor: 'pointer',
+                            border: isExpanded ? '1.5px solid var(--mint)' : '1px solid var(--border)'
+                          }}
+                          title={isExpanded ? t('Collapse preview') : t('Tap to preview exercise demonstration')}
+                        >
+                          <Thumb ex={ex} />
+                          <div
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              background: 'rgba(0,0,0,0.3)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <Icon name={isExpanded ? 'chevronUp' : 'play'} style={{ fontSize: 13, color: '#fff' }} />
+                          </div>
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--label)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {ex.n || ex.name}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--label-2)', textTransform: 'capitalize', marginTop: 2 }}>
+                            {ex.bp || ex.category} · {ex.eq || ex.equipment || 'No equipment'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Actions: Preview Button + Checkbox */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          className="iconbtn"
+                          onClick={(e) => toggleAddExPreview(ex.id, e)}
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            background: isExpanded ? 'var(--surface)' : 'transparent',
+                            color: isExpanded ? 'var(--mint)' : 'var(--label-2)',
+                            border: isExpanded ? '1px solid var(--mint)' : '1px solid var(--border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer'
+                          }}
+                          title={isExpanded ? t('Collapse preview') : t('Preview exercise')}
+                          aria-label={isExpanded ? t('Collapse preview') : t('Preview exercise')}
+                          aria-expanded={isExpanded}
+                        >
+                          <Icon name={isExpanded ? 'chevronUp' : 'chevronDown'} style={{ fontSize: 14 }} />
+                        </button>
+
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setAddExSelectedIds(prev => {
+                              const next = new Set(prev)
+                              if (next.has(ex.id)) next.delete(ex.id)
+                              else next.add(ex.id)
+                              return next
+                            })
+                          }}
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 6,
+                            border: isSelected ? 'none' : '2px solid var(--label-3)',
+                            background: isSelected ? 'var(--mint)' : 'transparent',
+                            color: '#fff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 13,
+                            cursor: 'pointer'
+                          }}
+                          role="checkbox"
+                          aria-checked={isSelected}
+                          title={isSelected ? t('Selected') : t('Select exercise')}
+                        >
+                          {isSelected && <Icon name="check" />}
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Interactive Exercise Preview Section */}
+                    {isExpanded && (
+                      <ExercisePreviewCard
+                        exercise={ex}
+                        isSelected={isSelected}
+                        onToggleSelect={() => {
+                          setAddExSelectedIds(prev => {
+                            const next = new Set(prev)
+                            if (next.has(ex.id)) next.delete(ex.id)
+                            else next.add(ex.id)
+                            return next
+                          })
+                        }}
+                        onClose={() => toggleAddExPreview(ex.id)}
+                      />
+                    )}
                   </div>
                 )
               })}
