@@ -295,17 +295,18 @@ export default function Settings() {
 
     {(user || MOBILE) && <NotificationsCard S={S} update={update} toast={toast} />}
 
-    {/* ---------- appearance & black and gold themes ---------- */}
-    <Section title={t('Appearance & Black & Gold Theme')} footer={DEMO || MOBILE ? undefined : t('Theme and ambient gold lighting sync live across all pages.')}>
-      {/* Black & Gold Theme Presets */}
-      <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12, paddingTop: 14, paddingBottom: 16 }}>
+    {/* ---------- dynamic accent theme & ambient glow ---------- */}
+    <Section title={t('Accent Theme & Ambient Glow')} footer={DEMO || MOBILE ? undefined : t('Selected accent and ambient lighting dynamically sync live across all pages.')}>
+      {/* 7 Distinguishable Accent Themes */}
+      <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 14, paddingTop: 14, paddingBottom: 16 }}>
         <div className="row between" style={{ alignItems: 'baseline' }}>
-          <span className="lrow-t" style={{ fontWeight: 700 }}>{t('Black & Warm Gold Theme')}</span>
-          <span className="dim small">{t('Instant gold ambient adaptation')}</span>
+          <span className="lrow-t" style={{ fontWeight: 700 }}>{t('Accent Theme Presets')}</span>
+          <span className="dim small">{t('Dynamic glow & UI adaptation')}</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 10 }}>
           {Object.values(THEME_PRESETS).map(preset => {
-            const isSelected = (S.bgTheme || 'imperial-gold') === preset.id
+            const currentThemeId = S.bgTheme || 'warm-gold'
+            const isSelected = currentThemeId === preset.id || (currentThemeId.includes('gold') && preset.id === 'warm-gold')
             return (
               <div
                 key={preset.id}
@@ -319,9 +320,9 @@ export default function Settings() {
                   padding: '12px 10px',
                   borderRadius: 14,
                   cursor: 'pointer',
-                  background: isSelected ? 'rgba(232, 180, 119, 0.12)' : 'var(--surface-2)',
-                  border: isSelected ? '2px solid #E8B477' : '1px solid rgba(232, 180, 119, 0.15)',
-                  boxShadow: isSelected ? '0 0 16px rgba(232, 180, 119, 0.35), var(--glass-highlight)' : 'var(--glass-highlight)',
+                  background: isSelected ? `rgba(${preset.rgb}, 0.14)` : 'var(--surface-2)',
+                  border: isSelected ? `2px solid ${preset.primary}` : '1px solid rgba(255, 255, 255, 0.08)',
+                  boxShadow: isSelected ? `0 0 16px rgba(${preset.rgb}, 0.35), var(--glass-highlight)` : 'var(--glass-highlight)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 8,
@@ -356,75 +357,35 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Primary Gold Shade Customizer */}
-      <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10, paddingTop: 10, paddingBottom: 14 }}>
-        <div className="row between">
-          <span className="lrow-t">{t('Primary Gold Accent')}</span>
-          <span style={{ fontSize: 12, color: S.goldShade || '#E8B477', fontWeight: 700 }}>
-            {S.goldShade || '#E8B477'}
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {[
-            { c: '#E8B477', name: 'Champagne (Default)' },
-            { c: '#F3C78B', name: 'Luminous Gold' },
-            { c: '#FFD09A', name: 'Light Gold' },
-            { c: '#D4AF37', name: 'Classic Gold' },
-            { c: '#E5A962', name: 'Amber Gold' },
-            { c: '#C58A53', name: 'Soft Bronze' }
-          ].map(({ c, name }) => {
-            const active = (S.goldShade || '#E8B477') === c
-            return (
-              <button
-                key={c}
-                onClick={() => update(s => { s.goldShade = c })}
-                title={name}
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 12,
-                  background: c,
-                  border: active ? '3px solid #FFFFFF' : '1px solid rgba(255,255,255,0.2)',
-                  boxShadow: active ? `0 0 14px ${c}` : '0 2px 8px rgba(0,0,0,0.3)',
-                  cursor: 'pointer',
-                  transform: active ? 'scale(1.1)' : 'scale(1)',
-                  transition: 'transform 0.15s ease'
-                }}
-              />
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Secondary Bronze Shade Customizer */}
+      {/* Quick Accent Color Selector */}
       <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10, paddingTop: 6, paddingBottom: 14 }}>
         <div className="row between">
-          <span className="lrow-t">{t('Secondary Bronze Shade')}</span>
-          <span style={{ fontSize: 12, color: S.bronzeShade || '#C58A53', fontWeight: 700 }}>
-            {S.bronzeShade || '#C58A53'}
+          <span className="lrow-t">{t('Quick Accent Palette')}</span>
+          <span style={{ fontSize: 12, color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}>
+            {THEME_PRESETS[S.bgTheme]?.name || 'Warm Gold'}
           </span>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {[
-            { c: '#C58A53', name: 'Soft Bronze' },
-            { c: '#B37D42', name: 'Antique Bronze' },
-            { c: '#A86D33', name: 'Burnished Bronze' },
-            { c: '#8F5C2C', name: 'Dark Bronze' },
-            { c: '#7D4D20', name: 'Smoky Bronze' }
-          ].map(({ c, name }) => {
-            const active = (S.bronzeShade || '#C58A53') === c
+          {Object.values(THEME_PRESETS).map(preset => {
+            const currentThemeId = S.bgTheme || 'warm-gold'
+            const active = currentThemeId === preset.id || (currentThemeId.includes('gold') && preset.id === 'warm-gold')
             return (
               <button
-                key={c}
-                onClick={() => update(s => { s.bronzeShade = c })}
-                title={name}
+                key={preset.id}
+                onClick={() => update(s => {
+                  s.bgTheme = preset.id
+                  s.goldShade = preset.primary
+                  s.bronzeShade = preset.secondary
+                  s.bgDarkness = preset.bg
+                })}
+                title={preset.name}
                 style={{
                   width: 38,
                   height: 38,
                   borderRadius: 12,
-                  background: c,
+                  background: preset.primary,
                   border: active ? '3px solid #FFFFFF' : '1px solid rgba(255,255,255,0.2)',
-                  boxShadow: active ? `0 0 14px ${c}` : '0 2px 8px rgba(0,0,0,0.3)',
+                  boxShadow: active ? `0 0 14px ${preset.primary}` : '0 2px 8px rgba(0,0,0,0.3)',
                   cursor: 'pointer',
                   transform: active ? 'scale(1.1)' : 'scale(1)',
                   transition: 'transform 0.15s ease'
@@ -438,7 +399,7 @@ export default function Settings() {
       {/* Background Darkness */}
       <Row
         icon="moon"
-        iconTint="#E8B477"
+        iconTint="var(--theme-accent, #E8B477)"
         title={t('Background Darkness')}
         subtitle={S.bgDarkness === '#050505' ? t('Pitch Black') : S.bgDarkness === '#111111' ? t('Dark Charcoal') : t('Deep Black (Default)')}
       >
@@ -454,12 +415,12 @@ export default function Settings() {
         />
       </Row>
 
-      {/* Ambient Gold Glow Toggle */}
+      {/* Ambient Accent Glow Toggle */}
       <Row
         icon="sparkles"
-        iconTint="#E8B477"
-        title={t('Ambient Gold Glow')}
-        subtitle={t('Warm golden ambient lighting behind dashboard cards')}
+        iconTint="var(--theme-accent, #E8B477)"
+        title={t('Dynamic Ambient Glow')}
+        subtitle={t('Ambient lighting behind dashboard cards matching your active accent')}
       >
         <Switch
           checked={S.ambientGlow !== false}
@@ -471,7 +432,7 @@ export default function Settings() {
       {S.ambientGlow !== false && (
         <Row
           icon="sun"
-          iconTint="#E8B477"
+          iconTint="var(--theme-accent, #E8B477)"
           title={t('Ambient Glow Intensity')}
           subtitle={`${Math.round((S.glowIntensity !== undefined ? S.glowIntensity : 1.0) * 100)}%`}
         >
@@ -483,7 +444,7 @@ export default function Settings() {
               step="0.1"
               value={S.glowIntensity !== undefined ? S.glowIntensity : 1.0}
               onChange={e => update(s => { s.glowIntensity = parseFloat(e.target.value) })}
-              style={{ flex: 1, accentColor: '#E8B477', cursor: 'pointer' }}
+              style={{ flex: 1, accentColor: 'var(--theme-accent, #E8B477)', cursor: 'pointer' }}
               aria-label={t('Glow Intensity')}
             />
           </div>
@@ -493,7 +454,7 @@ export default function Settings() {
       {/* Glass Transparency / Opacity Slider */}
       <Row
         icon="eye"
-        iconTint="#E8B477"
+        iconTint="var(--theme-accent, #E8B477)"
         title={t('Glass Card Opacity')}
         subtitle={`${Math.round((S.glassOpacity !== undefined ? S.glassOpacity : 0.80) * 100)}%`}
       >
@@ -505,7 +466,7 @@ export default function Settings() {
             step="0.05"
             value={S.glassOpacity !== undefined ? S.glassOpacity : 0.80}
             onChange={e => update(s => { s.glassOpacity = parseFloat(e.target.value) })}
-            style={{ flex: 1, accentColor: '#E8B477', cursor: 'pointer' }}
+            style={{ flex: 1, accentColor: 'var(--theme-accent, #E8B477)', cursor: 'pointer' }}
             aria-label={t('Glass Opacity')}
           />
         </div>
@@ -514,7 +475,7 @@ export default function Settings() {
       {/* Background Blur Intensity Slider */}
       <Row
         icon="camera"
-        iconTint="#E8B477"
+        iconTint="var(--theme-accent, #E8B477)"
         title={t('Glass Blur Intensity')}
         subtitle={`${Math.round((S.blurIntensity !== undefined ? S.blurIntensity : 1.0) * 100)}%`}
       >
@@ -526,7 +487,7 @@ export default function Settings() {
             step="0.1"
             value={S.blurIntensity !== undefined ? S.blurIntensity : 1.0}
             onChange={e => update(s => { s.blurIntensity = parseFloat(e.target.value) })}
-            style={{ flex: 1, accentColor: '#E8B477', cursor: 'pointer' }}
+            style={{ flex: 1, accentColor: 'var(--theme-accent, #E8B477)', cursor: 'pointer' }}
             aria-label={t('Glass Blur Intensity')}
           />
         </div>
@@ -535,9 +496,9 @@ export default function Settings() {
       {/* Background Glow Animation Toggle */}
       <Row
         icon="bolt"
-        iconTint="#E8B477"
+        iconTint="var(--theme-accent, #E8B477)"
         title={t('Subtle Drift Animation')}
-        subtitle={t('Gentle organic movement of warm gold lighting')}
+        subtitle={t('Gentle organic movement of ambient lighting')}
       >
         <Switch
           checked={S.bgAnimation !== false}
@@ -546,7 +507,7 @@ export default function Settings() {
       </Row>
 
       {/* Body diagram */}
-      <Row icon="figureStrength" iconTint="#E8B477" title={t('Body diagram')}>
+      <Row icon="figureStrength" iconTint="var(--theme-accent, #E8B477)" title={t('Body diagram')}>
         <Segmented
           className="seg-inline"
           options={[{ value: 'male', label: t('Male') }, { value: 'female', label: t('Female') }]}

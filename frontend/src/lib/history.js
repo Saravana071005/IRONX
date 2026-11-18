@@ -179,24 +179,26 @@ export function setsDoneActive(A) {
   if (A) A.entries.forEach(e => e.sets.forEach(s => { if (s.done) n++ }))
   return n
 }
-export const lastBW = S => (S.bodyweight.length ? S.bodyweight[S.bodyweight.length - 1] : null)
+export const lastBW = S => (S?.bodyweight?.length ? S.bodyweight[S.bodyweight.length - 1] : null)
 
 // Group consecutive items sharing a superset id (sg) into "units" of indices.
 // items may be routine exercises ({sg}) or active-workout entries ({sg}).
 export function supersetUnits(items) {
   const units = []
+  if (!Array.isArray(items)) return units
   items.forEach((e, i) => {
     const prev = items[i - 1]
-    if (i > 0 && e.sg && prev && prev.sg && e.sg === prev.sg) units[units.length - 1].push(i)
+    if (i > 0 && e && e.sg && prev && prev.sg && e.sg === prev.sg) units[units.length - 1].push(i)
     else units.push([i])
   })
   return units
 }
-export function unitOf(units, idx) { return units.find(u => u.includes(idx)) || [idx] }
+export function unitOf(units, idx) { return (Array.isArray(units) && units.find(u => u.includes(idx))) || [idx] }
 
 export function streakWeeks(S) {
-  if (!S.workouts.length) return 0
-  const weeks = new Set(S.workouts.map(w => weekKey(w.d)))
+  const workouts = Array.isArray(S) ? S : (S?.workouts || [])
+  if (!workouts.length) return 0
+  const weeks = new Set(workouts.map(w => (w?.d ? weekKey(w.d) : null)).filter(Boolean))
   let streak = 0
   const cur = new Date()
   for (let i = 0; i < 520; i++) {

@@ -30,12 +30,12 @@ export const WORKOUT_TYPES = ['strength', 'cardio', 'rest', 'custom']
  * 6. Cardio
  */
 export const PREDEFINED_WORKOUT_GROUPS = [
-  { id: 'shoulder', name: 'Shoulder', type: 'strength', category: 'Shoulder', emoji: 'dumbbell', color: 'var(--blue)' },
-  { id: 'chest_triceps', name: 'Chest + Triceps', type: 'strength', category: 'Chest + Triceps', emoji: 'dumbbell', color: 'var(--coral)' },
-  { id: 'back_biceps', name: 'Back + Biceps', type: 'strength', category: 'Back + Biceps', emoji: 'dumbbell', color: 'var(--teal)' },
-  { id: 'legs_core', name: 'Legs + Core', type: 'strength', category: 'Legs + Core', emoji: 'dumbbell', color: 'var(--purple)' },
-  { id: 'cardio_1', name: 'Cardio', type: 'cardio', category: 'Cardio', emoji: 'figureRun', color: 'var(--mint)' },
-  { id: 'cardio_2', name: 'Cardio', type: 'cardio', category: 'Cardio', emoji: 'figureRun', color: 'var(--mint)' }
+  { id: 'shoulder', name: 'Shoulder', type: 'strength', category: 'Shoulder', emoji: 'dumbbell', color: 'var(--theme-accent, #E8B477)' },
+  { id: 'chest_triceps', name: 'Chest + Triceps', type: 'strength', category: 'Chest + Triceps', emoji: 'dumbbell', color: 'var(--theme-accent, #E8B477)' },
+  { id: 'back_biceps', name: 'Back + Biceps', type: 'strength', category: 'Back + Biceps', emoji: 'dumbbell', color: 'var(--theme-accent, #E8B477)' },
+  { id: 'legs_core', name: 'Legs + Core', type: 'strength', category: 'Legs + Core', emoji: 'dumbbell', color: 'var(--theme-accent, #E8B477)' },
+  { id: 'cardio_1', name: 'Cardio', type: 'cardio', category: 'Cardio', emoji: 'figureRun', color: 'var(--theme-accent, #E8B477)' },
+  { id: 'cardio_2', name: 'Cardio', type: 'cardio', category: 'Cardio', emoji: 'figureRun', color: 'var(--theme-accent, #E8B477)' }
 ]
 
 /**

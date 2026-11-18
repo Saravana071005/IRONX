@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { Component, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { effectiveRoutine, effectiveRoutineId, streakWeeks, lastBW } from '../lib/history.js'
@@ -17,6 +17,68 @@ import {
   getTodayDisplayDate
 } from '../lib/customPlanner.js'
 
+/**
+ * WidgetBoundary isolates failures in individual dashboard sections
+ * so no single widget can crash the entire Home page.
+ */
+class WidgetBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+  componentDidCatch(error, info) {
+    console.warn(`[openGym Widget Error] ${this.props.title || 'Widget'}:`, error, info)
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          className="card"
+          style={{
+            padding: '20px',
+            borderRadius: 20,
+            background: 'rgba(20, 20, 22, 0.85)',
+            border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.2))',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            minHeight: 120
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--label-2)' }}>
+            {this.props.title || t('Section')}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--label-3)' }}>
+            {t('Could not load this section')}
+          </div>
+          <button
+            onClick={() => this.setState({ hasError: false, error: null })}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 8,
+              background: 'rgba(255, 255, 255, 0.08)',
+              color: 'var(--theme-accent, #E8B477)',
+              fontSize: 12,
+              fontWeight: 600,
+              border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.3))',
+              cursor: 'pointer'
+            }}
+          >
+            {t('Retry')}
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 function CoachCard({ nav }) {
   const S = useStore(s => s.S)
   const { job, pending } = useCoachStatus(hasConsent(S))
@@ -26,7 +88,7 @@ function CoachCard({ nav }) {
     <div
       className="card"
       style={{
-        border: ready ? '1px solid var(--gold-primary, #E8B477)' : '1px solid rgba(232, 180, 119, 0.2)',
+        border: ready ? '1px solid var(--theme-accent, #E8B477)' : '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.2))',
         background: 'rgba(20, 20, 22, 0.85)',
         marginBottom: 16
       }}
@@ -42,18 +104,18 @@ function CoachCard({ nav }) {
               width: 36,
               height: 36,
               borderRadius: 10,
-              background: 'rgba(232, 180, 119, 0.15)',
-              color: 'var(--gold-primary, #E8B477)',
+              background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.15))',
+              color: 'var(--theme-accent, #E8B477)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              border: '1px solid rgba(232, 180, 119, 0.3)'
+              border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.3))'
             }}
           >
             <Icon name="sparkles" />
           </span>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold-primary, #E8B477)', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--theme-accent, #E8B477)', textTransform: 'uppercase' }}>
               {t('AI Coach')}
             </div>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--label)' }}>
@@ -66,7 +128,7 @@ function CoachCard({ nav }) {
           </div>
         </div>
         {ready ? (
-          <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 9999, background: 'var(--gold-primary, #E8B477)', color: '#12100E', fontWeight: 700 }}>
+          <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 9999, background: 'var(--theme-accent, #E8B477)', color: '#12100E', fontWeight: 700 }}>
             {t('Review')}
           </span>
         ) : (
@@ -87,13 +149,30 @@ export default function Home() {
 
   const today = useMemo(() => new Date(), [])
   const todayStr = useMemo(() => todayISO(), [])
-  const todayInfo = useMemo(() => getTodayDisplayDate(today), [today])
-  const bw = lastBW(S)
-  const prevBW = S.bodyweight && S.bodyweight.length > 1 ? S.bodyweight[S.bodyweight.length - 2] : null
-  const delta = bw && prevBW ? bw.w - prevBW.w : -1.5
+  const todayInfo = useMemo(() => {
+    try {
+      return getTodayDisplayDate(today)
+    } catch {
+      return { fullFormatted: todayStr }
+    }
+  }, [today, todayStr])
+
+  const bw = S ? lastBW(S) : null
+  const prevBW = (S?.bodyweight && S.bodyweight.length > 1) ? S.bodyweight[S.bodyweight.length - 2] : null
+  const delta = (bw && prevBW && typeof bw.w === 'number' && typeof prevBW.w === 'number')
+    ? Number((bw.w - prevBW.w).toFixed(1))
+    : -1.5
+  const deltaFormatted = !isNaN(delta) ? (delta > 0 ? `+${delta.toFixed(1)}` : `${delta.toFixed(1)}`) : '-1.5'
 
   // Read today's scheduled workout from weekly planner
-  const todayScheduled = getTodayScheduledWorkout(S, today)
+  const todayScheduled = useMemo(() => {
+    try {
+      return (S && today) ? (getTodayScheduledWorkout(S, today) || { isRest: true, template: null }) : { isRest: true, template: null }
+    } catch {
+      return { isRest: true, template: null }
+    }
+  }, [S, today])
+
   const scheduledTemplate = todayScheduled?.template || null
   const isScheduledRest = todayScheduled?.isRest || !scheduledTemplate
 
@@ -104,29 +183,29 @@ export default function Home() {
       if (stored) return JSON.parse(stored)
     } catch (e) {}
     return null
-  }, [todayStr, S.meals])
+  }, [todayStr, S?.meals])
 
-  const foodsToday = todayHealth?.foods || (S.meals || []).filter(m => m.d === todayStr || m.date === todayStr)
+  const foodsToday = todayHealth?.foods || (S?.meals || []).filter(m => m && (m.d === todayStr || m.date === todayStr))
   const foodCount = foodsToday.length
 
   // Calculate calories and macros for donut chart
   const loggedCalories = useMemo(() => {
-    const sum = foodsToday.reduce((acc, f) => acc + (Number(f.calories) || Number(f.calorie) || 0), 0)
+    const sum = foodsToday.reduce((acc, f) => acc + (Number(f?.calories) || Number(f?.calorie) || 0), 0)
     return sum > 0 ? sum : 1368 // reference default when empty
   }, [foodsToday])
 
   const proteinGrams = useMemo(() => {
-    const sum = foodsToday.reduce((acc, f) => acc + (Number(f.protein) || 0), 0)
+    const sum = foodsToday.reduce((acc, f) => acc + (Number(f?.protein) || 0), 0)
     return sum > 0 ? sum : 136
   }, [foodsToday])
 
   const carbsGrams = useMemo(() => {
-    const sum = foodsToday.reduce((acc, f) => acc + (Number(f.carb) || Number(f.carbs) || 0), 0)
+    const sum = foodsToday.reduce((acc, f) => acc + (Number(f?.carb) || Number(f?.carbs) || 0), 0)
     return sum > 0 ? sum : 178
   }, [foodsToday])
 
   const fatsGrams = useMemo(() => {
-    const sum = foodsToday.reduce((acc, f) => acc + (Number(f.fat) || 0), 0)
+    const sum = foodsToday.reduce((acc, f) => acc + (Number(f?.fat) || 0), 0)
     return sum > 0 ? sum : 34
   }, [foodsToday])
 
@@ -135,18 +214,22 @@ export default function Home() {
   const carbsPct = totalMacroGrams > 0 ? Math.round((carbsGrams / totalMacroGrams) * 100) : 38
   const fatsPct = totalMacroGrams > 0 ? Math.max(0, 100 - proteinPct - carbsPct) : 22
 
-  const targetCalories = S.nutritionTargets?.calorie || S.nutritionTargets?.calories || 1900
-  const caloriePct = Math.min(100, Math.round((loggedCalories / targetCalories) * 100))
+  const targetCalories = Number(S?.nutritionTargets?.calorie || S?.nutritionTargets?.calories) || 1900
+  const caloriePct = Math.min(100, Math.max(0, Math.round((loggedCalories / targetCalories) * 100)))
 
   // Workouts and week strip calculation
-  const todayWorkout = (S.workouts || []).find(w => w.d === todayStr)
-  const wThisWeek = (S.workouts || []).filter(w => weekKey(w.d) === weekKey(todayStr)).length
-  const plannedPerWeek = Object.keys(S.week || {}).filter(k => S.week[k]).length || 5
+  const todayWorkout = (S?.workouts || []).find(w => w && w.d === todayStr)
+  const wThisWeek = (S?.workouts || []).filter(w => w && w.d && weekKey(w.d) === weekKey(todayStr)).length
+  const plannedPerWeek = Object.keys(S?.week || {}).filter(k => S?.week?.[k]).length || 5
 
   const streakCount = useMemo(() => {
-    const w = streakWeeks(S.workouts || [])
-    return w > 0 ? w * 3 : 12 // reference default if brand new
-  }, [S.workouts])
+    try {
+      const w = streakWeeks(S)
+      return w > 0 ? w * 3 : 12
+    } catch {
+      return 12
+    }
+  }, [S])
 
   // Week days for Weekly Activity and This Week Plan
   const monday = useMemo(() => {
@@ -155,12 +238,12 @@ export default function Home() {
     return d
   }, [today])
 
-  const doneDays = useMemo(() => new Set((S.workouts || []).map(w => w.d)), [S.workouts])
+  const doneDays = useMemo(() => new Set((S?.workouts || []).map(w => w?.d).filter(Boolean)), [S?.workouts])
 
   const weekActivityDays = useMemo(() => {
     const days = []
     const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-    const heights = [35, 65, 95, 45, 80, 20, 15] // default aesthetic heights
+    const heights = [35, 65, 95, 45, 80, 20, 15]
 
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday)
@@ -168,7 +251,7 @@ export default function Home() {
       const iso = isoOf(d)
       const isToday = iso === todayStr
       const done = doneDays.has(iso)
-      const sched = getTodayScheduledWorkout(S, d)
+      const sched = (S && d) ? (getTodayScheduledWorkout(S, d) || { isRest: true, template: null }) : { isRest: true, template: null }
       const hasPlan = !sched.isRest && !!sched.template
 
       let fillH = heights[i]
@@ -190,7 +273,7 @@ export default function Home() {
   }, [monday, todayStr, doneDays, S])
 
   const handleStartTodayWorkout = () => {
-    if (S.active) {
+    if (S?.active) {
       nav('/workout')
       return
     }
@@ -212,41 +295,59 @@ export default function Home() {
   }
 
   // Weight Progress Chart Points (SVG Bezier curve)
-  const currentWeightVal = bw?.w || 79
-  const weightUnit = bw?.u || 'kg'
+  const currentWeightVal = (bw && typeof bw.w === 'number' && !isNaN(bw.w)) ? bw.w : 79
+  const weightUnit = bw?.u || S?.unit || 'kg'
   const weightPoints = useMemo(() => {
-    if (S.bodyweight && S.bodyweight.length >= 3) {
-      return S.bodyweight.slice(-7).map(b => b.w)
+    if (S?.bodyweight && Array.isArray(S.bodyweight) && S.bodyweight.length >= 3) {
+      const pts = S.bodyweight.slice(-7)
+        .map(b => (b && typeof b.w === 'number' && !isNaN(b.w) ? b.w : null))
+        .filter(w => w !== null)
+      if (pts.length >= 2) return pts
     }
     return [80.5, 79.8, 80.2, 79.5, 78.9, 79.4, currentWeightVal]
-  }, [S.bodyweight, currentWeightVal])
+  }, [S?.bodyweight, currentWeightVal])
 
   // SVG Line Chart coordinates calculation for "Your Progress"
   const chartWidth = 240
   const chartHeight = 70
-  const minW = Math.min(...weightPoints) - 0.5
-  const maxW = Math.max(...weightPoints) + 0.5
-  const coords = weightPoints.map((val, idx) => {
-    const x = Math.round((idx / (weightPoints.length - 1)) * (chartWidth - 20) + 10)
-    const y = Math.round(chartHeight - 12 - ((val - minW) / (maxW - minW || 1)) * (chartHeight - 24))
-    return { x, y }
-  })
+  const minW = weightPoints.length ? Math.min(...weightPoints) - 0.5 : 70
+  const maxW = weightPoints.length ? Math.max(...weightPoints) + 0.5 : 85
+  const rangeW = (maxW - minW) || 1
 
-  const pathD = coords.reduce((acc, pt, idx, arr) => {
-    if (idx === 0) return `M ${pt.x} ${pt.y}`
-    const prev = arr[idx - 1]
-    const cpX = (prev.x + pt.x) / 2
-    return `${acc} C ${cpX} ${prev.y}, ${cpX} ${pt.y}, ${pt.x} ${pt.y}`
-  }, '')
+  const coords = useMemo(() => {
+    const pts = weightPoints.length ? weightPoints : [75, 75]
+    const denom = pts.length > 1 ? (pts.length - 1) : 1
+    return pts.map((val, idx) => {
+      const x = Math.round((idx / denom) * (chartWidth - 20) + 10)
+      const rawY = chartHeight - 12 - ((val - minW) / rangeW) * (chartHeight - 24)
+      const y = isNaN(rawY) ? Math.round(chartHeight / 2) : Math.round(rawY)
+      return { x, y }
+    })
+  }, [weightPoints, minW, rangeW, chartWidth, chartHeight])
 
-  const areaD = `${pathD} L ${coords[coords.length - 1].x} ${chartHeight} L ${coords[0].x} ${chartHeight} Z`
+  const pathD = useMemo(() => {
+    if (!coords || !coords.length) return ''
+    return coords.reduce((acc, pt, idx, arr) => {
+      if (idx === 0) return `M ${pt.x} ${pt.y}`
+      const prev = arr[idx - 1]
+      const cpX = (prev.x + pt.x) / 2
+      return `${acc} C ${cpX} ${prev.y}, ${cpX} ${pt.y}, ${pt.x} ${pt.y}`
+    }, '')
+  }, [coords])
+
+  const areaD = useMemo(() => {
+    if (!coords || !coords.length || !pathD) return ''
+    const lastPt = coords[coords.length - 1] || { x: chartWidth, y: chartHeight }
+    const firstPt = coords[0] || { x: 0, y: chartHeight }
+    return `${pathD} L ${lastPt.x} ${chartHeight} L ${firstPt.x} ${chartHeight} Z`
+  }, [coords, pathD, chartHeight])
 
   // Donut chart calculations
   const donutR = 48
   const donutC = 2 * Math.PI * donutR
-  const donutOffset = donutC - (caloriePct / 100) * donutC
+  const donutOffset = isNaN(donutC - (caloriePct / 100) * donutC) ? 0 : Math.max(0, donutC - (caloriePct / 100) * donutC)
 
-  const userName = user?.name || 'Saravana Kumar'
+  const userName = user?.name || 'Athlete'
 
   return (
     <div className="dashboard-layout" style={{ maxWidth: 1240, margin: '0 auto', width: '100%' }}>
@@ -290,7 +391,7 @@ export default function Home() {
               height: 40,
               borderRadius: '50%',
               background: 'rgba(20, 20, 22, 0.75)',
-              border: '1px solid rgba(232, 180, 119, 0.18)',
+              border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.18))',
               color: '#F5F1EB',
               boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
             }}
@@ -300,14 +401,14 @@ export default function Home() {
           <button
             className="iconbtn"
             onClick={() => nav('/nutrition')}
-            aria-label={t('Notifications')}
+            aria-label={t('Daily Health Log')}
             title={t('Daily Health Log')}
             style={{
               width: 40,
               height: 40,
               borderRadius: '50%',
               background: 'rgba(20, 20, 22, 0.75)',
-              border: '1px solid rgba(232, 180, 119, 0.18)',
+              border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.18))',
               color: '#F5F1EB',
               boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
             }}
@@ -320,16 +421,16 @@ export default function Home() {
               width: 42,
               height: 42,
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, rgba(232, 180, 119, 0.2) 0%, rgba(197, 138, 83, 0.1) 100%)',
-              border: '1.5px solid #E8B477',
-              color: '#E8B477',
+              background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.16))',
+              border: '1.5px solid var(--theme-accent, #E8B477)',
+              color: 'var(--theme-accent, #E8B477)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
               fontWeight: 700,
               fontSize: 16,
-              boxShadow: '0 0 12px rgba(232, 180, 119, 0.3)'
+              boxShadow: '0 0 12px var(--theme-accent-glow, rgba(232, 180, 119, 0.3))'
             }}
             title={t('User Profile')}
           >
@@ -338,7 +439,11 @@ export default function Home() {
         </div>
       </div>
 
-      {coachOn && <CoachCard nav={nav} />}
+      {coachOn && (
+        <WidgetBoundary title={t('AI Coach')}>
+          <CoachCard nav={nav} />
+        </WidgetBoundary>
+      )}
 
       {/* 2. Top Row: Hero Section (~62%) + Weekly Activity (~38%) */}
       <div
@@ -351,449 +456,457 @@ export default function Home() {
         className="home-hero-activity-row"
       >
         {/* Left Hero Card */}
+        <WidgetBoundary title={t('Workout')}>
+          <div
+            className="card"
+            style={{
+              position: 'relative',
+              overflow: 'hidden',
+              padding: '28px 30px',
+              borderRadius: 22,
+              background: 'linear-gradient(135deg, rgba(22, 20, 20, 0.95) 0%, rgba(14, 13, 14, 0.98) 100%)',
+              border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.18))',
+              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.12)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              minHeight: 220
+            }}
+          >
+            {/* Ambient accent lighting background effect */}
+            <div
+              style={{
+                position: 'absolute',
+                top: '-20%',
+                right: '-10%',
+                width: 320,
+                height: 320,
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, var(--theme-accent-glow, rgba(232, 180, 119, 0.16)) 0%, transparent 70%)',
+                filter: 'blur(45px)',
+                pointerEvents: 'none'
+              }}
+            />
+            {/* Decorative geometric accent arcs */}
+            <svg
+              style={{
+                position: 'absolute',
+                right: 20,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: 220,
+                height: 220,
+                opacity: 0.18,
+                pointerEvents: 'none'
+              }}
+              viewBox="0 0 200 200"
+            >
+              <circle cx="100" cy="100" r="85" fill="none" stroke="var(--theme-accent, #E8B477)" strokeWidth="1" strokeDasharray="6 6" />
+              <circle cx="100" cy="100" r="65" fill="none" stroke="var(--theme-accent, #E8B477)" strokeWidth="1.5" />
+              <circle cx="100" cy="100" r="45" fill="none" stroke="var(--theme-accent-highlight, #FFD09A)" strokeWidth="1" strokeDasharray="4 4" />
+            </svg>
+
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div
+                style={{
+                  fontSize: 30,
+                  fontWeight: 800,
+                  color: '#FFFFFF',
+                  letterSpacing: '-0.025em',
+                  lineHeight: 1.15,
+                  fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif"
+                }}
+              >
+                Plan. Train. Track.
+              </div>
+              <div
+                style={{
+                  fontSize: 30,
+                  fontWeight: 800,
+                  color: 'var(--theme-accent, #E8B477)',
+                  letterSpacing: '-0.025em',
+                  lineHeight: 1.15,
+                  marginTop: 2,
+                  fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif",
+                  textShadow: '0 0 24px var(--theme-accent-glow, rgba(232, 180, 119, 0.4))'
+                }}
+              >
+                Get Stronger.
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: '#A9A19A',
+                  marginTop: 10,
+                  maxWidth: 400,
+                  lineHeight: 1.5,
+                  fontWeight: 400
+                }}
+              >
+                {t('Your personal fitness companion to build muscle, lose fat and stay consistent.')}
+              </div>
+
+              <button
+                onClick={handleStartTodayWorkout}
+                style={{
+                  marginTop: 22,
+                  padding: '12px 24px',
+                  borderRadius: 9999,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: 'var(--theme-accent-gradient, linear-gradient(135deg, #FFD09A 0%, #E8B477 100%))',
+                  color: '#12100E',
+                  fontWeight: 800,
+                  fontSize: 14,
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 8px 24px var(--theme-accent-glow, rgba(232, 180, 119, 0.35))',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                }}
+              >
+                <span>{t('Start Workout')}</span>
+                <Icon name="arrowRight" size={15} />
+              </button>
+            </div>
+          </div>
+        </WidgetBoundary>
+
+        {/* Right Weekly Activity Card */}
+        <WidgetBoundary title={t('Weekly Activity')}>
+          <div
+            className="card"
+            style={{
+              padding: '24px',
+              borderRadius: 22,
+              background: 'rgba(20, 20, 22, 0.85)',
+              border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
+              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              minHeight: 220
+            }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB', letterSpacing: '-0.015em' }}>
+              {t('Weekly Activity')}
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-end',
+                justifyContent: 'space-between',
+                height: 120,
+                paddingTop: 10,
+                paddingBottom: 4
+              }}
+            >
+              {weekActivityDays.map((item, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 10,
+                    flex: 1
+                  }}
+                >
+                  {/* Vertical Pill Bar Track */}
+                  <div
+                    style={{
+                      width: 14,
+                      height: 90,
+                      borderRadius: 9999,
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      overflow: 'hidden',
+                      position: 'relative'
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '100%',
+                        height: `${item.fillH}%`,
+                        borderRadius: 9999,
+                        background: item.active
+                          ? 'var(--theme-accent-gradient, linear-gradient(180deg, #FFD09A 0%, #E8B477 100%))'
+                          : 'rgba(255, 255, 255, 0.08)',
+                        boxShadow: item.active ? '0 0 12px var(--theme-accent-glow, rgba(232, 180, 119, 0.45))' : 'none',
+                        transition: 'height 0.4s ease'
+                      }}
+                    />
+                  </div>
+                  {/* Day Label */}
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: item.isToday ? 800 : 600,
+                      color: item.isToday ? 'var(--theme-accent, #E8B477)' : '#A9A19A'
+                    }}
+                  >
+                    {item.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </WidgetBoundary>
+      </div>
+
+      {/* 3. Horizontal Statistics Overview Strip Card */}
+      <WidgetBoundary title={t('Statistics')}>
+        <div
+          className="card"
+          style={{
+            padding: '20px 26px',
+            borderRadius: 22,
+            background: 'rgba(20, 20, 22, 0.85)',
+            border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
+            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
+            marginBottom: 18
+          }}
+        >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: 20,
+              alignItems: 'center'
+            }}
+          >
+            {/* Metric 1: Weight */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: 14,
+                  background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.12))',
+                  border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.25))',
+                  color: 'var(--theme-accent, #E8B477)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flex: 'none'
+                }}
+              >
+                <Icon name="scale" size={22} />
+              </div>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
+                  {currentWeightVal} {weightUnit}
+                </div>
+                <div style={{ fontSize: 12, color: '#A9A19A', marginTop: 2 }}>{t('Weight')}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#10B981', marginTop: 2 }}>
+                  ▽ {deltaFormatted} kg
+                </div>
+              </div>
+            </div>
+
+            {/* Metric 2: Daily Target */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: 14,
+                  background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.12))',
+                  border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.25))',
+                  color: 'var(--theme-accent, #E8B477)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flex: 'none'
+                }}
+              >
+                <Icon name="flame" size={22} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
+                  {targetCalories.toLocaleString()} kcal
+                </div>
+                <div style={{ fontSize: 12, color: '#A9A19A', marginTop: 2 }}>{t('Daily Target')}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  <div style={{ flex: 1, height: 5, borderRadius: 9999, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
+                    <div style={{ width: `${caloriePct}%`, height: '100%', background: 'var(--theme-accent, #E8B477)', borderRadius: 9999 }} />
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#A9A19A' }}>{caloriePct}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Metric 3: Workouts */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: 14,
+                  background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.12))',
+                  border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.25))',
+                  color: 'var(--theme-accent, #E8B477)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flex: 'none'
+                }}
+              >
+                <Icon name="dumbbell" size={22} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
+                  {wThisWeek > 0 ? wThisWeek : 4} / {plannedPerWeek || 5}
+                </div>
+                <div style={{ fontSize: 12, color: '#A9A19A', marginTop: 2 }}>{t('Workouts')}</div>
+                <div style={{ marginTop: 4, height: 5, borderRadius: 9999, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min(100, Math.round(((wThisWeek || 4) / (plannedPerWeek || 5)) * 100))}%`, height: '100%', background: 'var(--theme-accent, #E8B477)', borderRadius: 9999 }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Metric 4: Streak */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: 14,
+                  background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.12))',
+                  border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.25))',
+                  color: 'var(--theme-accent, #E8B477)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flex: 'none'
+                }}
+              >
+                <Icon name="bolt" size={22} />
+              </div>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
+                  {streakCount} Days
+                </div>
+                <div style={{ fontSize: 12, color: '#A9A19A', marginTop: 2 }}>
+                  {t('Streak')} 🔥
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </WidgetBoundary>
+
+      {/* 4. Today's Workout Card (Wide Feature Card) */}
+      <WidgetBoundary title={t("Today's Workout")}>
         <div
           className="card"
           style={{
             position: 'relative',
             overflow: 'hidden',
-            padding: '28px 30px',
+            padding: '24px 28px',
             borderRadius: 22,
-            background: 'linear-gradient(135deg, rgba(22, 20, 20, 0.95) 0%, rgba(14, 13, 14, 0.98) 100%)',
-            border: '1px solid rgba(232, 180, 119, 0.18)',
-            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 208, 154, 0.12)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            minHeight: 220
+            background: 'linear-gradient(135deg, rgba(22, 21, 20, 0.95) 0%, rgba(16, 15, 16, 0.95) 100%)',
+            border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.2))',
+            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
+            marginBottom: 18
           }}
         >
-          {/* Subtle warm gold ambient lighting background effect (No human characters) */}
+          {/* Subtle silhouette texture glow */}
           <div
             style={{
               position: 'absolute',
-              top: '-20%',
-              right: '-10%',
-              width: 320,
-              height: 320,
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(232, 180, 119, 0.16) 0%, rgba(197, 138, 83, 0.08) 50%, transparent 70%)',
-              filter: 'blur(45px)',
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: '45%',
+              background: 'radial-gradient(circle at 70% 50%, var(--theme-accent-glow, rgba(232, 180, 119, 0.1)) 0%, transparent 70%)',
               pointerEvents: 'none'
             }}
           />
-          {/* Decorative geometric gold arcs */}
-          <svg
-            style={{
-              position: 'absolute',
-              right: 20,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: 220,
-              height: 220,
-              opacity: 0.18,
-              pointerEvents: 'none'
-            }}
-            viewBox="0 0 200 200"
-          >
-            <circle cx="100" cy="100" r="85" fill="none" stroke="#E8B477" strokeWidth="1" strokeDasharray="6 6" />
-            <circle cx="100" cy="100" r="65" fill="none" stroke="#E8B477" strokeWidth="1.5" />
-            <circle cx="100" cy="100" r="45" fill="none" stroke="#FFD09A" strokeWidth="1" strokeDasharray="4 4" />
-          </svg>
 
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            <div
-              style={{
-                fontSize: 30,
-                fontWeight: 800,
-                color: '#FFFFFF',
-                letterSpacing: '-0.025em',
-                lineHeight: 1.15,
-                fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif"
-              }}
-            >
-              Plan. Train. Track.
-            </div>
-            <div
-              style={{
-                fontSize: 30,
-                fontWeight: 800,
-                color: '#E8B477',
-                letterSpacing: '-0.025em',
-                lineHeight: 1.15,
-                marginTop: 2,
-                fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif",
-                textShadow: '0 0 24px rgba(232, 180, 119, 0.4)'
-              }}
-            >
-              Get Stronger.
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: '#A9A19A',
-                marginTop: 10,
-                maxWidth: 400,
-                lineHeight: 1.5,
-                fontWeight: 400
-              }}
-            >
-              Your personal fitness companion to build muscle, lose fat and stay consistent.
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 18,
+              position: 'relative',
+              zIndex: 1
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--theme-accent, #E8B477)', fontSize: 13, fontWeight: 700 }}>
+                <Icon name="calendar" size={16} />
+                <span>{t("Today's Workout")}</span>
+              </div>
+
+              <div
+                style={{
+                  fontSize: 26,
+                  fontWeight: 800,
+                  color: '#F5F1EB',
+                  marginTop: 6,
+                  fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif",
+                  letterSpacing: '-0.02em'
+                }}
+              >
+                {S?.active ? S.active.name : (scheduledTemplate?.name || 'Back + Biceps')}
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 16,
+                  marginTop: 10,
+                  color: '#A9A19A',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  flexWrap: 'wrap'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Icon name="stack" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                  <span>{scheduledTemplate?.exercises?.length || 7} {t('Exercises')}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Icon name="clock" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                  <span>~ 45 min</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Icon name="flame" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                  <span>~ 380 kcal</span>
+                </div>
+              </div>
             </div>
 
             <button
               onClick={handleStartTodayWorkout}
               style={{
-                marginTop: 22,
-                padding: '12px 24px',
+                padding: '12px 26px',
                 borderRadius: 9999,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 8,
-                background: 'linear-gradient(135deg, #FFD09A 0%, #E8B477 100%)',
+                background: 'var(--theme-accent-gradient, linear-gradient(135deg, #FFD09A 0%, #E8B477 100%))',
                 color: '#12100E',
                 fontWeight: 800,
                 fontSize: 14,
                 border: 'none',
                 cursor: 'pointer',
-                boxShadow: '0 8px 24px rgba(232, 180, 119, 0.35)',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                boxShadow: '0 8px 24px var(--theme-accent-glow, rgba(232, 180, 119, 0.35))',
+                transition: 'transform 0.15s ease'
               }}
             >
-              <span>{t('Start Workout')}</span>
+              <span>{S?.active ? t('Resume Workout') : t('Start Workout')}</span>
               <Icon name="arrowRight" size={15} />
             </button>
           </div>
         </div>
-
-        {/* Right Weekly Activity Card */}
-        <div
-          className="card"
-          style={{
-            padding: '24px',
-            borderRadius: 22,
-            background: 'rgba(20, 20, 22, 0.85)',
-            border: '1px solid rgba(232, 180, 119, 0.15)',
-            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            minHeight: 220
-          }}
-        >
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB', letterSpacing: '-0.015em' }}>
-            {t('Weekly Activity')}
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'space-between',
-              height: 120,
-              paddingTop: 10,
-              paddingBottom: 4
-            }}
-          >
-            {weekActivityDays.map((item, idx) => (
-              <div
-                key={idx}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 10,
-                  flex: 1
-                }}
-              >
-                {/* Vertical Pill Bar Track */}
-                <div
-                  style={{
-                    width: 14,
-                    height: 90,
-                    borderRadius: 9999,
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    display: 'flex',
-                    alignItems: 'flex-end',
-                    overflow: 'hidden',
-                    position: 'relative'
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '100%',
-                      height: `${item.fillH}%`,
-                      borderRadius: 9999,
-                      background: item.active
-                        ? 'linear-gradient(180deg, #FFD09A 0%, #E8B477 100%)'
-                        : 'rgba(255, 255, 255, 0.08)',
-                      boxShadow: item.active ? '0 0 12px rgba(232, 180, 119, 0.45)' : 'none',
-                      transition: 'height 0.4s ease'
-                    }}
-                  />
-                </div>
-                {/* Day Label */}
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: item.isToday ? 800 : 600,
-                    color: item.isToday ? '#E8B477' : '#A9A19A'
-                  }}
-                >
-                  {item.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Horizontal Statistics Overview Strip Card */}
-      <div
-        className="card"
-        style={{
-          padding: '20px 26px',
-          borderRadius: 22,
-          background: 'rgba(20, 20, 22, 0.85)',
-          border: '1px solid rgba(232, 180, 119, 0.15)',
-          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
-          marginBottom: 18
-        }}
-      >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: 20,
-            alignItems: 'center'
-          }}
-        >
-          {/* Metric 1: Weight */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div
-              style={{
-                width: 46,
-                height: 46,
-                borderRadius: 14,
-                background: 'rgba(232, 180, 119, 0.12)',
-                border: '1px solid rgba(232, 180, 119, 0.25)',
-                color: '#E8B477',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flex: 'none'
-              }}
-            >
-              <Icon name="scale" size={22} />
-            </div>
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
-                {currentWeightVal} {weightUnit}
-              </div>
-              <div style={{ fontSize: 12, color: '#A9A19A', marginTop: 2 }}>{t('Weight')}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#10B981', marginTop: 2 }}>
-                ▽ {delta > 0 ? `+${delta.toFixed(1)}` : `${delta.toFixed(1)}`} kg
-              </div>
-            </div>
-          </div>
-
-          {/* Metric 2: Daily Target */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div
-              style={{
-                width: 46,
-                height: 46,
-                borderRadius: 14,
-                background: 'rgba(232, 180, 119, 0.12)',
-                border: '1px solid rgba(232, 180, 119, 0.25)',
-                color: '#E8B477',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flex: 'none'
-              }}
-            >
-              <Icon name="flame" size={22} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
-                {targetCalories.toLocaleString()} kcal
-              </div>
-              <div style={{ fontSize: 12, color: '#A9A19A', marginTop: 2 }}>{t('Daily Target')}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                <div style={{ flex: 1, height: 5, borderRadius: 9999, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
-                  <div style={{ width: `${caloriePct}%`, height: '100%', background: '#E8B477', borderRadius: 9999 }} />
-                </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#A9A19A' }}>{caloriePct}%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Metric 3: Workouts */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div
-              style={{
-                width: 46,
-                height: 46,
-                borderRadius: 14,
-                background: 'rgba(232, 180, 119, 0.12)',
-                border: '1px solid rgba(232, 180, 119, 0.25)',
-                color: '#E8B477',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flex: 'none'
-              }}
-            >
-              <Icon name="dumbbell" size={22} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
-                {wThisWeek > 0 ? wThisWeek : 4} / {plannedPerWeek || 5}
-              </div>
-              <div style={{ fontSize: 12, color: '#A9A19A', marginTop: 2 }}>{t('Workouts')}</div>
-              <div style={{ marginTop: 4, height: 5, borderRadius: 9999, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(100, Math.round(((wThisWeek || 4) / (plannedPerWeek || 5)) * 100))}%`, height: '100%', background: '#E8B477', borderRadius: 9999 }} />
-              </div>
-            </div>
-          </div>
-
-          {/* Metric 4: Streak */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div
-              style={{
-                width: 46,
-                height: 46,
-                borderRadius: 14,
-                background: 'rgba(232, 180, 119, 0.12)',
-                border: '1px solid rgba(232, 180, 119, 0.25)',
-                color: '#E8B477',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flex: 'none'
-              }}
-            >
-              <Icon name="bolt" size={22} />
-            </div>
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
-                {streakCount} Days
-              </div>
-              <div style={{ fontSize: 12, color: '#A9A19A', marginTop: 2 }}>
-                {t('Streak')} 🔥
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Today's Workout Card (Wide Feature Card) */}
-      <div
-        className="card"
-        style={{
-          position: 'relative',
-          overflow: 'hidden',
-          padding: '24px 28px',
-          borderRadius: 22,
-          background: 'linear-gradient(135deg, rgba(22, 21, 20, 0.95) 0%, rgba(16, 15, 16, 0.95) 100%)',
-          border: '1px solid rgba(232, 180, 119, 0.2)',
-          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
-          marginBottom: 18
-        }}
-      >
-        {/* Subtle dark gym silhouette / texture glow */}
-        <div
-          style={{
-            position: 'absolute',
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: '45%',
-            background: 'radial-gradient(circle at 70% 50%, rgba(232, 180, 119, 0.1) 0%, transparent 70%)',
-            pointerEvents: 'none'
-          }}
-        />
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 18,
-            position: 'relative',
-            zIndex: 1
-          }}
-        >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#E8B477', fontSize: 13, fontWeight: 700 }}>
-              <Icon name="calendar" size={16} />
-              <span>{t("Today's Workout")}</span>
-            </div>
-
-            <div
-              style={{
-                fontSize: 26,
-                fontWeight: 800,
-                color: '#F5F1EB',
-                marginTop: 6,
-                fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif",
-                letterSpacing: '-0.02em'
-              }}
-            >
-              {S.active ? S.active.name : (scheduledTemplate?.name || 'Back + Biceps')}
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 16,
-                marginTop: 10,
-                color: '#A9A19A',
-                fontSize: 13,
-                fontWeight: 500,
-                flexWrap: 'wrap'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Icon name="stack" size={14} style={{ color: '#E8B477' }} />
-                <span>{scheduledTemplate?.exercises?.length || 7} {t('Exercises')}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Icon name="clock" size={14} style={{ color: '#E8B477' }} />
-                <span>~ 45 min</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Icon name="flame" size={14} style={{ color: '#E8B477' }} />
-                <span>~ 380 kcal</span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={handleStartTodayWorkout}
-            style={{
-              padding: '12px 26px',
-              borderRadius: 9999,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              background: 'linear-gradient(135deg, #FFD09A 0%, #E8B477 100%)',
-              color: '#12100E',
-              fontWeight: 800,
-              fontSize: 14,
-              border: 'none',
-              cursor: 'pointer',
-              boxShadow: '0 8px 24px rgba(232, 180, 119, 0.35)',
-              transition: 'transform 0.15s ease'
-            }}
-          >
-            <span>{S.active ? t('Resume Workout') : t('Start Workout')}</span>
-            <Icon name="arrowRight" size={15} />
-          </button>
-        </div>
-      </div>
+      </WidgetBoundary>
 
       {/* 5. Lower Dashboard: Balanced Two-Column Grid */}
       <div
@@ -808,398 +921,408 @@ export default function Home() {
         {/* Left Column: Calories Overview & Quick Actions */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           {/* Card: Calories Overview */}
-          <div
-            className="card"
-            style={{
-              padding: '24px',
-              borderRadius: 22,
-              background: 'rgba(20, 20, 22, 0.85)',
-              border: '1px solid rgba(232, 180, 119, 0.15)',
-              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)'
-            }}
-          >
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB', marginBottom: 18 }}>
-              {t('Calories Overview')}
-            </div>
+          <WidgetBoundary title={t('Calories Overview')}>
+            <div
+              className="card"
+              style={{
+                padding: '24px',
+                borderRadius: 22,
+                background: 'rgba(20, 20, 22, 0.85)',
+                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
+                boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)'
+              }}
+            >
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB', marginBottom: 18 }}>
+                {t('Calories Overview')}
+              </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
-              {/* Left Donut Ring */}
-              <div style={{ position: 'relative', width: 115, height: 115, flex: 'none' }}>
-                <svg width="115" height="115" viewBox="0 0 115 115" style={{ transform: 'rotate(-90deg)' }}>
-                  {/* Track */}
-                  <circle
-                    cx="57.5"
-                    cy="57.5"
-                    r={donutR}
-                    fill="none"
-                    stroke="rgba(255, 255, 255, 0.08)"
-                    strokeWidth="10"
-                  />
-                  {/* Fill Arc */}
-                  <circle
-                    cx="57.5"
-                    cy="57.5"
-                    r={donutR}
-                    fill="none"
-                    stroke="#E8B477"
-                    strokeWidth="10"
-                    strokeDasharray={donutC}
-                    strokeDashoffset={donutOffset}
-                    strokeLinecap="round"
-                    style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-                  />
-                </svg>
-                {/* Center Label */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
+                {/* Left Donut Ring */}
+                <div style={{ position: 'relative', width: 115, height: 115, flex: 'none' }}>
+                  <svg width="115" height="115" viewBox="0 0 115 115" style={{ transform: 'rotate(-90deg)' }}>
+                    {/* Track */}
+                    <circle
+                      cx="57.5"
+                      cy="57.5"
+                      r={donutR}
+                      fill="none"
+                      stroke="rgba(255, 255, 255, 0.08)"
+                      strokeWidth="10"
+                    />
+                    {/* Fill Arc */}
+                    <circle
+                      cx="57.5"
+                      cy="57.5"
+                      r={donutR}
+                      fill="none"
+                      stroke="var(--theme-accent, #E8B477)"
+                      strokeWidth="10"
+                      strokeDasharray={donutC}
+                      strokeDashoffset={donutOffset}
+                      strokeLinecap="round"
+                      style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+                    />
+                  </svg>
+                  {/* Center Label */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <span style={{ fontSize: 18, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
+                      {loggedCalories.toLocaleString()}
+                    </span>
+                    <span style={{ fontSize: 11, color: '#A9A19A', fontWeight: 600 }}>kcal</span>
+                  </div>
+                </div>
+
+                {/* Right Macro Breakdown */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {/* Protein */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--theme-accent-highlight, #FFD09A)' }} />
+                      <span style={{ color: '#F5F1EB', fontWeight: 500 }}>{t('Protein')}</span>
+                    </div>
+                    <span style={{ color: '#F5F1EB', fontWeight: 600 }}>
+                      {proteinGrams} g <span style={{ color: '#A9A19A', fontSize: 11 }}>({proteinPct}%)</span>
+                    </span>
+                  </div>
+
+                  {/* Carbs */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--theme-accent, #E8B477)' }} />
+                      <span style={{ color: '#F5F1EB', fontWeight: 500 }}>{t('Carbs')}</span>
+                    </div>
+                    <span style={{ color: '#F5F1EB', fontWeight: 600 }}>
+                      {carbsGrams} g <span style={{ color: '#A9A19A', fontSize: 11 }}>({carbsPct}%)</span>
+                    </span>
+                  </div>
+
+                  {/* Fats */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--theme-accent-secondary, #C58A53)' }} />
+                      <span style={{ color: '#F5F1EB', fontWeight: 500 }}>{t('Fats')}</span>
+                    </div>
+                    <span style={{ color: '#F5F1EB', fontWeight: 600 }}>
+                      {fatsGrams} g <span style={{ color: '#A9A19A', fontSize: 11 }}>({fatsPct}%)</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </WidgetBoundary>
+
+          {/* Card: Quick Actions */}
+          <WidgetBoundary title={t('Quick Actions')}>
+            <div
+              className="card"
+              style={{
+                padding: '24px',
+                borderRadius: 22,
+                background: 'rgba(20, 20, 22, 0.85)',
+                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
+                boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)'
+              }}
+            >
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB', marginBottom: 16 }}>
+                {t('Quick Actions')}
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: 12
+                }}
+                className="quick-actions-strip"
+              >
+                {/* Action 1: Log Workout */}
                 <div
+                  onClick={handleStartTodayWorkout}
                   style={{
-                    position: 'absolute',
-                    inset: 0,
+                    padding: '16px 10px',
+                    borderRadius: 16,
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    gap: 8,
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    transition: 'border-color 0.15s ease, transform 0.15s ease'
                   }}
                 >
-                  <span style={{ fontSize: 18, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
-                    {loggedCalories.toLocaleString()}
+                  <span style={{ color: 'var(--theme-accent, #E8B477)' }}>
+                    <Icon name="dumbbell" size={20} />
                   </span>
-                  <span style={{ fontSize: 11, color: '#A9A19A', fontWeight: 600 }}>kcal</span>
-                </div>
-              </div>
-
-              {/* Right Macro Breakdown */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {/* Protein */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#FFD09A' }} />
-                    <span style={{ color: '#F5F1EB', fontWeight: 500 }}>{t('Protein')}</span>
-                  </div>
-                  <span style={{ color: '#F5F1EB', fontWeight: 600 }}>
-                    {proteinGrams} g <span style={{ color: '#A9A19A', fontSize: 11 }}>({proteinPct}%)</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#F5F1EB' }}>
+                    {t('Log Workout')}
                   </span>
                 </div>
 
-                {/* Carbs */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#E8B477' }} />
-                    <span style={{ color: '#F5F1EB', fontWeight: 500 }}>{t('Carbs')}</span>
-                  </div>
-                  <span style={{ color: '#F5F1EB', fontWeight: 600 }}>
-                    {carbsGrams} g <span style={{ color: '#A9A19A', fontSize: 11 }}>({carbsPct}%)</span>
+                {/* Action 2: Log Food */}
+                <div
+                  onClick={() => nav('/nutrition')}
+                  style={{
+                    padding: '16px 10px',
+                    borderRadius: 16,
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    transition: 'border-color 0.15s ease, transform 0.15s ease'
+                  }}
+                >
+                  <span style={{ color: 'var(--theme-accent, #E8B477)' }}>
+                    <Icon name="apple" size={20} />
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#F5F1EB' }}>
+                    {t('Log Food')}
                   </span>
                 </div>
 
-                {/* Fats */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#C58A53' }} />
-                    <span style={{ color: '#F5F1EB', fontWeight: 500 }}>{t('Fats')}</span>
-                  </div>
-                  <span style={{ color: '#F5F1EB', fontWeight: 600 }}>
-                    {fatsGrams} g <span style={{ color: '#A9A19A', fontSize: 11 }}>({fatsPct}%)</span>
+                {/* Action 3: Log Cardio */}
+                <div
+                  onClick={() => cardioSheet(null, todayStr)}
+                  style={{
+                    padding: '16px 10px',
+                    borderRadius: 16,
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    transition: 'border-color 0.15s ease, transform 0.15s ease'
+                  }}
+                >
+                  <span style={{ color: 'var(--theme-accent, #E8B477)' }}>
+                    <Icon name="figureRun" size={20} />
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#F5F1EB' }}>
+                    {t('Log Cardio')}
+                  </span>
+                </div>
+
+                {/* Action 4: Body Stats */}
+                <div
+                  onClick={() => bwSheet()}
+                  style={{
+                    padding: '16px 10px',
+                    borderRadius: 16,
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    transition: 'border-color 0.15s ease, transform 0.15s ease'
+                  }}
+                >
+                  <span style={{ color: 'var(--theme-accent, #E8B477)' }}>
+                    <Icon name="scale" size={20} />
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#F5F1EB' }}>
+                    {t('Body Stats')}
                   </span>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Card: Quick Actions */}
-          <div
-            className="card"
-            style={{
-              padding: '24px',
-              borderRadius: 22,
-              background: 'rgba(20, 20, 22, 0.85)',
-              border: '1px solid rgba(232, 180, 119, 0.15)',
-              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)'
-            }}
-          >
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB', marginBottom: 16 }}>
-              {t('Quick Actions')}
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: 12
-              }}
-              className="quick-actions-strip"
-            >
-              {/* Action 1: Log Workout */}
-              <div
-                onClick={handleStartTodayWorkout}
-                style={{
-                  padding: '16px 10px',
-                  borderRadius: 16,
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(232, 180, 119, 0.15)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  transition: 'border-color 0.15s ease, transform 0.15s ease'
-                }}
-              >
-                <span style={{ color: '#E8B477' }}>
-                  <Icon name="dumbbell" size={20} />
-                </span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#F5F1EB' }}>
-                  {t('Log Workout')}
-                </span>
-              </div>
-
-              {/* Action 2: Log Food */}
-              <div
-                onClick={() => nav('/nutrition')}
-                style={{
-                  padding: '16px 10px',
-                  borderRadius: 16,
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(232, 180, 119, 0.15)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  transition: 'border-color 0.15s ease, transform 0.15s ease'
-                }}
-              >
-                <span style={{ color: '#E8B477' }}>
-                  <Icon name="apple" size={20} />
-                </span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#F5F1EB' }}>
-                  {t('Log Food')}
-                </span>
-              </div>
-
-              {/* Action 3: Log Cardio */}
-              <div
-                onClick={() => cardioSheet(null, todayStr)}
-                style={{
-                  padding: '16px 10px',
-                  borderRadius: 16,
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(232, 180, 119, 0.15)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  transition: 'border-color 0.15s ease, transform 0.15s ease'
-                }}
-              >
-                <span style={{ color: '#E8B477' }}>
-                  <Icon name="figureRun" size={20} />
-                </span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#F5F1EB' }}>
-                  {t('Log Cardio')}
-                </span>
-              </div>
-
-              {/* Action 4: Body Stats */}
-              <div
-                onClick={() => bwSheet()}
-                style={{
-                  padding: '16px 10px',
-                  borderRadius: 16,
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(232, 180, 119, 0.15)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  transition: 'border-color 0.15s ease, transform 0.15s ease'
-                }}
-              >
-                <span style={{ color: '#E8B477' }}>
-                  <Icon name="scale" size={20} />
-                </span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#F5F1EB' }}>
-                  {t('Body Stats')}
-                </span>
-              </div>
-            </div>
-          </div>
+          </WidgetBoundary>
         </div>
 
         {/* Right Column: Your Progress & This Week Plan */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           {/* Card: Your Progress */}
-          <div
-            className="card"
-            style={{
-              padding: '24px',
-              borderRadius: 22,
-              background: 'rgba(20, 20, 22, 0.85)',
-              border: '1px solid rgba(232, 180, 119, 0.15)',
-              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <span style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB' }}>
-                {t('Your Progress')}
-              </span>
-              <div
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: 10,
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(232, 180, 119, 0.2)',
-                  fontSize: 12,
-                  color: '#E8B477',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4
-                }}
-              >
-                <span>{t('Body Weight')}</span>
-                <Icon name="chevronDown" size={13} />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-              <div>
-                <div style={{ fontSize: 28, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
-                  {currentWeightVal} {weightUnit}
-                </div>
-                <div style={{ fontSize: 12, color: '#10B981', fontWeight: 600, marginTop: 4 }}>
-                  ▽ {delta > 0 ? `+${delta.toFixed(1)}` : `${delta.toFixed(1)}`} kg ({t('Last 7 days')})
+          <WidgetBoundary title={t('Your Progress')}>
+            <div
+              className="card"
+              style={{
+                padding: '24px',
+                borderRadius: 22,
+                background: 'rgba(20, 20, 22, 0.85)',
+                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
+                boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB' }}>
+                  {t('Your Progress')}
+                </span>
+                <div
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: 10,
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.2))',
+                    fontSize: 12,
+                    color: 'var(--theme-accent, #E8B477)',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4
+                  }}
+                >
+                  <span>{t('Body Weight')}</span>
+                  <Icon name="chevronDown" size={13} />
                 </div>
               </div>
 
-              {/* Champagne Gold SVG Smooth Line Chart */}
-              <div style={{ width: chartWidth, height: chartHeight, flex: 'none' }}>
-                <svg width={chartWidth} height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ overflow: 'visible' }}>
-                  <defs>
-                    <linearGradient id="goldLineGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#E8B477" stopOpacity="0.35" />
-                      <stop offset="100%" stopColor="#E8B477" stopOpacity="0.0" />
-                    </linearGradient>
-                  </defs>
-                  {/* Gradient Area under curve */}
-                  <path d={areaD} fill="url(#goldLineGrad)" />
-                  {/* Glowing Line */}
-                  <path
-                    d={pathD}
-                    fill="none"
-                    stroke="#E8B477"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    style={{ filter: 'drop-shadow(0 2px 8px rgba(232, 180, 119, 0.4))' }}
-                  />
-                  {/* Data Points */}
-                  {coords.map((pt, idx) => (
-                    <circle
-                      key={idx}
-                      cx={pt.x}
-                      cy={pt.y}
-                      r="4"
-                      fill="#FFD09A"
-                      stroke="#141416"
-                      strokeWidth="2"
-                    />
-                  ))}
-                </svg>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
+                    {currentWeightVal} {weightUnit}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#10B981', fontWeight: 600, marginTop: 4 }}>
+                    ▽ {deltaFormatted} kg ({t('Last 7 days')})
+                  </div>
+                </div>
+
+                {/* Dynamic Accent SVG Smooth Line Chart */}
+                <div style={{ width: chartWidth, height: chartHeight, flex: 'none' }}>
+                  <svg width={chartWidth} height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ overflow: 'visible' }}>
+                    <defs>
+                      <linearGradient id="chartAccentGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--theme-accent, #E8B477)" stopOpacity="0.35" />
+                        <stop offset="100%" stopColor="var(--theme-accent, #E8B477)" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    {/* Gradient Area under curve */}
+                    {areaD ? <path d={areaD} fill="url(#chartAccentGrad)" /> : null}
+                    {/* Glowing Line */}
+                    {pathD ? (
+                      <path
+                        d={pathD}
+                        fill="none"
+                        stroke="var(--theme-accent, #E8B477)"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        style={{ filter: 'drop-shadow(0 2px 8px var(--theme-accent-glow, rgba(232, 180, 119, 0.4)))' }}
+                      />
+                    ) : null}
+                    {/* Data Points */}
+                    {coords.map((pt, idx) => (
+                      <circle
+                        key={idx}
+                        cx={pt.x}
+                        cy={pt.y}
+                        r="4"
+                        fill="var(--theme-accent-highlight, #FFD09A)"
+                        stroke="#141416"
+                        strokeWidth="2"
+                      />
+                    ))}
+                  </svg>
+                </div>
               </div>
             </div>
-          </div>
+          </WidgetBoundary>
 
           {/* Card: This Week Plan */}
-          <div
-            className="card"
-            style={{
-              padding: '24px',
-              borderRadius: 22,
-              background: 'rgba(20, 20, 22, 0.85)',
-              border: '1px solid rgba(232, 180, 119, 0.15)',
-              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <span style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB' }}>
-                {t('This Week Plan')}
-              </span>
-              <button
-                onClick={() => nav('/planner')}
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: '#E8B477',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4
-                }}
-              >
-                <span>{t('View Full Plan')}</span>
-                <Icon name="arrowRight" size={13} />
-              </button>
-            </div>
+          <WidgetBoundary title={t('This Week Plan')}>
+            <div
+              className="card"
+              style={{
+                padding: '24px',
+                borderRadius: 22,
+                background: 'rgba(20, 20, 22, 0.85)',
+                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
+                boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB' }}>
+                  {t('This Week Plan')}
+                </span>
+                <button
+                  onClick={() => nav('/planner')}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: 'var(--theme-accent, #E8B477)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4
+                  }}
+                >
+                  <span>{t('View Full Plan')}</span>
+                  <Icon name="arrowRight" size={13} />
+                </button>
+              </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {weekActivityDays.slice(0, 4).map((day, idx) => {
-                const isDayToday = day.isToday
-                return (
-                  <div
-                    key={idx}
-                    onClick={() => nav('/planner')}
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: 12,
-                      background: isDayToday ? 'rgba(232, 180, 119, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                      border: isDayToday ? '1px solid rgba(232, 180, 119, 0.45)' : '1px solid transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      cursor: 'pointer',
-                      transition: 'background 0.15s ease'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: isDayToday ? '#E8B477' : '#A9A19A', width: 32 }}>
-                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][idx]}
-                      </span>
-                      <span style={{ fontSize: 14, fontWeight: 600, color: '#F5F1EB' }}>
-                        {idx === 0 ? 'Shoulder' : idx === 1 ? 'Chest + Triceps' : idx === 2 ? 'Back + Biceps' : 'Legs + Core'}
-                      </span>
-                    </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {weekActivityDays.slice(0, 4).map((day, idx) => {
+                  const isDayToday = day.isToday
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => nav('/planner')}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: 12,
+                        background: isDayToday ? 'var(--theme-accent-light, rgba(232, 180, 119, 0.08))' : 'rgba(255, 255, 255, 0.02)',
+                        border: isDayToday ? '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.45))' : '1px solid transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        transition: 'background 0.15s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: isDayToday ? 'var(--theme-accent, #E8B477)' : '#A9A19A', width: 32 }}>
+                          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][idx]}
+                        </span>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: '#F5F1EB' }}>
+                          {idx === 0 ? 'Shoulder' : idx === 1 ? 'Chest + Triceps' : idx === 2 ? 'Back + Biceps' : 'Legs + Core'}
+                        </span>
+                      </div>
 
-                    <div>
-                      {idx < 2 ? (
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#10B981', display: 'flex', alignItems: 'center', gap: 4 }}>
-                          ✓ {t('Completed')}
-                        </span>
-                      ) : isDayToday ? (
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#E8B477', display: 'flex', alignItems: 'center', gap: 4 }}>
-                          ▷ {t('Today')}
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: 12, color: '#A9A19A' }}>
-                          {t('Scheduled')}
-                        </span>
-                      )}
+                      <div>
+                        {idx < 2 ? (
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#10B981', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            ✓ {t('Completed')}
+                          </span>
+                        ) : isDayToday ? (
+                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--theme-accent, #E8B477)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            ▷ {t('Today')}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 12, color: '#A9A19A' }}>
+                            {t('Scheduled')}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          </WidgetBoundary>
         </div>
       </div>
     </div>

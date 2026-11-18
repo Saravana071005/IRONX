@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, workoutVolume, effortOf, stepEffort, capEffort } from './history.js'
+import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, workoutVolume, effortOf, stepEffort, capEffort, streakWeeks, lastBW } from './history.js'
 import { EXDB } from './exercises.js'
 
 // Real ids out of the shipped catalogue, so the body-part fallback is exercised for real.
@@ -319,3 +319,20 @@ describe('workoutVolume', () => {
     expect(workoutVolume(w)).toBe(600)
   })
 })
+
+describe('streakWeeks & lastBW defensive edge cases', () => {
+  it('streakWeeks accepts S object or workouts array or undefined without throwing', () => {
+    expect(streakWeeks({ workouts: [] })).toBe(0)
+    expect(streakWeeks([])).toBe(0)
+    expect(streakWeeks(null)).toBe(0)
+    expect(streakWeeks(undefined)).toBe(0)
+  })
+
+  it('lastBW accepts S object without bodyweight or undefined without throwing', () => {
+    expect(lastBW({})).toBe(null)
+    expect(lastBW({ bodyweight: [] })).toBe(null)
+    expect(lastBW(null)).toBe(null)
+    expect(lastBW({ bodyweight: [{ d: '2026-11-18', w: 78.5 }] })).toEqual({ d: '2026-11-18', w: 78.5 })
+  })
+})
+

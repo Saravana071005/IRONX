@@ -4,11 +4,12 @@ import { localTZ, uid, todayISO } from '../lib/format.js'
 import { registerCustom } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { MOBILE, nativeLoad, nativeSave, syncReminder } from '../lib/mobile.js'
+import { THEME_ALIASES, THEME_PRESETS } from '../lib/themes.js'
 
 const KEY = 'gym_state_v1'
 export const DEF = {
   unit: 'kg', restSec: 90, sound: true, keepAwake: true, lang: 'en',
-  theme: 'light', accent: 'mint', body: 'male', targetW: null,
+  theme: 'dark', accent: 'mint', body: 'male', targetW: null,
   bodyweight: [], routines: [], week: {}, dayPlan: {},
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
   // effort: which per-set effort scale is logged — 'none' | 'rir' | 'rpe'. null, not 'none', so
@@ -27,7 +28,7 @@ export const DEF = {
   meals: [],
   workoutTemplates: null,
   cardioLogs: [],
-  bgTheme: 'imperial-gold',
+  bgTheme: 'warm-gold',
   goldShade: '#E8B477',
   bronzeShade: '#C58A53',
   bgDarkness: '#090909',
@@ -44,9 +45,12 @@ function loadState() {
     const raw = localStorage.getItem(KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      // Upgrade any legacy themes or old colors to the Black & Warm Gold design
-      if (!parsed.bgTheme || parsed.bgTheme === 'aurora-fusion' || parsed.bgTheme === 'crimson-violet' || parsed.bgTheme === 'ocean-glow') {
-        parsed.bgTheme = 'imperial-gold'
+      // Upgrade any legacy themes or old colors to the Dynamic Accent Theme System
+      if (parsed.bgTheme && THEME_ALIASES[parsed.bgTheme]) {
+        parsed.bgTheme = THEME_ALIASES[parsed.bgTheme]
+      }
+      if (!parsed.bgTheme || !THEME_PRESETS[parsed.bgTheme]) {
+        parsed.bgTheme = 'warm-gold'
         parsed.goldShade = '#E8B477'
         parsed.bronzeShade = '#C58A53'
         parsed.bgDarkness = '#090909'
