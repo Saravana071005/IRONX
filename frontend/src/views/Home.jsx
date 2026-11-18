@@ -1,23 +1,19 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
-import { effectiveRoutine, effectiveRoutineId, streakWeeks, lastBW, setsDoneActive } from '../lib/history.js'
-import { fmtNum, fmtDate, todayISO, isoOf, weekKey, DAYS, DAYN } from '../lib/format.js'
+import { effectiveRoutine, effectiveRoutineId, streakWeeks, lastBW } from '../lib/history.js'
+import { fmtNum, fmtDate, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
-import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, bwDeltaColor, cardioSheet, workoutGroupPickerSheet } from '../sheets.jsx'
+import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, bwDeltaColor, cardioSheet } from '../sheets.jsx'
 import LineChart from '../components/LineChart.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import TodayMuscleChart from '../components/TodayMuscleChart.jsx'
-import { glyphOf } from '../lib/glyphs.js'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { useCoachStatus } from '../lib/coach-api.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import {
-  getUserTemplates,
-  getUserTemplateById,
-  getWeeklySchedule,
   getTodayScheduledWorkout,
   createSessionFromTemplate,
   getTodayDisplayDate
@@ -60,8 +56,6 @@ export default function Home() {
   const today = new Date()
   const todayStr = todayISO()
   const todayInfo = getTodayDisplayDate(today)
-  const routine = effectiveRoutine(S, todayStr)
-  const todayOvr = S.dayPlan[todayStr] !== undefined
   const bw = lastBW(S)
   const prevBW = S.bodyweight.length > 1 ? S.bodyweight[S.bodyweight.length - 2] : null
   const delta = bw && prevBW ? bw.w - prevBW.w : null
@@ -85,11 +79,9 @@ export default function Home() {
   const waterLogs = todayHealth?.water || []
   const waterLitres = Math.round((waterLogs.reduce((a, w) => a + (Number(w.millilitres) || 0), 0) / 1000) * 10) / 10
   const waterGoal = S.nutritionTargets?.waterGoal || 2.5
-  const waterPercent = Math.min(100, Math.round((waterLitres / waterGoal) * 100))
 
   const cardioLogs = todayHealth?.cardio || []
   const recordedSteps = cardioLogs.reduce((acc, c) => acc + (Number(c.steps) || 0), 0)
-  const cardioMin = cardioLogs.reduce((acc, c) => acc + (Number(c.duration_minutes) || 0), 0)
 
   // Workouts today
   const todayWorkout = S.workouts.find(w => w.d === todayStr)
@@ -119,7 +111,6 @@ export default function Home() {
     const done = doneDays.has(iso)
     const dayWorkout = S.workouts.find(w => w.d === iso)
     const durM = dayWorkout ? Math.round((dayWorkout.dur || 0) / 60000) : 0
-    // Fill height percentage: 100% for full workout, 40% if planned, 15% minimum track
     const fillPercent = done ? Math.min(100, Math.max(35, durM > 0 ? (durM / 60) * 100 : 75)) : eff ? 35 : 12
 
     weekData.push({
@@ -164,51 +155,57 @@ export default function Home() {
     nav('/planner')
   }
 
-  const onToday = handleStartTodayWorkout
-
   // SVG circular progress ring calculations
   const radius = 40
   const circumference = 2 * Math.PI * radius
   const strokeDashoffset = circumference - (progressScore / 100) * circumference
 
   return (
-    <div className="narrow">
-      {/* Header — Greeting inspired by Phone 2 in reference image */}
-      <div className="hdr" style={{ alignItems: 'center', marginBottom: 18 }}>
+    <div className="dashboard-layout">
+      {/* Top Welcome Section */}
+      <div className="hdr" style={{ alignItems: 'center', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div
             onClick={() => nav('/settings')}
             style={{
-              width: 46,
-              height: 46,
+              width: 48,
+              height: 48,
               borderRadius: '50%',
               background: 'rgba(0, 242, 254, 0.12)',
               color: 'var(--cyan)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 24,
+              fontSize: 26,
               cursor: 'pointer',
               flex: 'none',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(0, 242, 254, 0.28)',
-              boxShadow: '0 4px 16px rgba(0, 242, 254, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.2)'
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(0, 242, 254, 0.3)',
+              boxShadow: '0 4px 18px rgba(0, 242, 254, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.25)'
             }}
             title={t('Settings')}
           >
             <Icon name="personCircle" />
           </div>
           <div>
-            <h1 className="text-gradient-hero" style={{ fontSize: 26, fontWeight: 800, margin: 0, letterSpacing: '-0.024em', display: 'block' }}>
+            <h1 className="text-gradient-hero" style={{ fontSize: 28, fontWeight: 800, margin: 0, letterSpacing: '-0.024em', display: 'block' }}>
               {user ? t('Hi, {0} 👋', user.name) : 'Hi, Alex 👋'}
             </h1>
             <div className="sub" style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 2, fontWeight: 500 }}>
-              {t('Ready to crush your goals?')}
+              {t('Ready to crush your goals?')} · <span style={{ color: 'var(--cyan)' }}>{todayInfo.fullFormatted}</span>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Button
+            size="sm"
+            variant="tinted"
+            icon="figureRun"
+            onClick={() => cardioSheet(null, todayStr)}
+          >
+            {t('Log Cardio')}
+          </Button>
           <button
             className="iconbtn"
             onClick={() => nav('/nutrition')}
@@ -228,450 +225,395 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Today's Workout Weekday & Date Header (Phase 1 & 8) */}
-      <div className="card" style={{ padding: '16px 18px', marginBottom: 16 }}>
-        <div className="row between" style={{ alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--cyan)', letterSpacing: '0.08em' }}>
-              {t("Today's Workout")}
-            </div>
-            <div className="text-gradient-hero" style={{ fontSize: 22, fontWeight: 800, margin: '3px 0 0 0', letterSpacing: '-0.02em', display: 'block' }}>
-              {todayInfo.fullFormatted}
-            </div>
-          </div>
-          <Button
-            size="sm"
-            variant="tinted"
-            icon="figureRun"
-            onClick={() => cardioSheet(null, todayStr)}
-          >
-            {t('Log Cardio')}
-          </Button>
-        </div>
-      </div>
-
-      {/* 1. Today's Progress Card — Inspired by Phone 2 in reference image */}
-      <div className="progress-hero-card">
-        <div className="progress-hero-ring-wrap">
-          <svg className="progress-hero-svg" viewBox="0 0 100 100">
-            {/* Background Track */}
-            <circle
-              cx="50"
-              cy="50"
-              r={radius}
-              fill="none"
-              stroke="var(--surface-2)"
-              strokeWidth="9"
-            />
-            {/* Animated Progress Stroke */}
-            <circle
-              cx="50"
-              cy="50"
-              r={radius}
-              fill="none"
-              stroke="var(--mint)"
-              strokeWidth="9"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              strokeLinecap="round"
-              style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-            />
-          </svg>
-          <div className="progress-hero-center">
-            <span className="progress-hero-percent">{progressScore}%</span>
-          </div>
-        </div>
-
-        <div className="progress-hero-metrics">
-          <div className="progress-hero-metric-row">
-            <div className="progress-hero-metric-label">
-              <span className="progress-hero-metric-dot" style={{ background: 'var(--mint)' }} />
-              <span>{t('Workout')}</span>
-            </div>
-            <span className="progress-hero-metric-val">
-              {totalWorkoutMin > 0 ? `${totalWorkoutMin} min` : (scheduledTemplate ? scheduledTemplate.name : t('Rest day'))}
-            </span>
-          </div>
-
-          <div className="progress-hero-metric-row">
-            <div className="progress-hero-metric-label">
-              <span className="progress-hero-metric-dot" style={{ background: 'var(--coral)' }} />
-              <span>{t('Target')}</span>
-            </div>
-            <span className="progress-hero-metric-val">{targetCalories} kcal</span>
-          </div>
-
-          <div className="progress-hero-metric-row">
-            <div className="progress-hero-metric-label">
-              <span className="progress-hero-metric-dot" style={{ background: 'var(--teal)' }} />
-              <span>{t('Steps')}</span>
-            </div>
-            <span className="progress-hero-metric-val">
-              {recordedSteps > 0 ? recordedSteps.toLocaleString() : '0'}
-            </span>
-          </div>
-
-          <div className="progress-hero-metric-row">
-            <div className="progress-hero-metric-label">
-              <span className="progress-hero-metric-dot" style={{ background: 'var(--lavender)' }} />
-              <span>{t('Water')}</span>
-            </div>
-            <span className="progress-hero-metric-val">
-              {waterLitres} L <span style={{ color: 'var(--label-2)', fontWeight: 400, fontSize: 11 }}>/ {waterGoal}L</span>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Weekly Activity Card — 7 vertical pill bars matching Phone 2 */}
-      <div className="weekly-activity-card">
-        <div className="row between" style={{ marginBottom: 6 }}>
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--label)' }}>
-            {t('Weekly Activity')}
-          </h2>
-          <div className="row" style={{ gap: 4, alignItems: 'center' }}>
-            <button
-              className="iconbtn"
-              style={{ width: 28, height: 28, fontSize: 13 }}
-              onClick={() => setWeekOffset(w => w - 1)}
-              aria-label="Previous week"
-            >
-              <Icon name="chevronLeft" />
-            </button>
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-2)' }}>{wkLabel}</span>
-            <button
-              className="iconbtn"
-              style={{ width: 28, height: 28, fontSize: 13 }}
-              onClick={() => setWeekOffset(w => w + 1)}
-              aria-label="Next week"
-            >
-              <Icon name="chevronRight" />
-            </button>
-          </div>
-        </div>
-
-        <div className="weekly-activity-strip">
-          {weekData.map((d, idx) => (
-            <div
-              key={idx}
-              className={`weekly-bar-col ${d.isToday ? 'active' : ''} ${d.done ? 'completed' : ''}`}
-              onClick={() => dayOverrideSheet(d.iso)}
-              title={`${d.dayName} ${d.dateNum}: ${d.done ? 'Completed' : d.planned ? 'Planned' : 'Rest'}`}
-            >
-              <div className="weekly-bar-track">
-                <div
-                  className="weekly-bar-fill"
-                  style={{ height: `${d.fillPercent}%` }}
-                />
-              </div>
-              <span className="weekly-bar-day">{d.dayName.slice(0, 1)}</span>
-              <div className="weekly-bar-dot" />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 3. Quick Actions 2x2 Grid — Phone 2 in reference image */}
-      <div className="quick-actions-grid">
-        <div className="quick-action-card" onClick={handleStartTodayWorkout}>
-          <div className="quick-action-icon mint">
-            <Icon name={S.active ? 'play' : 'dumbbell'} />
-          </div>
-          <div className="quick-action-title">
-            {S.active ? t('Resume Workout') : (scheduledTemplate ? t('Start Workout') : t('Workout Planner'))}
-          </div>
-          <div className="quick-action-desc">
-            {S.active ? t('In progress') : (scheduledTemplate ? scheduledTemplate.name : t('No workout scheduled'))}
-          </div>
-        </div>
-
-        <div className="quick-action-card" onClick={() => cardioSheet(null, todayStr)}>
-          <div className="quick-action-icon coral" style={{ background: 'var(--mint-light)', color: 'var(--mint)' }}>
-            <Icon name="figureRun" />
-          </div>
-          <div className="quick-action-title">{t('Log Cardio')}</div>
-          <div className="quick-action-desc">
-            {t('Walking, running, jogging')}
-          </div>
-        </div>
-
-        <div className="quick-action-card" onClick={() => nav('/nutrition')}>
-          <div className="quick-action-icon coral">
-            <Icon name="apple" />
-          </div>
-          <div className="quick-action-title">{t('Log Food')}</div>
-          <div className="quick-action-desc">
-            {foodCount > 0 ? t('{0} entries today', foodCount) : t('Manual logging')}
-          </div>
-        </div>
-
-        <div className="quick-action-card" onClick={() => bwSheet()}>
-          <div className="quick-action-icon lavender">
-            <Icon name="scale" />
-          </div>
-          <div className="quick-action-title">{t('Body Stats')}</div>
-          <div className="quick-action-desc">
-            {bw ? `${fmtNum(bw.w)} ${S.unit}` : t('Record weight')}
-          </div>
-        </div>
-      </div>
-
       {coachOn && <CoachCard nav={nav} />}
 
-      {/* TODAY'S SCHEDULED WORKOUT (Single source of truth: Weekly Workout Planner) */}
-      <div
-        className="card"
-        style={{
-          borderLeft: S.active
-            ? '4px solid var(--coral)'
-            : todayCompleted
-              ? '4px solid var(--mint)'
-              : scheduledTemplate
-                ? '4px solid var(--mint)'
-                : '4px solid var(--sep)',
-          marginBottom: 16
-        }}
-      >
-        <div className="row between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+      {/* Main Responsive Dashboard Grid */}
+      <div className="dashboard-grid">
+        {/* Card 1: Today's Scheduled Workout Hero Card */}
+        <div
+          className="card dash-col-7"
+          style={{
+            padding: '20px 22px',
+            borderLeft: S.active
+              ? '5px solid var(--coral)'
+              : todayCompleted
+                ? '5px solid var(--mint)'
+                : scheduledTemplate
+                  ? '5px solid var(--cyan)'
+                  : '5px solid var(--sep)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            gap: 16
+          }}
+        >
           <div>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--cyan)', letterSpacing: '0.08em' }}>
-              {t("TODAY'S SCHEDULED WORKOUT")}
+            <div className="row between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: S.active ? 'var(--coral)' : 'var(--cyan)', boxShadow: `0 0 10px ${S.active ? 'var(--coral)' : 'var(--cyan)'}` }} />
+                <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--cyan)', letterSpacing: '0.08em' }}>
+                  {t("TODAY'S SCHEDULED WORKOUT")}
+                </span>
+              </div>
+              <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                {todayCompleted && (
+                  <span className="tag acc" style={{ fontSize: 11, padding: '3px 10px', borderRadius: 9999, fontWeight: 700 }}>
+                    ✓ {t('Completed')}
+                  </span>
+                )}
+                {S.active && (
+                  <span className="tag" style={{ fontSize: 11, padding: '3px 10px', borderRadius: 9999, background: 'rgba(255, 42, 95, 0.16)', color: 'var(--coral)', border: '1px solid rgba(255, 42, 95, 0.35)' }}>
+                    {t('In Progress')}
+                  </span>
+                )}
+                {isScheduledRest && !S.active && (
+                  <span className="tag" style={{ fontSize: 11, padding: '3px 10px', borderRadius: 9999, background: 'var(--surface-2)', color: 'var(--label-2)' }}>
+                    <Icon name="moon" style={{ marginRight: 4 }} />
+                    {t('Rest Day')}
+                  </span>
+                )}
+              </div>
             </div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--label)', marginTop: 2 }}>
-              {todayInfo.fullFormatted}
-            </div>
-          </div>
-          <div className="row" style={{ gap: 6, alignItems: 'center' }}>
-            {todayCompleted && (
-              <span className="tag acc" style={{ fontSize: 11, padding: '2px 8px' }}>
-                ✓ {t('Completed')}
-              </span>
-            )}
-            {S.active && (
-              <span className="tag" style={{ fontSize: 11, padding: '2px 8px', background: 'var(--coral-light)', color: 'var(--coral)' }}>
-                {t('In Progress')}
-              </span>
-            )}
-            {isScheduledRest && !S.active && (
-              <span className="tag" style={{ fontSize: 11, padding: '2px 8px', background: 'var(--surface-2)', color: 'var(--label-2)' }}>
-                <Icon name="moon" style={{ marginRight: 4 }} />
-                {t('Rest Day')}
-              </span>
-            )}
-          </div>
-        </div>
 
-        {scheduledTemplate || S.active ? (
-          <div style={{ marginTop: 12 }}>
-            <div className="row" style={{ gap: 12, alignItems: 'center' }}>
-              <span
-                className="lrow-i"
-                style={{
-                  background: S.active
-                    ? 'var(--coral)'
-                    : todayCompleted
-                      ? 'var(--mint)'
-                      : 'var(--mint-light)',
-                  color: (S.active || todayCompleted) ? '#fff' : 'var(--mint)',
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
-                  fontSize: 22
-                }}
-              >
-                <Icon name={S.active ? 'timer' : 'dumbbell'} />
-              </span>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 19, fontWeight: 800, color: 'var(--label)' }}>
+            {scheduledTemplate || S.active ? (
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--label)', letterSpacing: '-0.02em', fontFamily: "'Outfit', sans-serif" }}>
                   {S.active ? t('{0} — in progress', S.active.name) : scheduledTemplate.name}
                 </div>
-                <div className="muted small" style={{ marginTop: 2, fontSize: 12 }}>
-                  {scheduledTemplate.exercises?.length || 0} {t(scheduledTemplate.exercises?.length === 1 ? 'exercise' : 'exercises')}
-                  {scheduledTemplate.category ? ` · ${scheduledTemplate.category}` : ''}
+                <div className="muted small" style={{ marginTop: 4, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>{scheduledTemplate?.exercises?.length || 0} {t(scheduledTemplate?.exercises?.length === 1 ? 'exercise' : 'exercises')}</span>
+                  {scheduledTemplate?.category && <span>· {scheduledTemplate.category}</span>}
+                  <span>· {todayInfo.fullFormatted}</span>
+                </div>
+
+                {/* Exercise Pills Preview */}
+                {!S.active && scheduledTemplate?.exercises && scheduledTemplate.exercises.length > 0 && (
+                  <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {scheduledTemplate.exercises.slice(0, 6).map((ex, idx) => (
+                      <span
+                        key={ex.id || idx}
+                        style={{
+                          fontSize: 11,
+                          padding: '4px 9px',
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          borderRadius: 8,
+                          color: 'var(--label-2)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)'
+                        }}
+                      >
+                        {ex.name} <strong style={{ color: 'var(--label)' }}>{ex.sets}×{ex.reps}</strong>
+                      </span>
+                    ))}
+                    {scheduledTemplate.exercises.length > 6 && (
+                      <span style={{ fontSize: 11, padding: '4px 8px', color: 'var(--label-3)' }}>
+                        +{scheduledTemplate.exercises.length - 6} {t('more')}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--label)' }}>
+                  {t('No workout scheduled for today.')}
+                </div>
+                <div className="muted small" style={{ fontSize: 13, marginTop: 4, lineHeight: 1.45 }}>
+                  {t('Enjoy your recovery or assign a custom template from your Weekly Workout Planner.')}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="row" style={{ gap: 10, marginTop: 4 }}>
+            <Button
+              variant="primary"
+              size="md"
+              icon={S.active ? 'play' : 'dumbbell'}
+              onClick={handleStartTodayWorkout}
+              style={{ flex: 1.3 }}
+            >
+              {S.active ? t('Resume Workout') : (scheduledTemplate ? t('Start Workout') : t('Open Planner'))}
+            </Button>
+            <Button
+              variant="tinted"
+              size="md"
+              icon="calendar"
+              onClick={() => nav('/planner')}
+              style={{ flex: 1 }}
+            >
+              {t('Weekly Planner')}
+            </Button>
+          </div>
+        </div>
+
+        {/* Card 2: Activity Overview & Today's Progress Ring */}
+        <div className="progress-hero-card dash-col-5" style={{ marginBottom: 0 }}>
+          <div className="progress-hero-ring-wrap">
+            <svg className="progress-hero-svg" viewBox="0 0 100 100">
+              <circle
+                cx="50"
+                cy="50"
+                r={radius}
+                fill="none"
+                stroke="var(--surface-2)"
+                strokeWidth="9"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r={radius}
+                fill="none"
+                stroke="var(--cyan)"
+                strokeWidth="9"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+                style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+              />
+            </svg>
+            <div className="progress-hero-center">
+              <span className="progress-hero-percent">{progressScore}%</span>
+              <span style={{ fontSize: 10, textTransform: 'uppercase', color: 'var(--label-3)', fontWeight: 700, letterSpacing: '0.04em' }}>{t('Daily')}</span>
+            </div>
+          </div>
+
+          <div className="progress-hero-metrics">
+            <div className="progress-hero-metric-row">
+              <div className="progress-hero-metric-label">
+                <span className="progress-hero-metric-dot" style={{ background: 'var(--cyan)' }} />
+                <span>{t('Workout')}</span>
+              </div>
+              <span className="progress-hero-metric-val">
+                {totalWorkoutMin > 0 ? `${totalWorkoutMin} min` : (scheduledTemplate ? scheduledTemplate.name : t('Rest day'))}
+              </span>
+            </div>
+
+            <div className="progress-hero-metric-row">
+              <div className="progress-hero-metric-label">
+                <span className="progress-hero-metric-dot" style={{ background: 'var(--coral)' }} />
+                <span>{t('Target')}</span>
+              </div>
+              <span className="progress-hero-metric-val">{targetCalories} kcal</span>
+            </div>
+
+            <div className="progress-hero-metric-row">
+              <div className="progress-hero-metric-label">
+                <span className="progress-hero-metric-dot" style={{ background: 'var(--teal)' }} />
+                <span>{t('Steps')}</span>
+              </div>
+              <span className="progress-hero-metric-val">
+                {recordedSteps > 0 ? recordedSteps.toLocaleString() : '0'}
+              </span>
+            </div>
+
+            <div className="progress-hero-metric-row">
+              <div className="progress-hero-metric-label">
+                <span className="progress-hero-metric-dot" style={{ background: 'var(--lavender)' }} />
+                <span>{t('Water')}</span>
+              </div>
+              <span className="progress-hero-metric-val">
+                {waterLitres} L <span style={{ color: 'var(--label-2)', fontWeight: 400, fontSize: 11 }}>/ {waterGoal}L</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Weekly Activity Bar Chart */}
+        <div className="weekly-activity-card dash-col-7" style={{ marginBottom: 0 }}>
+          <div className="row between" style={{ marginBottom: 6 }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--label)', fontFamily: "'Outfit', sans-serif" }}>
+                {t('Weekly Activity')}
+              </h2>
+              <div className="dim small" style={{ fontSize: 11, marginTop: 2 }}>{t('Tap any day to preview or log workout')}</div>
+            </div>
+            <div className="row" style={{ gap: 4, alignItems: 'center' }}>
+              <button
+                className="iconbtn"
+                style={{ width: 30, height: 30, fontSize: 13 }}
+                onClick={() => setWeekOffset(w => w - 1)}
+                aria-label="Previous week"
+              >
+                <Icon name="chevronLeft" />
+              </button>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-2)', padding: '0 4px' }}>{wkLabel}</span>
+              <button
+                className="iconbtn"
+                style={{ width: 30, height: 30, fontSize: 13 }}
+                onClick={() => setWeekOffset(w => w + 1)}
+                aria-label="Next week"
+              >
+                <Icon name="chevronRight" />
+              </button>
+            </div>
+          </div>
+
+          <div className="weekly-activity-strip">
+            {weekData.map((d, idx) => (
+              <div
+                key={idx}
+                className={`weekly-bar-col ${d.isToday ? 'active' : ''} ${d.done ? 'completed' : ''}`}
+                onClick={() => dayOverrideSheet(d.iso)}
+                title={`${d.dayName} ${d.dateNum}: ${d.done ? 'Completed' : d.planned ? 'Planned' : 'Rest'}`}
+              >
+                <div className="weekly-bar-track">
+                  <div
+                    className="weekly-bar-fill"
+                    style={{ height: `${d.fillPercent}%` }}
+                  />
+                </div>
+                <span className="weekly-bar-day">{d.dayName.slice(0, 1)}</span>
+                <div className="weekly-bar-dot" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Card 4: Quick Actions 2x2 Glass Grid */}
+        <div className="dash-col-5">
+          <div className="quick-actions-grid" style={{ marginBottom: 0, height: '100%' }}>
+            <div className="quick-action-card" onClick={handleStartTodayWorkout}>
+              <div className="quick-action-icon mint">
+                <Icon name={S.active ? 'play' : 'dumbbell'} />
+              </div>
+              <div className="quick-action-title">
+                {S.active ? t('Resume Workout') : (scheduledTemplate ? t('Start Workout') : t('Workout Planner'))}
+              </div>
+              <div className="quick-action-desc">
+                {S.active ? t('In progress') : (scheduledTemplate ? scheduledTemplate.name : t('No workout scheduled'))}
+              </div>
+            </div>
+
+            <div className="quick-action-card" onClick={() => cardioSheet(null, todayStr)}>
+              <div className="quick-action-icon coral" style={{ background: 'rgba(0, 242, 254, 0.14)', color: 'var(--cyan)' }}>
+                <Icon name="figureRun" />
+              </div>
+              <div className="quick-action-title">{t('Log Cardio')}</div>
+              <div className="quick-action-desc">
+                {t('Walking, running, cycling')}
+              </div>
+            </div>
+
+            <div className="quick-action-card" onClick={() => nav('/nutrition')}>
+              <div className="quick-action-icon coral">
+                <Icon name="apple" />
+              </div>
+              <div className="quick-action-title">{t('Log Food')}</div>
+              <div className="quick-action-desc">
+                {foodCount > 0 ? t('{0} entries today', foodCount) : t('Manual health log')}
+              </div>
+            </div>
+
+            <div className="quick-action-card" onClick={() => bwSheet()}>
+              <div className="quick-action-icon lavender">
+                <Icon name="scale" />
+              </div>
+              <div className="quick-action-title">{t('Body Stats')}</div>
+              <div className="quick-action-desc">
+                {bw ? `${fmtNum(bw.w)} ${S.unit}` : t('Record weight')}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 5: Body Weight Line Chart */}
+        <div className="card dash-col-7" style={{ marginBottom: 0 }}>
+          <div className="row between" style={{ marginBottom: 8 }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--label)', fontFamily: "'Outfit', sans-serif" }}>
+                {t('Body weight & Trend')}
+              </h2>
+              <div className="dim small" style={{ fontSize: 11, marginTop: 2 }}>{t('Last 30 recorded weigh-ins')}</div>
+            </div>
+            <div className="row" style={{ gap: 8 }}>
+              <Button size="sm" icon="target" style={S.targetW ? { color: 'var(--amber)' } : undefined} onClick={goalSheet}>
+                {S.targetW ? fmtNum(S.targetW) : t('Goal')}
+              </Button>
+              <Button size="sm" icon="plus" onClick={() => bwSheet()}>{t('Log')}</Button>
+            </div>
+          </div>
+          {bw ? (
+            <>
+              <div className="row" style={{ gap: 8, alignItems: 'baseline', marginTop: 6 }}>
+                <div className="big" style={{ fontFamily: "'Outfit', sans-serif" }}>{fmtNum(bw.w)} <span className="muted" style={{ fontSize: '1rem', fontWeight: 500 }}>{S.unit}</span></div>
+                {!!delta && (
+                  <span className="small row" style={{ gap: 2, fontWeight: 700, color: bwDeltaColor(delta, bw.w) }}>
+                    <Icon name={delta > 0 ? 'arrowUp' : 'arrowDown'} style={{ fontSize: 12 }} />
+                    {fmtNum(Math.abs(delta))}
+                  </span>
+                )}
+                <span className="dim small" style={{ marginLeft: 'auto' }}>{fmtDate(bw.d, true)}</span>
+              </div>
+              {S.targetW && (
+                <div className="small row" style={{ color: 'var(--amber)', marginTop: 4, gap: 5 }}>
+                  <Icon name="target" style={{ fontSize: 13 }} />
+                  <span>
+                    {t('Goal')} {fmtNum(S.targetW)} {S.unit} · {Math.abs(S.targetW - bw.w) < 0.05 ? t('reached!') : t(S.targetW > bw.w ? '{0} to gain' : '{0} to lose', fmtNum(Math.abs(S.targetW - bw.w)) + ' ' + S.unit)}
+                  </span>
+                </div>
+              )}
+              <div className="chart" style={{ marginTop: 12 }}>
+                <LineChart points={bwPoints} h={140} unit={S.unit} goal={S.targetW} />
+              </div>
+            </>
+          ) : (
+            <div className="muted small" style={{ padding: '24px 0', textAlign: 'center' }}>
+              {t("No entries yet — log your weight to start the curve. It's also asked before every workout.")}
+            </div>
+          )}
+        </div>
+
+        {/* Card 6: Today's Muscle Activity & Target Chart */}
+        <div className="dash-col-5" style={{ marginBottom: 0 }}>
+          <TodayMuscleChart S={S} body={S.body || 'male'} />
+        </div>
+
+        {/* Card 7: Streak & Workouts Total Card */}
+        <div className="card tappable dash-col-12" style={{ cursor: 'pointer', marginBottom: 0 }} onClick={() => calendarSheet()}>
+          <div className="row between" style={{ alignItems: 'center' }}>
+            <div className="row" style={{ gap: 14 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(255, 42, 95, 0.15)', color: 'var(--coral)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, border: '1px solid rgba(255, 42, 95, 0.3)' }}>
+                <Icon name="flame" />
+              </div>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--label)', fontFamily: "'Outfit', sans-serif" }}>
+                  {t('{0} week streak', streakWeeks(S))}
+                </div>
+                <div className="muted small" style={{ marginTop: 3 }}>
+                  {wThisWeek}{plannedPerWeek ? ' / ' + plannedPerWeek : ''} {t('this week')} · {t(S.workouts.length === 1 ? '{0} workout total' : '{0} workouts total', S.workouts.length)}
                 </div>
               </div>
             </div>
-
-            {/* List of exercises in the template */}
-            {!S.active && scheduledTemplate.exercises && scheduledTemplate.exercises.length > 0 && (
-              <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {scheduledTemplate.exercises.map((ex, idx) => (
-                  <span
-                    key={ex.id || idx}
-                    style={{
-                      fontSize: 11,
-                      padding: '4px 8px',
-                      background: 'var(--surface-2)',
-                      borderRadius: 8,
-                      color: 'var(--label-2)',
-                      border: '1px solid var(--sep)'
-                    }}
-                  >
-                    {ex.name} <strong style={{ color: 'var(--label)' }}>{ex.sets}×{ex.reps}</strong>
-                    {ex.weight > 0 ? ` @ ${ex.weight}kg` : ''}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            <div style={{ height: 14 }} />
-            <div className="row" style={{ gap: 8 }}>
-              <Button
-                variant="primary"
-                size="md"
-                icon={S.active ? 'play' : 'dumbbell'}
-                onClick={handleStartTodayWorkout}
-                style={{ flex: 1 }}
-              >
-                {S.active ? t('Resume Workout') : t('Start Workout')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="md"
-                icon="calendar"
-                onClick={() => nav('/planner')}
-              >
-                {t('View Workout Planner')}
-              </Button>
+            <div className="row" style={{ gap: 6, alignItems: 'center', color: 'var(--cyan)' }}>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{t('View Calendar')}</span>
+              <Icon name="chevronRight" style={{ fontSize: 16 }} />
             </div>
           </div>
-        ) : (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)' }}>
-              {t('No workout scheduled for today.')}
-            </div>
-            <div className="muted small" style={{ fontSize: 13, marginTop: 4, lineHeight: 1.4 }}>
-              {t('Take a rest day to recover, or assign a template in the Weekly Workout Planner.')}
-            </div>
+        </div>
 
-            <div style={{ height: 14 }} />
-            <div className="row" style={{ gap: 8 }}>
-              <Button
-                variant="primary"
-                size="md"
-                icon="calendar"
-                onClick={() => nav('/planner')}
-                style={{ flex: 1 }}
-              >
-                {t('View Workout Planner')}
+        {/* Welcome Starter Plan Card (if no routines exist yet) */}
+        {!S.routines.length && !S.active && (
+          <div className="card dash-col-12" style={{ marginTop: 10 }}>
+            <div className="row" style={{ gap: 10, marginBottom: 8 }}>
+              <span className="lrow-i" style={{ background: 'var(--cyan)' }}><Icon name="sparkles" /></span>
+              <div className="big" style={{ fontSize: 22, fontFamily: "'Outfit', sans-serif" }}>{t('Welcome to openGym!')}</div>
+            </div>
+            <div className="muted small" style={{ marginBottom: 16, fontSize: 14, lineHeight: 1.5 }}>
+              {t('Set up your weekly routine to get going — or load a ready-made Push / Pull / Legs plan.')}
+            </div>
+            <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+              <Button variant="primary" icon="sparkles" onClick={loadStarterPlan}>
+                {t('Load starter plan (PPL)')}
               </Button>
-              <Button
-                variant="tinted"
-                size="md"
-                icon="figureRun"
-                onClick={() => cardioSheet(null, todayStr)}
-              >
-                {t('Log Cardio')}
+              <Button variant="tinted" icon="calendar" onClick={() => nav('/planner')}>
+                {t('Weekly Workout Planner')}
+              </Button>
+              <Button variant="ghost" onClick={() => nav('/plan')}>
+                {t('Build my own plan')}
               </Button>
             </div>
           </div>
         )}
-      </div>
-
-      {/* Today's Muscle Activity & Target Chart */}
-      <TodayMuscleChart S={S} body={S.body || 'male'} />
-
-      {/* Weekly Planner Shortcut Banner */}
-      <div
-        className="card tappable"
-        style={{ cursor: 'pointer', padding: '12px 14px', marginBottom: 12 }}
-        onClick={() => nav('/planner')}
-      >
-        <div className="row between" style={{ alignItems: 'center' }}>
-          <div className="row" style={{ gap: 10, alignItems: 'center' }}>
-            <span className="lrow-i" style={{ background: 'var(--mint-light)', color: 'var(--mint)', width: 34, height: 34, borderRadius: 10, fontSize: 16 }}>
-              <Icon name="calendar" />
-            </span>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{t('Weekly Workout Planner')}</div>
-              <div className="muted small" style={{ fontSize: 12 }}>{t('User-Defined Weekly Schedule · Custom Templates')}</div>
-            </div>
-          </div>
-          <Icon name="chevronRight" className="chev" style={{ fontSize: 16 }} />
-        </div>
-      </div>
-
-      {!S.routines.length && !S.active && (
-        <div className="card">
-          <div className="row" style={{ gap: 10, marginBottom: 6 }}>
-            <span className="lrow-i" style={{ background: 'var(--mint)' }}><Icon name="sparkles" /></span>
-            <div className="big" style={{ fontSize: 20 }}>{t('Welcome!')}</div>
-          </div>
-          <div className="muted small" style={{ marginBottom: 12 }}>
-            {t('Set up your weekly routine to get going — or load a ready-made Push / Pull / Legs plan.')}
-          </div>
-          {coachOn && (
-            <>
-              <Button variant="primary" icon="sparkles" onClick={() => nav(hasConsent(S) ? '/coach/intake' : '/coach')}>
-                {t('Let the Coach build it')}
-              </Button>
-              <div style={{ height: 8 }} />
-            </>
-          )}
-          <Button variant={coachOn ? 'plain' : 'primary'} icon="sparkles" onClick={loadStarterPlan}>
-            {t('Load starter plan (PPL)')}
-          </Button>
-          <div style={{ height: 8 }} />
-          <Button variant="outline" onClick={() => nav('/planner')}>{t('Weekly Workout Planner')}</Button>
-          <div style={{ height: 8 }} />
-          <Button onClick={() => nav('/plan')}>{t('Build my own plan')}</Button>
-        </div>
-      )}
-
-      {/* Body weight card */}
-      <div className="card">
-        <div className="row between" style={{ marginBottom: 8 }}>
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--label)' }}>{t('Body weight')}</h2>
-          <div className="row" style={{ gap: 8 }}>
-            <Button size="sm" icon="target" style={S.targetW ? { color: 'var(--amber)' } : undefined} onClick={goalSheet}>
-              {S.targetW ? fmtNum(S.targetW) : t('Goal')}
-            </Button>
-            <Button size="sm" icon="plus" onClick={() => bwSheet()}>{t('Log')}</Button>
-          </div>
-        </div>
-        {bw ? (
-          <>
-            <div className="row" style={{ gap: 8, alignItems: 'baseline' }}>
-              <div className="big">{fmtNum(bw.w)} <span className="muted" style={{ fontSize: '1rem', fontWeight: 500 }}>{S.unit}</span></div>
-              {!!delta && (
-                <span className="small row" style={{ gap: 2, fontWeight: 600, color: bwDeltaColor(delta, bw.w) }}>
-                  <Icon name={delta > 0 ? 'arrowUp' : 'arrowDown'} style={{ fontSize: 12 }} />
-                  {fmtNum(Math.abs(delta))}
-                </span>
-              )}
-              <span className="dim small" style={{ marginLeft: 'auto' }}>{fmtDate(bw.d, true)}</span>
-            </div>
-            {S.targetW && (
-              <div className="small row" style={{ color: 'var(--amber)', marginTop: 4, gap: 5 }}>
-                <Icon name="target" style={{ fontSize: 13 }} />
-                <span>
-                  {t('Goal')} {fmtNum(S.targetW)} {S.unit} · {Math.abs(S.targetW - bw.w) < 0.05 ? t('reached!') : t(S.targetW > bw.w ? '{0} to gain' : '{0} to lose', fmtNum(Math.abs(S.targetW - bw.w)) + ' ' + S.unit)}
-                </span>
-              </div>
-            )}
-            <div className="chart" style={{ marginTop: 10 }}>
-              <LineChart points={bwPoints} h={130} unit={S.unit} goal={S.targetW} />
-            </div>
-          </>
-        ) : (
-          <div className="muted small">{t("No entries yet — log your weight to start the curve. It's also asked before every workout.")}</div>
-        )}
-      </div>
-
-      {/* Week streak card */}
-      <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => calendarSheet()}>
-        <div className="row between">
-          <div>
-            <div className="row" style={{ gap: 8, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em' }}>
-              <span style={{ color: 'var(--coral)' }}><Icon name="flame" /></span>
-              {t('{0} week streak', streakWeeks(S))}
-            </div>
-            <div className="muted small" style={{ marginTop: 3 }}>
-              {wThisWeek}{plannedPerWeek ? ' / ' + plannedPerWeek : ''} {t('this week')} · {t(S.workouts.length === 1 ? '{0} workout total' : '{0} workouts total', S.workouts.length)}
-            </div>
-          </div>
-          <Icon name="calendar" className="chev" style={{ fontSize: 20 }} />
-        </div>
       </div>
     </div>
   )

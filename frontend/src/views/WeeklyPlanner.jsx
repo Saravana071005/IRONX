@@ -43,10 +43,44 @@ export default function WeeklyPlanner() {
   }, [S.weeklySchedule, S.week])
 
   // Current dates for week
-  const today = new Date()
-  const todayStr = todayISO()
-  const monday = new Date(today)
-  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7))
+  const today = useMemo(() => new Date(), [])
+  const todayStr = useMemo(() => todayISO(), [])
+  const monday = useMemo(() => {
+    const d = new Date(today)
+    d.setDate(today.getDate() - ((today.getDay() + 6) % 7))
+    return d
+  }, [today])
+
+  // Summary statistics for the weekly planner
+  const summary = useMemo(() => {
+    let plannedCount = 0
+    let restCount = 0
+    let completedCount = 0
+
+    WEEKDAYS.forEach(({ d }) => {
+      const dayOffset = d === 0 ? 6 : d - 1
+      const dayDate = new Date(monday)
+      dayDate.setDate(monday.getDate() + dayOffset)
+      const dayIso = isoOf(dayDate)
+
+      const templateId = schedule[d] || 'rest'
+      if (templateId === 'rest') {
+        restCount++
+      } else {
+        plannedCount++
+      }
+
+      const dayWorkout = (S.workouts || []).find(w => w.d === dayIso)
+      const dayCardio = (S.cardioLogs || []).find(c => c.d === dayIso)
+      if (dayWorkout || dayCardio) {
+        completedCount++
+      }
+    })
+
+    const pct = plannedCount > 0 ? Math.min(100, Math.round((completedCount / plannedCount) * 100)) : (completedCount > 0 ? 100 : 0)
+
+    return { plannedCount, restCount, completedCount, pct }
+  }, [schedule, S.workouts, S.cardioLogs, monday])
 
   const handleDayTemplateChange = (weekdayNum, templateId) => {
     setSchedule(prev => ({
@@ -72,19 +106,46 @@ export default function WeeklyPlanner() {
   }
 
   return (
-    <div className="narrow">
-      {/* Header */}
-      <div className="hdr" style={{ alignItems: 'center', marginBottom: 14 }}>
+    <div className="planner-layout">
+      {/* Header with Title and Actions */}
+      <div className="hdr" style={{ alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 14 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, letterSpacing: '-0.025em' }}>
-            {t('Weekly Workout Planner')}
-          </h1>
-          <div className="sub" style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 2 }}>
-            {t('Configure your weekly schedule using your custom workout templates')}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(16, 185, 129, 0.15)',
+                color: 'var(--mint)',
+                border: '1px solid rgba(16, 185, 129, 0.3)'
+              }}
+            >
+              <Icon name="calendar" size={20} />
+            </span>
+            <h1
+              style={{
+                fontSize: 30,
+                fontWeight: 800,
+                margin: 0,
+                letterSpacing: '-0.025em',
+                background: 'var(--theme-accent-gradient, linear-gradient(135deg, #10b981 0%, #06b6d4 100%))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}
+            >
+              {t('Weekly Workout Planner')}
+            </h1>
+          </div>
+          <div className="sub" style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 4, marginLeft: 48 }}>
+            {t('Organize your 7-day schedule with custom workout templates, active rest, and real-time execution.')}
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Button
             size="sm"
             variant="tinted"
@@ -104,25 +165,106 @@ export default function WeeklyPlanner() {
         </div>
       </div>
 
+      {/* Top Weekly Summary Bar */}
+      <div
+        className="card"
+        style={{
+          padding: '18px 24px',
+          marginBottom: 24,
+          borderRadius: 20,
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%)',
+          border: '1px solid var(--border-glass)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)'
+        }}
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 18, alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--label-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {t('Workouts Planned')}
+            </div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--label)', marginTop: 2, display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span>{summary.plannedCount}</span>
+              <span style={{ fontSize: 13, color: 'var(--label-2)', fontWeight: 600 }}>/ 7 {t('days')}</span>
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--label-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {t('Rest & Recovery')}
+            </div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--label)', marginTop: 2, display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span>{summary.restCount}</span>
+              <span style={{ fontSize: 13, color: 'var(--label-2)', fontWeight: 600 }}>{t('days')}</span>
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--label-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {t('Completed This Week')}
+            </div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--mint)', marginTop: 2, display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span>{summary.completedCount}</span>
+              <span style={{ fontSize: 13, color: 'var(--label-2)', fontWeight: 600 }}>
+                / {summary.plannedCount} {t('sessions')}
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--label-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                {t('Plan Completion')}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--mint)' }}>
+                {summary.pct}%
+              </span>
+            </div>
+            <div
+              style={{
+                height: 8,
+                borderRadius: 9999,
+                background: 'rgba(255, 255, 255, 0.08)',
+                overflow: 'hidden',
+                position: 'relative'
+              }}
+            >
+              <div
+                style={{
+                  height: '100%',
+                  width: `${summary.pct}%`,
+                  borderRadius: 9999,
+                  background: 'var(--theme-accent-gradient, linear-gradient(90deg, #10b981 0%, #06b6d4 100%))',
+                  boxShadow: '0 0 10px rgba(16, 185, 129, 0.5)',
+                  transition: 'width 0.4s ease'
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Info / Empty Templates Notice */}
       {userTemplates.length === 0 && (
         <div
           className="card"
           style={{
-            padding: '16px 18px',
-            marginBottom: 16,
-            background: 'var(--surface-2)',
-            border: '1px solid var(--border)',
-            borderRadius: 14
+            padding: '20px 24px',
+            marginBottom: 20,
+            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            borderRadius: 18,
+            backdropFilter: 'blur(16px)'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--label)' }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--label)' }}>
                 {t('No workout templates created yet')}
               </div>
-              <div style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 4, lineHeight: 1.4 }}>
-                {t('Create custom templates (e.g. Shoulder, Chest + Biceps, Back + Chest, Legs + Core) in Workout Library to assign them to your weekdays.')}
+              <div style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 4, lineHeight: 1.5, maxWidth: 680 }}>
+                {t('Create custom templates (e.g. Chest & Triceps, Back & Biceps, Leg Day, Shoulder Focus) in the Exercise Library to assign them to your weekdays.')}
               </div>
             </div>
             <Button
@@ -131,7 +273,7 @@ export default function WeeklyPlanner() {
               icon="plus"
               onClick={() => nav('/exercise-library')}
             >
-              {t('+ Create New Template')}
+              {t('Create New Template')}
             </Button>
           </div>
         </div>
@@ -142,25 +284,30 @@ export default function WeeklyPlanner() {
         <div
           style={{
             position: 'sticky',
-            top: 10,
+            top: 16,
             zIndex: 100,
-            background: 'var(--mint)',
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.95) 0%, rgba(5, 150, 105, 0.95) 100%)',
             color: '#fff',
-            padding: '10px 16px',
-            borderRadius: 12,
+            padding: '12px 20px',
+            borderRadius: 16,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)',
-            marginBottom: 16
+            boxShadow: '0 8px 24px rgba(16, 185, 129, 0.45)',
+            marginBottom: 20,
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255, 255, 255, 0.2)'
           }}
         >
-          <span style={{ fontSize: 13, fontWeight: 700 }}>
-            {t('You have unsaved changes to your weekly schedule')}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="checkCircle" size={18} />
+            <span style={{ fontSize: 14, fontWeight: 700 }}>
+              {t('You have unsaved changes to your weekly schedule')}
+            </span>
+          </div>
           <Button
             size="sm"
-            style={{ background: '#fff', color: 'var(--mint)', fontWeight: 800 }}
+            style={{ background: '#fff', color: '#059669', fontWeight: 800, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
             onClick={handleSaveWeeklyPlan}
           >
             {t('Save Weekly Plan')}
@@ -168,8 +315,8 @@ export default function WeeklyPlanner() {
         </div>
       )}
 
-      {/* 7 Days List: Monday through Sunday */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 30 }}>
+      {/* 7 Days Responsive Grid: Monday through Sunday */}
+      <div className="planner-days-grid">
         {WEEKDAYS.map(({ d, name }) => {
           const dayOffset = d === 0 ? 6 : d - 1
           const dayDate = new Date(monday)
@@ -190,126 +337,167 @@ export default function WeeklyPlanner() {
           return (
             <div
               key={d}
-              className="card"
+              className={`card planner-day-card ${d === 0 ? 'span-full' : ''}`}
               style={{
-                padding: '16px 18px',
-                borderRadius: 16,
-                borderLeft: isRest
-                  ? '5px solid var(--label-3)'
-                  : '5px solid var(--mint)',
-                background: 'var(--surface)',
-                boxShadow: isToday ? '0 0 0 2px var(--mint), var(--card-shadow)' : 'var(--card-shadow)'
+                padding: '20px 22px',
+                borderRadius: 20,
+                background: isToday
+                  ? 'linear-gradient(145deg, rgba(16, 185, 129, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%)'
+                  : 'linear-gradient(145deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.015) 100%)',
+                border: isToday
+                  ? '1px solid rgba(16, 185, 129, 0.6)'
+                  : isRest
+                    ? '1px solid rgba(255, 255, 255, 0.06)'
+                    : '1px solid rgba(255, 255, 255, 0.12)',
+                borderLeft: isToday
+                  ? '6px solid var(--mint)'
+                  : isRest
+                    ? '6px solid rgba(255, 255, 255, 0.2)'
+                    : '6px solid var(--mint)',
+                boxShadow: isToday
+                  ? '0 0 24px -4px rgba(16, 185, 129, 0.35), var(--card-shadow)'
+                  : 'var(--card-shadow)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                gap: 14,
+                transition: 'all 0.25s ease'
               }}
             >
               {/* Day Header Row */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--label)' }}>
-                    {t(name)}
-                  </span>
-                  <span style={{ fontSize: 13, color: 'var(--label-2)', fontWeight: 500 }}>
-                    {dayDateFormatted}
-                  </span>
-                  {isToday && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 19, fontWeight: 800, color: 'var(--label)', letterSpacing: '-0.015em' }}>
+                      {t(name)}
+                    </span>
+                    <span style={{ fontSize: 13, color: 'var(--label-2)', fontWeight: 600 }}>
+                      {dayDateFormatted}
+                    </span>
+                    {isToday && (
+                      <span
+                        style={{
+                          background: 'var(--mint)',
+                          color: '#fff',
+                          fontSize: 10,
+                          fontWeight: 800,
+                          padding: '3px 9px',
+                          borderRadius: 9999,
+                          letterSpacing: '0.04em',
+                          textTransform: 'uppercase',
+                          boxShadow: '0 0 10px rgba(16, 185, 129, 0.45)'
+                        }}
+                      >
+                        {t('Today')}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {isCompleted && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          padding: '3px 9px',
+                          borderRadius: 9999,
+                          fontWeight: 700,
+                          background: 'rgba(16, 185, 129, 0.18)',
+                          color: 'var(--mint)',
+                          border: '1px solid rgba(16, 185, 129, 0.35)'
+                        }}
+                      >
+                        ✓ {t('Completed')}
+                      </span>
+                    )}
                     <span
                       style={{
-                        background: 'var(--mint)',
-                        color: '#fff',
-                        fontSize: 10,
-                        fontWeight: 700,
-                        padding: '2px 8px',
+                        fontSize: 11,
+                        padding: '3px 10px',
                         borderRadius: 9999,
-                        textTransform: 'uppercase'
+                        fontWeight: 700,
+                        background: isRest ? 'rgba(255, 255, 255, 0.05)' : 'rgba(16, 185, 129, 0.14)',
+                        color: isRest ? 'var(--label-2)' : 'var(--mint)',
+                        border: isRest ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(16, 185, 129, 0.3)'
                       }}
                     >
-                      {t('Today')}
+                      {isRest ? t('Rest Day') : assignedTemplate?.name || t('Custom Workout')}
                     </span>
-                  )}
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {isCompleted && (
-                    <span
-                      className="tag acc"
-                      style={{ fontSize: 11, padding: '2px 8px', borderRadius: 9999, fontWeight: 700 }}
-                    >
-                      ✓ {t('Completed')}
-                    </span>
-                  )}
-                  <span
+                {/* Template Selection Dropdown */}
+                <div style={{ marginTop: 6 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--label-2)', marginBottom: 6 }}>
+                    {t('Assigned Workout Template')}:
+                  </label>
+                  <select
+                    className="input"
+                    value={assignedTemplateId}
+                    onChange={e => handleDayTemplateChange(d, e.target.value)}
                     style={{
-                      fontSize: 11,
-                      padding: '2px 8px',
-                      borderRadius: 9999,
-                      fontWeight: 700,
-                      background: isRest ? 'var(--surface-2)' : 'var(--mint-light)',
-                      color: isRest ? 'var(--label-2)' : 'var(--mint)'
+                      width: '100%',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      background: 'rgba(0, 0, 0, 0.25)',
+                      borderRadius: 12,
+                      padding: '10px 14px',
+                      color: 'var(--label)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      outline: 'none',
+                      cursor: 'pointer'
                     }}
                   >
-                    {isRest ? t('Rest Day') : assignedTemplate?.name || t('Custom Workout')}
-                  </span>
+                    <option value="rest" style={{ background: '#1c1c1e', color: '#fff' }}>{t('Rest Day')}</option>
+                    {userTemplates.map(tpl => (
+                      <option key={tpl.id} value={tpl.id} style={{ background: '#1c1c1e', color: '#fff' }}>
+                        {tpl.name} ({tpl.exercises.length} {t(tpl.exercises.length === 1 ? 'exercise' : 'exercises')})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              {/* Template Selection Dropdown */}
-              <div style={{ marginTop: 8 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--label-2)', marginBottom: 4 }}>
-                  {t('Select Template')}:
-                </label>
-                <select
-                  className="input"
-                  value={assignedTemplateId}
-                  onChange={e => handleDayTemplateChange(d, e.target.value)}
-                  style={{
-                    width: '100%',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    background: 'var(--surface-2)',
-                    borderRadius: 10,
-                    padding: '10px 12px',
-                    color: 'var(--label)',
-                    border: '1px solid var(--border)'
-                  }}
-                >
-                  <option value="rest">{t('Rest Day')}</option>
-                  {userTemplates.map(tpl => (
-                    <option key={tpl.id} value={tpl.id}>
-                      {tpl.name} ({tpl.exercises.length} {t(tpl.exercises.length === 1 ? 'exercise' : 'exercises')})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Template Exercises Preview */}
-              {assignedTemplate && (
-                <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--surface-2)' }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-2)', marginBottom: 6 }}>
-                    {assignedTemplate.exercises.length} {t('Planned Exercises')}:
+              {/* Template Exercises Preview or Rest Day Details */}
+              {assignedTemplate ? (
+                <div style={{ marginTop: 8, paddingTop: 12, borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--label-2)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Icon name="dumbbell" size={13} />
+                    <span>{assignedTemplate.exercises.length} {t('Planned Exercises')}:</span>
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 110, overflowY: 'auto' }}>
                     {assignedTemplate.exercises.map((ex, idx) => (
                       <span
                         key={idx}
                         style={{
-                          background: 'var(--surface-2)',
-                          padding: '4px 8px',
-                          borderRadius: 6,
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          padding: '4px 10px',
+                          borderRadius: 8,
                           fontSize: 12,
-                          color: 'var(--label-2)',
-                          fontWeight: 500
+                          color: 'var(--label)',
+                          fontWeight: 500,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6
                         }}
                       >
-                        {ex.name} ({ex.sets}×{ex.reps})
+                        <span>{ex.name}</span>
+                        <span style={{ color: 'var(--mint)', fontWeight: 700, fontSize: 11 }}>
+                          {ex.sets}×{ex.reps}
+                        </span>
                       </span>
                     ))}
                   </div>
 
-                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                     <Button
                       size="sm"
                       variant="primary"
                       icon="play"
                       onClick={() => handleStartWorkout(assignedTemplate, dayIso)}
+                      style={{ flex: 1 }}
                     >
                       {t('Start Workout')}
                     </Button>
@@ -323,21 +511,46 @@ export default function WeeklyPlanner() {
                     </Button>
                   </div>
                 </div>
-              )}
-
-              {/* Rest Day Quick Option to Log Cardio */}
-              {isRest && (
-                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <span style={{ fontSize: 12, color: 'var(--label-3)' }}>
-                    {t('Rest and recovery. You can also log cardio if you train:')}
-                  </span>
+              ) : (
+                /* Rest Day View */
+                <div
+                  style={{
+                    marginTop: 8,
+                    paddingTop: 12,
+                    borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10,
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: 'var(--label-3)' }}>
+                      <Icon name="heart" size={15} />
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--label-2)', fontWeight: 500 }}>
+                      {t('Active recovery, sleep & nutrition.')}
+                    </span>
+                  </div>
                   <button
                     className="btn sm ghost"
-                    style={{ fontSize: 12, padding: '4px 10px', color: 'var(--mint)' }}
+                    style={{
+                      fontSize: 12,
+                      padding: '5px 12px',
+                      color: 'var(--mint)',
+                      background: 'rgba(16, 185, 129, 0.08)',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      borderRadius: 10,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4
+                    }}
                     onClick={() => cardioSheet(null, dayIso)}
                   >
-                    <Icon name="figureRun" style={{ marginRight: 4 }} />
-                    {t('Log Cardio')}
+                    <Icon name="figureRun" size={14} />
+                    <span>{t('Log Cardio')}</span>
                   </button>
                 </div>
               )}
@@ -347,13 +560,13 @@ export default function WeeklyPlanner() {
       </div>
 
       {/* Bottom Save Action */}
-      <div style={{ textAlign: 'center', marginBottom: 40 }}>
+      <div style={{ textAlign: 'center', marginBottom: 40, marginTop: 10 }}>
         <Button
           variant="primary"
           size="lg"
           icon="check"
           onClick={handleSaveWeeklyPlan}
-          style={{ minWidth: 220 }}
+          style={{ minWidth: 240, padding: '14px 28px', fontSize: 16, borderRadius: 16 }}
         >
           {t('Save Weekly Plan')}
         </Button>

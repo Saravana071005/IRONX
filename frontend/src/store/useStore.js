@@ -26,7 +26,15 @@ export const DEF = {
   nutritionTargets: { calorie: 1900, calories: 1900, protein: 140, carb: 220, carbs: 220, fat: 65, fibre: 30, diet: 'all', waterGoal: 2.5 },
   meals: [],
   workoutTemplates: null,
-  cardioLogs: []
+  cardioLogs: [],
+  bgTheme: 'aurora-fusion',
+  glowIntensity: 1.0,
+  blurIntensity: 1.0,
+  bgAnimation: true,
+  customGlow1: '#e11d48',
+  customGlow2: '#7c3aed',
+  customGlow3: '#0284c7',
+  customGlow4: '#00f2fe'
 }
 const clone = o => JSON.parse(JSON.stringify(o))
 

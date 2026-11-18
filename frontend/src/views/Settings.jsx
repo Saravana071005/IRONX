@@ -16,6 +16,7 @@ import { forgetCoach } from '../lib/coach-api.js'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, SelectRow, Switch, Segmented, Button, TextField } from '../components/ui.jsx'
 import { ALERT_TONES, previewAlertTone, requestNotificationPermission } from '../lib/sound.js'
+import { THEME_PRESETS } from '../lib/themes.js'
 
 export default function Settings() {
   const nav = useNavigate()
@@ -294,8 +295,8 @@ export default function Settings() {
 
     {(user || MOBILE) && <NotificationsCard S={S} update={update} toast={toast} />}
 
-    {/* ---------- appearance ---------- */}
-    <Section title={t('Appearance')} footer={DEMO || MOBILE ? undefined : t('synced with your profile')}>
+    {/* ---------- appearance & liquid glass themes ---------- */}
+    <Section title={t('Appearance & Liquid Glass Themes')} footer={DEMO || MOBILE ? undefined : t('Themes and ambient glow settings sync live across all pages.')}>
       <Row icon="moon" iconTint="var(--indigo)" title={t('Theme')}>
         <Segmented
           className="seg-inline"
@@ -304,6 +305,119 @@ export default function Settings() {
           onChange={v => update(s => { s.theme = v })}
         />
       </Row>
+
+      {/* Futuristic Theme Presets */}
+      <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12, paddingTop: 14, paddingBottom: 16 }}>
+        <div className="row between" style={{ alignItems: 'baseline' }}>
+          <span className="lrow-t" style={{ fontWeight: 700 }}>{t('Multi-Colour Fusion Theme')}</span>
+          <span className="dim small">{t('Instant background adaptation')}</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
+          {Object.values(THEME_PRESETS).map(preset => {
+            const isSelected = (S.bgTheme || 'aurora-fusion') === preset.id
+            return (
+              <div
+                key={preset.id}
+                onClick={() => update(s => {
+                  s.bgTheme = preset.id
+                  s.accent = preset.accent
+                })}
+                style={{
+                  padding: '12px 10px',
+                  borderRadius: 14,
+                  cursor: 'pointer',
+                  background: isSelected ? 'rgba(255, 255, 255, 0.12)' : 'var(--surface-2)',
+                  border: isSelected ? '2px solid var(--cyan)' : '1px solid rgba(255, 255, 255, 0.1)',
+                  boxShadow: isSelected ? '0 0 16px rgba(0, 242, 254, 0.35), var(--glass-highlight)' : 'var(--glass-highlight)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  transition: 'transform var(--fast) var(--ease), border-color var(--fast), box-shadow var(--fast)'
+                }}
+              >
+                {/* Visual gradient swatch preview */}
+                <div
+                  style={{
+                    height: 38,
+                    borderRadius: 8,
+                    background: preset.heroGradient,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  {isSelected && <span style={{ color: '#fff', fontSize: 16, fontWeight: 800 }}>✓</span>}
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
+                    {preset.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--label-2)', marginTop: 2, lineHeight: 1.25 }}>
+                    {preset.description}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Ambient Aurora Animation Toggle */}
+      <Row
+        icon="sparkles"
+        iconTint="var(--cyan)"
+        title={t('Background Aurora Animation')}
+        subtitle={t('Fluid drifting motion of ambient background light')}
+      >
+        <Switch
+          checked={S.bgAnimation !== false}
+          onChange={v => update(s => { s.bgAnimation = v })}
+        />
+      </Row>
+
+      {/* Glow Intensity Slider */}
+      <Row
+        icon="sun"
+        iconTint="var(--amber)"
+        title={t('Ambient Glow Intensity')}
+        subtitle={`${Math.round((S.glowIntensity !== undefined ? S.glowIntensity : 1.0) * 100)}%`}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', maxWidth: 180 }}>
+          <input
+            type="range"
+            min="0.2"
+            max="1.8"
+            step="0.1"
+            value={S.glowIntensity !== undefined ? S.glowIntensity : 1.0}
+            onChange={e => update(s => { s.glowIntensity = parseFloat(e.target.value) })}
+            style={{ flex: 1, accentColor: 'var(--cyan)', cursor: 'pointer' }}
+            aria-label={t('Glow Intensity')}
+          />
+        </div>
+      </Row>
+
+      {/* Background Blur Intensity Slider */}
+      <Row
+        icon="eye"
+        iconTint="var(--violet)"
+        title={t('Glass Blur Intensity')}
+        subtitle={`${Math.round((S.blurIntensity !== undefined ? S.blurIntensity : 1.0) * 100)}%`}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', maxWidth: 180 }}>
+          <input
+            type="range"
+            min="0.5"
+            max="1.8"
+            step="0.1"
+            value={S.blurIntensity !== undefined ? S.blurIntensity : 1.0}
+            onChange={e => update(s => { s.blurIntensity = parseFloat(e.target.value) })}
+            style={{ flex: 1, accentColor: 'var(--cyan)', cursor: 'pointer' }}
+            aria-label={t('Glass Blur Intensity')}
+          />
+        </div>
+      </Row>
+
       {/* Purely how the muscle map is drawn — nothing else in the app reads this. */}
       <Row icon="figureStrength" iconTint="var(--teal)" title={t('Body diagram')}>
         <Segmented
@@ -313,6 +427,7 @@ export default function Settings() {
           onChange={v => update(s => { s.body = v })}
         />
       </Row>
+
       <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12, paddingTop: 13, paddingBottom: 14 }}>
         <span className="lrow-t">{t('Accent color')}</span>
         <div className="swatches">

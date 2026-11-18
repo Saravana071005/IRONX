@@ -1,13 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { bindUI } from './components/ui.jsx'
 import { ACCENTS } from './lib/format.js'
-import { setLang, useLang } from './lib/i18n.js'
+import { setLang, useLang, t } from './lib/i18n.js'
 import { setNav } from './lib/nav.js'
 import { useWakeLock } from './lib/wakelock.js'
 import { startFlow } from './sheets.jsx'
+import { applyThemeToDocument } from './lib/themes.js'
 import Icon from './components/Icon.jsx'
 import TabBar from './components/TabBar.jsx'
 import Sidebar from './components/Sidebar.jsx'
@@ -37,12 +38,13 @@ import AuthCallback from './views/AuthCallback.jsx'
 
 bindUI(useUI)   // lets the shared controls open sheets without importing the store at module scope
 
-function applyPrefs(theme, accent) {
+function applyPrefs(S) {
   const de = document.documentElement
-  de.dataset.theme = theme === 'dark' ? 'dark' : 'light'
-  de.dataset.accent = ACCENTS[accent] ? accent : 'mint'
+  de.dataset.theme = S.theme === 'dark' ? 'dark' : 'light'
+  de.dataset.accent = ACCENTS[S.accent] ? S.accent : 'mint'
   const meta = document.querySelector('meta[name="theme-color"]')
   if (meta) meta.content = de.dataset.theme === 'dark' ? '#07080c' : '#fbf9f5'
+  applyThemeToDocument(S)
 }
 
 function Shell() {
@@ -51,12 +53,17 @@ function Shell() {
   const { S, user, ready } = useStore()
   const isGuest = useStore(s => s.isGuest())
   const langV = useLang()   // re-renders the whole shell when the language (pack) changes
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
+
   useEffect(() => { setNav(navigate) }, [navigate])
-  useEffect(() => { applyPrefs(S.theme, S.accent) }, [S.theme, S.accent])
+  useEffect(() => { applyPrefs(S) }, [S.theme, S.accent, S.bgTheme, S.glowIntensity, S.blurIntensity, S.bgAnimation, S.customGlow1, S.customGlow2, S.customGlow3, S.customGlow4])
   useEffect(() => { setLang(S.lang || 'en') }, [S.lang])
   useEffect(() => { document.documentElement.lang = S.lang || 'en' }, [langV, S.lang])
-  // every tab/route change starts at the top of the page
-  useEffect(() => { window.scrollTo(0, 0) }, [loc.pathname])
+  // every tab/route change starts at the top of the page and closes mobile drawer
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    setMobileDrawerOpen(false)
+  }, [loc.pathname])
   // bound to the workout, not to the route — checking Stats mid-session keeps the screen on
   useWakeLock(!!S.active && S.keepAwake !== false)
 
@@ -78,9 +85,52 @@ function Shell() {
         <div className="aurora-glow aurora-glow-3" />
         <div className="aurora-glow aurora-glow-4" />
       </div>
+
       <div className="layout-shell">
-        <Sidebar onStart={startFlow} />
+        <Sidebar
+          onStart={startFlow}
+          mobileOpen={mobileDrawerOpen}
+          onClose={() => setMobileDrawerOpen(false)}
+        />
         <main className="layout-main">
+          {authed && (
+            <header className="mobile-header-bar" role="banner">
+              <button
+                className="mobile-header-btn"
+                onClick={() => setMobileDrawerOpen(true)}
+                aria-label={t('Open navigation menu')}
+              >
+                <Icon name="bars" />
+              </button>
+              <div className="mobile-header-brand" onClick={() => navigate('/home')}>
+                <div className="mobile-header-brand-icon">
+                  <Icon name="dumbbell" />
+                </div>
+                <span className="mobile-header-brand-title">openGym</span>
+              </div>
+              <div className="mobile-header-actions">
+                {S.active ? (
+                  <button
+                    className="mobile-header-active-pill"
+                    onClick={() => navigate('/workout')}
+                    title={t('Resume active workout')}
+                  >
+                    <span className="mobile-active-pulse" />
+                    <span>{t('Active')}</span>
+                  </button>
+                ) : (
+                  <button
+                    className="mobile-header-btn"
+                    onClick={() => navigate('/settings')}
+                    aria-label={t('Settings')}
+                  >
+                    <Icon name="gear" />
+                  </button>
+                )}
+              </div>
+            </header>
+          )}
+
           {/* keyed on the route: a view that throws is contained, and switching tabs
               re-mounts the boundary, so the tab bar is always a way out */}
           <div id="app" className="vfade" key={loc.pathname}>
