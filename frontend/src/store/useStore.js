@@ -27,21 +27,32 @@ export const DEF = {
   meals: [],
   workoutTemplates: null,
   cardioLogs: [],
-  bgTheme: 'aurora-fusion',
+  bgTheme: 'imperial-gold',
+  goldShade: '#E8B477',
+  bronzeShade: '#C58A53',
+  bgDarkness: '#090909',
+  ambientGlow: true,
   glowIntensity: 1.0,
   blurIntensity: 1.0,
-  bgAnimation: true,
-  customGlow1: '#e11d48',
-  customGlow2: '#7c3aed',
-  customGlow3: '#0284c7',
-  customGlow4: '#00f2fe'
+  glassOpacity: 0.80,
+  bgAnimation: true
 }
 const clone = o => JSON.parse(JSON.stringify(o))
 
 function loadState() {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return Object.assign(clone(DEF), JSON.parse(raw))
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      // Upgrade any legacy themes or old colors to the Black & Warm Gold design
+      if (!parsed.bgTheme || parsed.bgTheme === 'aurora-fusion' || parsed.bgTheme === 'crimson-violet' || parsed.bgTheme === 'ocean-glow') {
+        parsed.bgTheme = 'imperial-gold'
+        parsed.goldShade = '#E8B477'
+        parsed.bronzeShade = '#C58A53'
+        parsed.bgDarkness = '#090909'
+      }
+      return Object.assign(clone(DEF), parsed)
+    }
   } catch (e) { /* ignore */ }
   return clone(DEF)
 }

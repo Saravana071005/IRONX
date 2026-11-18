@@ -198,14 +198,17 @@ export default function Sidebar({ onStart, mobileOpen = false, onClose }) {
               <Icon name={user ? "personCircle" : "key"} />
             </div>
             {!collapsed && (
-              <div className="sidebar-user-info">
-                <span className="sidebar-user-name">
-                  {user ? (user.name || user.id) : t('Guest Mode')}
-                </span>
-                <span className="sidebar-user-meta">
-                  {user ? (user.admin ? t('Admin') : t('Athlete')) : t('Tap to sign in')}
-                </span>
-              </div>
+              <>
+                <div className="sidebar-user-info">
+                  <span className="sidebar-user-name">
+                    {user ? (user.name || user.id) : 'Saravana Kumar'}
+                  </span>
+                  <span className="sidebar-user-meta">
+                    {user?.admin ? t('Admin') : t('Athlete')}
+                  </span>
+                </div>
+                <Icon name="chevronRight" size={14} style={{ color: 'var(--label-3)', flex: 'none', marginLeft: 4 }} />
+              </>
             )}
           </div>
         </div>

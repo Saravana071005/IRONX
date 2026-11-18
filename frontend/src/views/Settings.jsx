@@ -295,40 +295,33 @@ export default function Settings() {
 
     {(user || MOBILE) && <NotificationsCard S={S} update={update} toast={toast} />}
 
-    {/* ---------- appearance & liquid glass themes ---------- */}
-    <Section title={t('Appearance & Liquid Glass Themes')} footer={DEMO || MOBILE ? undefined : t('Themes and ambient glow settings sync live across all pages.')}>
-      <Row icon="moon" iconTint="var(--indigo)" title={t('Theme')}>
-        <Segmented
-          className="seg-inline"
-          options={[{ value: 'dark', icon: 'moon', label: t('Dark') }, { value: 'light', icon: 'sun', label: t('Light') }]}
-          value={S.theme === 'light' ? 'light' : 'dark'}
-          onChange={v => update(s => { s.theme = v })}
-        />
-      </Row>
-
-      {/* Futuristic Theme Presets */}
+    {/* ---------- appearance & black and gold themes ---------- */}
+    <Section title={t('Appearance & Black & Gold Theme')} footer={DEMO || MOBILE ? undefined : t('Theme and ambient gold lighting sync live across all pages.')}>
+      {/* Black & Gold Theme Presets */}
       <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12, paddingTop: 14, paddingBottom: 16 }}>
         <div className="row between" style={{ alignItems: 'baseline' }}>
-          <span className="lrow-t" style={{ fontWeight: 700 }}>{t('Multi-Colour Fusion Theme')}</span>
-          <span className="dim small">{t('Instant background adaptation')}</span>
+          <span className="lrow-t" style={{ fontWeight: 700 }}>{t('Black & Warm Gold Theme')}</span>
+          <span className="dim small">{t('Instant gold ambient adaptation')}</span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
           {Object.values(THEME_PRESETS).map(preset => {
-            const isSelected = (S.bgTheme || 'aurora-fusion') === preset.id
+            const isSelected = (S.bgTheme || 'imperial-gold') === preset.id
             return (
               <div
                 key={preset.id}
                 onClick={() => update(s => {
                   s.bgTheme = preset.id
-                  s.accent = preset.accent
+                  s.goldShade = preset.primary
+                  s.bronzeShade = preset.secondary
+                  s.bgDarkness = preset.bg
                 })}
                 style={{
                   padding: '12px 10px',
                   borderRadius: 14,
                   cursor: 'pointer',
-                  background: isSelected ? 'rgba(255, 255, 255, 0.12)' : 'var(--surface-2)',
-                  border: isSelected ? '2px solid var(--cyan)' : '1px solid rgba(255, 255, 255, 0.1)',
-                  boxShadow: isSelected ? '0 0 16px rgba(0, 242, 254, 0.35), var(--glass-highlight)' : 'var(--glass-highlight)',
+                  background: isSelected ? 'rgba(232, 180, 119, 0.12)' : 'var(--surface-2)',
+                  border: isSelected ? '2px solid #E8B477' : '1px solid rgba(232, 180, 119, 0.15)',
+                  boxShadow: isSelected ? '0 0 16px rgba(232, 180, 119, 0.35), var(--glass-highlight)' : 'var(--glass-highlight)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 8,
@@ -341,13 +334,13 @@ export default function Settings() {
                     height: 38,
                     borderRadius: 8,
                     background: preset.heroGradient,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.4)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.45), inset 0 1px 1px rgba(255,255,255,0.4)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                 >
-                  {isSelected && <span style={{ color: '#fff', fontSize: 16, fontWeight: 800 }}>✓</span>}
+                  {isSelected && <span style={{ color: '#12100E', fontSize: 16, fontWeight: 900 }}>✓</span>}
                 </div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
@@ -363,44 +356,165 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Ambient Aurora Animation Toggle */}
+      {/* Primary Gold Shade Customizer */}
+      <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10, paddingTop: 10, paddingBottom: 14 }}>
+        <div className="row between">
+          <span className="lrow-t">{t('Primary Gold Accent')}</span>
+          <span style={{ fontSize: 12, color: S.goldShade || '#E8B477', fontWeight: 700 }}>
+            {S.goldShade || '#E8B477'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {[
+            { c: '#E8B477', name: 'Champagne (Default)' },
+            { c: '#F3C78B', name: 'Luminous Gold' },
+            { c: '#FFD09A', name: 'Light Gold' },
+            { c: '#D4AF37', name: 'Classic Gold' },
+            { c: '#E5A962', name: 'Amber Gold' },
+            { c: '#C58A53', name: 'Soft Bronze' }
+          ].map(({ c, name }) => {
+            const active = (S.goldShade || '#E8B477') === c
+            return (
+              <button
+                key={c}
+                onClick={() => update(s => { s.goldShade = c })}
+                title={name}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 12,
+                  background: c,
+                  border: active ? '3px solid #FFFFFF' : '1px solid rgba(255,255,255,0.2)',
+                  boxShadow: active ? `0 0 14px ${c}` : '0 2px 8px rgba(0,0,0,0.3)',
+                  cursor: 'pointer',
+                  transform: active ? 'scale(1.1)' : 'scale(1)',
+                  transition: 'transform 0.15s ease'
+                }}
+              />
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Secondary Bronze Shade Customizer */}
+      <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10, paddingTop: 6, paddingBottom: 14 }}>
+        <div className="row between">
+          <span className="lrow-t">{t('Secondary Bronze Shade')}</span>
+          <span style={{ fontSize: 12, color: S.bronzeShade || '#C58A53', fontWeight: 700 }}>
+            {S.bronzeShade || '#C58A53'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {[
+            { c: '#C58A53', name: 'Soft Bronze' },
+            { c: '#B37D42', name: 'Antique Bronze' },
+            { c: '#A86D33', name: 'Burnished Bronze' },
+            { c: '#8F5C2C', name: 'Dark Bronze' },
+            { c: '#7D4D20', name: 'Smoky Bronze' }
+          ].map(({ c, name }) => {
+            const active = (S.bronzeShade || '#C58A53') === c
+            return (
+              <button
+                key={c}
+                onClick={() => update(s => { s.bronzeShade = c })}
+                title={name}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 12,
+                  background: c,
+                  border: active ? '3px solid #FFFFFF' : '1px solid rgba(255,255,255,0.2)',
+                  boxShadow: active ? `0 0 14px ${c}` : '0 2px 8px rgba(0,0,0,0.3)',
+                  cursor: 'pointer',
+                  transform: active ? 'scale(1.1)' : 'scale(1)',
+                  transition: 'transform 0.15s ease'
+                }}
+              />
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Background Darkness */}
       <Row
-        icon="sparkles"
-        iconTint="var(--cyan)"
-        title={t('Background Aurora Animation')}
-        subtitle={t('Fluid drifting motion of ambient background light')}
+        icon="moon"
+        iconTint="#E8B477"
+        title={t('Background Darkness')}
+        subtitle={S.bgDarkness === '#050505' ? t('Pitch Black') : S.bgDarkness === '#111111' ? t('Dark Charcoal') : t('Deep Black (Default)')}
       >
-        <Switch
-          checked={S.bgAnimation !== false}
-          onChange={v => update(s => { s.bgAnimation = v })}
+        <Segmented
+          className="seg-inline"
+          options={[
+            { value: '#090909', label: t('Deep Black') },
+            { value: '#050505', label: t('Pitch') },
+            { value: '#111111', label: t('Charcoal') }
+          ]}
+          value={S.bgDarkness || '#090909'}
+          onChange={v => update(s => { s.bgDarkness = v })}
         />
       </Row>
 
-      {/* Glow Intensity Slider */}
+      {/* Ambient Gold Glow Toggle */}
       <Row
-        icon="sun"
-        iconTint="var(--amber)"
-        title={t('Ambient Glow Intensity')}
-        subtitle={`${Math.round((S.glowIntensity !== undefined ? S.glowIntensity : 1.0) * 100)}%`}
+        icon="sparkles"
+        iconTint="#E8B477"
+        title={t('Ambient Gold Glow')}
+        subtitle={t('Warm golden ambient lighting behind dashboard cards')}
+      >
+        <Switch
+          checked={S.ambientGlow !== false}
+          onChange={v => update(s => { s.ambientGlow = v })}
+        />
+      </Row>
+
+      {/* Ambient Glow Intensity Slider */}
+      {S.ambientGlow !== false && (
+        <Row
+          icon="sun"
+          iconTint="#E8B477"
+          title={t('Ambient Glow Intensity')}
+          subtitle={`${Math.round((S.glowIntensity !== undefined ? S.glowIntensity : 1.0) * 100)}%`}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', maxWidth: 180 }}>
+            <input
+              type="range"
+              min="0.2"
+              max="1.8"
+              step="0.1"
+              value={S.glowIntensity !== undefined ? S.glowIntensity : 1.0}
+              onChange={e => update(s => { s.glowIntensity = parseFloat(e.target.value) })}
+              style={{ flex: 1, accentColor: '#E8B477', cursor: 'pointer' }}
+              aria-label={t('Glow Intensity')}
+            />
+          </div>
+        </Row>
+      )}
+
+      {/* Glass Transparency / Opacity Slider */}
+      <Row
+        icon="eye"
+        iconTint="#E8B477"
+        title={t('Glass Card Opacity')}
+        subtitle={`${Math.round((S.glassOpacity !== undefined ? S.glassOpacity : 0.80) * 100)}%`}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', maxWidth: 180 }}>
           <input
             type="range"
-            min="0.2"
-            max="1.8"
-            step="0.1"
-            value={S.glowIntensity !== undefined ? S.glowIntensity : 1.0}
-            onChange={e => update(s => { s.glowIntensity = parseFloat(e.target.value) })}
-            style={{ flex: 1, accentColor: 'var(--cyan)', cursor: 'pointer' }}
-            aria-label={t('Glow Intensity')}
+            min="0.5"
+            max="0.95"
+            step="0.05"
+            value={S.glassOpacity !== undefined ? S.glassOpacity : 0.80}
+            onChange={e => update(s => { s.glassOpacity = parseFloat(e.target.value) })}
+            style={{ flex: 1, accentColor: '#E8B477', cursor: 'pointer' }}
+            aria-label={t('Glass Opacity')}
           />
         </div>
       </Row>
 
       {/* Background Blur Intensity Slider */}
       <Row
-        icon="eye"
-        iconTint="var(--violet)"
+        icon="camera"
+        iconTint="#E8B477"
         title={t('Glass Blur Intensity')}
         subtitle={`${Math.round((S.blurIntensity !== undefined ? S.blurIntensity : 1.0) * 100)}%`}
       >
@@ -412,14 +526,27 @@ export default function Settings() {
             step="0.1"
             value={S.blurIntensity !== undefined ? S.blurIntensity : 1.0}
             onChange={e => update(s => { s.blurIntensity = parseFloat(e.target.value) })}
-            style={{ flex: 1, accentColor: 'var(--cyan)', cursor: 'pointer' }}
+            style={{ flex: 1, accentColor: '#E8B477', cursor: 'pointer' }}
             aria-label={t('Glass Blur Intensity')}
           />
         </div>
       </Row>
 
-      {/* Purely how the muscle map is drawn — nothing else in the app reads this. */}
-      <Row icon="figureStrength" iconTint="var(--teal)" title={t('Body diagram')}>
+      {/* Background Glow Animation Toggle */}
+      <Row
+        icon="bolt"
+        iconTint="#E8B477"
+        title={t('Subtle Drift Animation')}
+        subtitle={t('Gentle organic movement of warm gold lighting')}
+      >
+        <Switch
+          checked={S.bgAnimation !== false}
+          onChange={v => update(s => { s.bgAnimation = v })}
+        />
+      </Row>
+
+      {/* Body diagram */}
+      <Row icon="figureStrength" iconTint="#E8B477" title={t('Body diagram')}>
         <Segmented
           className="seg-inline"
           options={[{ value: 'male', label: t('Male') }, { value: 'female', label: t('Female') }]}
@@ -427,16 +554,6 @@ export default function Settings() {
           onChange={v => update(s => { s.body = v })}
         />
       </Row>
-
-      <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12, paddingTop: 13, paddingBottom: 14 }}>
-        <span className="lrow-t">{t('Accent color')}</span>
-        <div className="swatches">
-          {Object.entries(ACCENTS).map(([k, c]) => (
-            <button key={k} className={'swatch' + ((S.accent || 'lime') === k ? ' on' : '')}
-              style={{ background: c }} onClick={() => update(s => { s.accent = k })} aria-label={k} />
-          ))}
-        </div>
-      </div>
     </Section>
 
     {/* ---------- data: fill it, bring things over, back it up, wipe it ---------- */}
