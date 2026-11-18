@@ -40,8 +40,8 @@ class WidgetBoundary extends Component {
           style={{
             padding: '20px',
             borderRadius: 20,
-            background: 'rgba(20, 20, 22, 0.85)',
-            border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.2))',
+            background: 'var(--surface)',
+            border: '1px solid var(--theme-accent-border, var(--border-gold))',
             display: 'flex',
             flexDirection: 'column',
             gap: 10,
@@ -62,7 +62,7 @@ class WidgetBoundary extends Component {
             style={{
               padding: '6px 14px',
               borderRadius: 8,
-              background: 'rgba(255, 255, 255, 0.08)',
+              background: 'var(--surface-2)',
               color: 'var(--theme-accent, #E8B477)',
               fontSize: 12,
               fontWeight: 600,
@@ -89,7 +89,7 @@ function CoachCard({ nav }) {
       className="card"
       style={{
         border: ready ? '1px solid var(--theme-accent, #E8B477)' : '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.2))',
-        background: 'rgba(20, 20, 22, 0.85)',
+        background: 'var(--surface)',
         marginBottom: 16
       }}
     >
@@ -464,9 +464,12 @@ export default function Home() {
               overflow: 'hidden',
               padding: '28px 30px',
               borderRadius: 22,
-              background: 'linear-gradient(135deg, rgba(22, 20, 20, 0.95) 0%, rgba(14, 13, 14, 0.98) 100%)',
-              border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.18))',
-              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.12)',
+              background: 'var(--surface)',
+              backgroundImage: 'var(--grad-glass-surface)',
+              backdropFilter: 'var(--glass-blur)',
+              WebkitBackdropFilter: 'var(--glass-blur)',
+              border: '1px solid var(--theme-accent-border, var(--border-gold))',
+              boxShadow: 'var(--card-shadow), var(--glass-highlight)',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
@@ -482,7 +485,7 @@ export default function Home() {
                 width: 320,
                 height: 320,
                 borderRadius: '50%',
-                background: 'radial-gradient(circle, var(--theme-accent-glow, rgba(232, 180, 119, 0.16)) 0%, transparent 70%)',
+                background: 'radial-gradient(circle, var(--theme-accent-glow) 0%, transparent 70%)',
                 filter: 'blur(45px)',
                 pointerEvents: 'none'
               }}
@@ -507,45 +510,78 @@ export default function Home() {
             </svg>
 
             <div style={{ position: 'relative', zIndex: 1 }}>
+              {/* Today's Date & Training Status Badge */}
               <div
                 style={{
-                  fontSize: 30,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '5px 12px',
+                  borderRadius: 9999,
+                  background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.12))',
+                  border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.28))',
+                  marginBottom: 12
+                }}
+              >
+                <Icon name="calendar" size={13} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: 'var(--theme-accent, #E8B477)',
+                    letterSpacing: '0.02em',
+                    textTransform: 'uppercase'
+                  }}
+                >
+                  {todayInfo.dayName || t('Today')} · {S?.active ? t('In Progress') : (isScheduledRest ? t('Rest & Recovery') : t('Scheduled Session'))}
+                </span>
+              </div>
+
+              {/* Main Workout Session Heading */}
+              <div
+                style={{
+                  fontSize: 28,
                   fontWeight: 800,
-                  color: '#FFFFFF',
+                  color: 'var(--label)',
                   letterSpacing: '-0.025em',
                   lineHeight: 1.15,
                   fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif"
                 }}
               >
-                Plan. Train. Track.
-              </div>
-              <div
-                style={{
-                  fontSize: 30,
-                  fontWeight: 800,
-                  color: 'var(--theme-accent, #E8B477)',
-                  letterSpacing: '-0.025em',
-                  lineHeight: 1.15,
-                  marginTop: 2,
-                  fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif",
-                  textShadow: '0 0 24px var(--theme-accent-glow, rgba(232, 180, 119, 0.4))'
-                }}
-              >
-                Get Stronger.
-              </div>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: '#A9A19A',
-                  marginTop: 10,
-                  maxWidth: 400,
-                  lineHeight: 1.5,
-                  fontWeight: 400
-                }}
-              >
-                {t('Your personal fitness companion to build muscle, lose fat and stay consistent.')}
+                {S?.active
+                  ? (S.active.name || t('Active Workout'))
+                  : (scheduledTemplate ? scheduledTemplate.name : t('Rest & Muscle Recovery'))}
               </div>
 
+              {/* Clean Fitness Metrics Row */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 16,
+                  marginTop: 12,
+                  flexWrap: 'wrap'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--label-2)' }}>
+                  <Icon name="dumbbell" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                  <span>
+                    {isScheduledRest
+                      ? t('Full Body Restoration')
+                      : `${(scheduledTemplate?.exercises || scheduledTemplate?.ex || []).length || 5} ${t('exercises')}`}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--label-2)' }}>
+                  <Icon name="timer" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                  <span>{isScheduledRest ? '24h recovery' : '45–60 min'}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--label-2)' }}>
+                  <Icon name="flame" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                  <span>{isScheduledRest ? t('Muscle repair') : '~380 kcal'}</span>
+                </div>
+              </div>
+
+              {/* Action Button */}
               <button
                 onClick={handleStartTodayWorkout}
                 style={{
@@ -565,7 +601,7 @@ export default function Home() {
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
-                <span>{t('Start Workout')}</span>
+                <span>{S?.active ? t('Resume Workout') : t('Start Workout')}</span>
                 <Icon name="arrowRight" size={15} />
               </button>
             </div>
@@ -579,16 +615,19 @@ export default function Home() {
             style={{
               padding: '24px',
               borderRadius: 22,
-              background: 'rgba(20, 20, 22, 0.85)',
-              border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
-              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
+              background: 'var(--surface)',
+              backgroundImage: 'var(--grad-glass-surface)',
+              backdropFilter: 'var(--glass-blur)',
+              WebkitBackdropFilter: 'var(--glass-blur)',
+              border: '1px solid var(--theme-accent-border, var(--border-gold))',
+              boxShadow: 'var(--card-shadow), var(--glass-highlight)',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
               minHeight: 220
             }}
           >
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB', letterSpacing: '-0.015em' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)', letterSpacing: '-0.015em' }}>
               {t('Weekly Activity')}
             </div>
 
@@ -619,7 +658,7 @@ export default function Home() {
                       width: 14,
                       height: 90,
                       borderRadius: 9999,
-                      background: 'rgba(255, 255, 255, 0.05)',
+                      background: 'var(--surface-3)',
                       display: 'flex',
                       alignItems: 'flex-end',
                       overflow: 'hidden',
@@ -633,7 +672,7 @@ export default function Home() {
                         borderRadius: 9999,
                         background: item.active
                           ? 'var(--theme-accent-gradient, linear-gradient(180deg, #FFD09A 0%, #E8B477 100%))'
-                          : 'rgba(255, 255, 255, 0.08)',
+                          : 'var(--label-4)',
                         boxShadow: item.active ? '0 0 12px var(--theme-accent-glow, rgba(232, 180, 119, 0.45))' : 'none',
                         transition: 'height 0.4s ease'
                       }}
@@ -644,7 +683,7 @@ export default function Home() {
                     style={{
                       fontSize: 12,
                       fontWeight: item.isToday ? 800 : 600,
-                      color: item.isToday ? 'var(--theme-accent, #E8B477)' : '#A9A19A'
+                      color: item.isToday ? 'var(--theme-accent, #E8B477)' : 'var(--label-2)'
                     }}
                   >
                     {item.label}
@@ -663,9 +702,12 @@ export default function Home() {
           style={{
             padding: '20px 26px',
             borderRadius: 22,
-            background: 'rgba(20, 20, 22, 0.85)',
-            border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
-            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
+            background: 'var(--surface)',
+            backgroundImage: 'var(--grad-glass-surface)',
+            backdropFilter: 'var(--glass-blur)',
+            WebkitBackdropFilter: 'var(--glass-blur)',
+            border: '1px solid var(--theme-accent-border, var(--border-gold))',
+            boxShadow: 'var(--card-shadow), var(--glass-highlight)',
             marginBottom: 18
           }}
         >
@@ -696,10 +738,10 @@ export default function Home() {
                 <Icon name="scale" size={22} />
               </div>
               <div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--label)', lineHeight: 1.1 }}>
                   {currentWeightVal} {weightUnit}
                 </div>
-                <div style={{ fontSize: 12, color: '#A9A19A', marginTop: 2 }}>{t('Weight')}</div>
+                <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 2 }}>{t('Weight')}</div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#10B981', marginTop: 2 }}>
                   ▽ {deltaFormatted} kg
                 </div>
@@ -725,15 +767,15 @@ export default function Home() {
                 <Icon name="flame" size={22} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--label)', lineHeight: 1.1 }}>
                   {targetCalories.toLocaleString()} kcal
                 </div>
-                <div style={{ fontSize: 12, color: '#A9A19A', marginTop: 2 }}>{t('Daily Target')}</div>
+                <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 2 }}>{t('Daily Target')}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                  <div style={{ flex: 1, height: 5, borderRadius: 9999, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
+                  <div style={{ flex: 1, height: 5, borderRadius: 9999, background: 'var(--surface-3)', overflow: 'hidden' }}>
                     <div style={{ width: `${caloriePct}%`, height: '100%', background: 'var(--theme-accent, #E8B477)', borderRadius: 9999 }} />
                   </div>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#A9A19A' }}>{caloriePct}%</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--label-2)' }}>{caloriePct}%</span>
                 </div>
               </div>
             </div>
@@ -757,11 +799,11 @@ export default function Home() {
                 <Icon name="dumbbell" size={22} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--label)', lineHeight: 1.1 }}>
                   {wThisWeek > 0 ? wThisWeek : 4} / {plannedPerWeek || 5}
                 </div>
-                <div style={{ fontSize: 12, color: '#A9A19A', marginTop: 2 }}>{t('Workouts')}</div>
-                <div style={{ marginTop: 4, height: 5, borderRadius: 9999, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
+                <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 2 }}>{t('Workouts')}</div>
+                <div style={{ marginTop: 4, height: 5, borderRadius: 9999, background: 'var(--surface-3)', overflow: 'hidden' }}>
                   <div style={{ width: `${Math.min(100, Math.round(((wThisWeek || 4) / (plannedPerWeek || 5)) * 100))}%`, height: '100%', background: 'var(--theme-accent, #E8B477)', borderRadius: 9999 }} />
                 </div>
               </div>
@@ -786,10 +828,10 @@ export default function Home() {
                 <Icon name="bolt" size={22} />
               </div>
               <div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--label)', lineHeight: 1.1 }}>
                   {streakCount} Days
                 </div>
-                <div style={{ fontSize: 12, color: '#A9A19A', marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 2 }}>
                   {t('Streak')} 🔥
                 </div>
               </div>
@@ -807,9 +849,12 @@ export default function Home() {
             overflow: 'hidden',
             padding: '24px 28px',
             borderRadius: 22,
-            background: 'linear-gradient(135deg, rgba(22, 21, 20, 0.95) 0%, rgba(16, 15, 16, 0.95) 100%)',
-            border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.2))',
-            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
+            background: 'var(--surface)',
+            backgroundImage: 'var(--grad-glass-surface)',
+            backdropFilter: 'var(--glass-blur)',
+            WebkitBackdropFilter: 'var(--glass-blur)',
+            border: '1px solid var(--theme-accent-border, var(--border-gold))',
+            boxShadow: 'var(--card-shadow), var(--glass-highlight)',
             marginBottom: 18
           }}
         >
@@ -847,7 +892,7 @@ export default function Home() {
                 style={{
                   fontSize: 26,
                   fontWeight: 800,
-                  color: '#F5F1EB',
+                  color: 'var(--label)',
                   marginTop: 6,
                   fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif",
                   letterSpacing: '-0.02em'
@@ -862,7 +907,7 @@ export default function Home() {
                   alignItems: 'center',
                   gap: 16,
                   marginTop: 10,
-                  color: '#A9A19A',
+                  color: 'var(--label-2)',
                   fontSize: 13,
                   fontWeight: 500,
                   flexWrap: 'wrap'
@@ -927,12 +972,15 @@ export default function Home() {
               style={{
                 padding: '24px',
                 borderRadius: 22,
-                background: 'rgba(20, 20, 22, 0.85)',
-                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
-                boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)'
+                background: 'var(--surface)',
+                backgroundImage: 'var(--grad-glass-surface)',
+                backdropFilter: 'var(--glass-blur)',
+                WebkitBackdropFilter: 'var(--glass-blur)',
+                border: '1px solid var(--theme-accent-border, var(--border-gold))',
+                boxShadow: 'var(--card-shadow), var(--glass-highlight)'
               }}
             >
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB', marginBottom: 18 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)', marginBottom: 18 }}>
                 {t('Calories Overview')}
               </div>
 
@@ -974,10 +1022,10 @@ export default function Home() {
                       justifyContent: 'center'
                     }}
                   >
-                    <span style={{ fontSize: 18, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--label)', lineHeight: 1.1 }}>
                       {loggedCalories.toLocaleString()}
                     </span>
-                    <span style={{ fontSize: 11, color: '#A9A19A', fontWeight: 600 }}>kcal</span>
+                    <span style={{ fontSize: 11, color: 'var(--label-2)', fontWeight: 600 }}>kcal</span>
                   </div>
                 </div>
 
@@ -987,10 +1035,10 @@ export default function Home() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--theme-accent-highlight, #FFD09A)' }} />
-                      <span style={{ color: '#F5F1EB', fontWeight: 500 }}>{t('Protein')}</span>
+                      <span style={{ color: 'var(--label)', fontWeight: 500 }}>{t('Protein')}</span>
                     </div>
-                    <span style={{ color: '#F5F1EB', fontWeight: 600 }}>
-                      {proteinGrams} g <span style={{ color: '#A9A19A', fontSize: 11 }}>({proteinPct}%)</span>
+                    <span style={{ color: 'var(--label)', fontWeight: 600 }}>
+                      {proteinGrams} g <span style={{ color: 'var(--label-2)', fontSize: 11 }}>({proteinPct}%)</span>
                     </span>
                   </div>
 
@@ -998,10 +1046,10 @@ export default function Home() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--theme-accent, #E8B477)' }} />
-                      <span style={{ color: '#F5F1EB', fontWeight: 500 }}>{t('Carbs')}</span>
+                      <span style={{ color: 'var(--label)', fontWeight: 500 }}>{t('Carbs')}</span>
                     </div>
-                    <span style={{ color: '#F5F1EB', fontWeight: 600 }}>
-                      {carbsGrams} g <span style={{ color: '#A9A19A', fontSize: 11 }}>({carbsPct}%)</span>
+                    <span style={{ color: 'var(--label)', fontWeight: 600 }}>
+                      {carbsGrams} g <span style={{ color: 'var(--label-2)', fontSize: 11 }}>({carbsPct}%)</span>
                     </span>
                   </div>
 
@@ -1009,10 +1057,10 @@ export default function Home() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--theme-accent-secondary, #C58A53)' }} />
-                      <span style={{ color: '#F5F1EB', fontWeight: 500 }}>{t('Fats')}</span>
+                      <span style={{ color: 'var(--label)', fontWeight: 500 }}>{t('Fats')}</span>
                     </div>
-                    <span style={{ color: '#F5F1EB', fontWeight: 600 }}>
-                      {fatsGrams} g <span style={{ color: '#A9A19A', fontSize: 11 }}>({fatsPct}%)</span>
+                    <span style={{ color: 'var(--label)', fontWeight: 600 }}>
+                      {fatsGrams} g <span style={{ color: 'var(--label-2)', fontSize: 11 }}>({fatsPct}%)</span>
                     </span>
                   </div>
                 </div>
@@ -1027,12 +1075,15 @@ export default function Home() {
               style={{
                 padding: '24px',
                 borderRadius: 22,
-                background: 'rgba(20, 20, 22, 0.85)',
-                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
-                boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)'
+                background: 'var(--surface)',
+                backgroundImage: 'var(--grad-glass-surface)',
+                backdropFilter: 'var(--glass-blur)',
+                WebkitBackdropFilter: 'var(--glass-blur)',
+                border: '1px solid var(--theme-accent-border, var(--border-gold))',
+                boxShadow: 'var(--card-shadow), var(--glass-highlight)'
               }}
             >
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB', marginBottom: 16 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)', marginBottom: 16 }}>
                 {t('Quick Actions')}
               </div>
 
@@ -1050,7 +1101,7 @@ export default function Home() {
                   style={{
                     padding: '16px 10px',
                     borderRadius: 16,
-                    background: 'rgba(255, 255, 255, 0.03)',
+                    background: 'var(--surface-2)',
                     border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
                     display: 'flex',
                     flexDirection: 'column',
@@ -1065,7 +1116,7 @@ export default function Home() {
                   <span style={{ color: 'var(--theme-accent, #E8B477)' }}>
                     <Icon name="dumbbell" size={20} />
                   </span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#F5F1EB' }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--label)' }}>
                     {t('Log Workout')}
                   </span>
                 </div>
@@ -1076,7 +1127,7 @@ export default function Home() {
                   style={{
                     padding: '16px 10px',
                     borderRadius: 16,
-                    background: 'rgba(255, 255, 255, 0.03)',
+                    background: 'var(--surface-2)',
                     border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
                     display: 'flex',
                     flexDirection: 'column',
@@ -1091,7 +1142,7 @@ export default function Home() {
                   <span style={{ color: 'var(--theme-accent, #E8B477)' }}>
                     <Icon name="apple" size={20} />
                   </span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#F5F1EB' }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--label)' }}>
                     {t('Log Food')}
                   </span>
                 </div>
@@ -1102,7 +1153,7 @@ export default function Home() {
                   style={{
                     padding: '16px 10px',
                     borderRadius: 16,
-                    background: 'rgba(255, 255, 255, 0.03)',
+                    background: 'var(--surface-2)',
                     border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
                     display: 'flex',
                     flexDirection: 'column',
@@ -1117,7 +1168,7 @@ export default function Home() {
                   <span style={{ color: 'var(--theme-accent, #E8B477)' }}>
                     <Icon name="figureRun" size={20} />
                   </span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#F5F1EB' }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--label)' }}>
                     {t('Log Cardio')}
                   </span>
                 </div>
@@ -1128,7 +1179,7 @@ export default function Home() {
                   style={{
                     padding: '16px 10px',
                     borderRadius: 16,
-                    background: 'rgba(255, 255, 255, 0.03)',
+                    background: 'var(--surface-2)',
                     border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
                     display: 'flex',
                     flexDirection: 'column',
@@ -1143,7 +1194,7 @@ export default function Home() {
                   <span style={{ color: 'var(--theme-accent, #E8B477)' }}>
                     <Icon name="scale" size={20} />
                   </span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#F5F1EB' }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--label)' }}>
                     {t('Body Stats')}
                   </span>
                 </div>
@@ -1161,20 +1212,23 @@ export default function Home() {
               style={{
                 padding: '24px',
                 borderRadius: 22,
-                background: 'rgba(20, 20, 22, 0.85)',
-                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
-                boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)'
+                background: 'var(--surface)',
+                backgroundImage: 'var(--grad-glass-surface)',
+                backdropFilter: 'var(--glass-blur)',
+                WebkitBackdropFilter: 'var(--glass-blur)',
+                border: '1px solid var(--theme-accent-border, var(--border-gold))',
+                boxShadow: 'var(--card-shadow), var(--glass-highlight)'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB' }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)' }}>
                   {t('Your Progress')}
                 </span>
                 <div
                   style={{
                     padding: '5px 12px',
                     borderRadius: 10,
-                    background: 'rgba(255, 255, 255, 0.05)',
+                    background: 'var(--surface-2)',
                     border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.2))',
                     fontSize: 12,
                     color: 'var(--theme-accent, #E8B477)',
@@ -1191,7 +1245,7 @@ export default function Home() {
 
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
                 <div>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: '#F5F1EB', lineHeight: 1.1 }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--label)', lineHeight: 1.1 }}>
                     {currentWeightVal} {weightUnit}
                   </div>
                   <div style={{ fontSize: 12, color: '#10B981', fontWeight: 600, marginTop: 4 }}>
@@ -1246,13 +1300,16 @@ export default function Home() {
               style={{
                 padding: '24px',
                 borderRadius: 22,
-                background: 'rgba(20, 20, 22, 0.85)',
-                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
-                boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)'
+                background: 'var(--surface)',
+                backgroundImage: 'var(--grad-glass-surface)',
+                backdropFilter: 'var(--glass-blur)',
+                WebkitBackdropFilter: 'var(--glass-blur)',
+                border: '1px solid var(--theme-accent-border, var(--border-gold))',
+                boxShadow: 'var(--card-shadow), var(--glass-highlight)'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: '#F5F1EB' }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)' }}>
                   {t('This Week Plan')}
                 </span>
                 <button
@@ -1284,7 +1341,7 @@ export default function Home() {
                       style={{
                         padding: '10px 14px',
                         borderRadius: 12,
-                        background: isDayToday ? 'var(--theme-accent-light, rgba(232, 180, 119, 0.08))' : 'rgba(255, 255, 255, 0.02)',
+                        background: isDayToday ? 'var(--theme-accent-light, rgba(232, 180, 119, 0.08))' : 'var(--surface-2)',
                         border: isDayToday ? '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.45))' : '1px solid transparent',
                         display: 'flex',
                         alignItems: 'center',
@@ -1294,10 +1351,10 @@ export default function Home() {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: isDayToday ? 'var(--theme-accent, #E8B477)' : '#A9A19A', width: 32 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: isDayToday ? 'var(--theme-accent, #E8B477)' : 'var(--label-2)', width: 32 }}>
                           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][idx]}
                         </span>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: '#F5F1EB' }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--label)' }}>
                           {idx === 0 ? 'Shoulder' : idx === 1 ? 'Chest + Triceps' : idx === 2 ? 'Back + Biceps' : 'Legs + Core'}
                         </span>
                       </div>
@@ -1312,7 +1369,7 @@ export default function Home() {
                             ▷ {t('Today')}
                           </span>
                         ) : (
-                          <span style={{ fontSize: 12, color: '#A9A19A' }}>
+                          <span style={{ fontSize: 12, color: 'var(--label-2)' }}>
                             {t('Scheduled')}
                           </span>
                         )}

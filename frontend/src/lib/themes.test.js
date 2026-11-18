@@ -41,4 +41,20 @@ describe('Dynamic Accent Theme System', () => {
     expect(() => applyThemeToDocument({})).not.toThrow()
     expect(() => applyThemeToDocument(null)).not.toThrow()
   })
+
+  it('correctly applies light and dark theme mode to document', () => {
+    if (typeof document !== 'undefined') {
+      applyThemeToDocument({ theme: 'light', bgTheme: 'silver' })
+      expect(document.documentElement.dataset.theme).toBe('light')
+      expect(document.documentElement.style.getPropertyValue('--bg')).toBe('#F6F8FB')
+      expect(document.documentElement.style.getPropertyValue('--label')).toBe('#0F172A')
+      expect(document.documentElement.style.getPropertyValue('--theme-accent')).toBe('#E2E8F0')
+
+      applyThemeToDocument({ theme: 'dark', bgTheme: 'crimson-red' })
+      expect(document.documentElement.dataset.theme).toBe('dark')
+      expect(document.documentElement.style.getPropertyValue('--bg')).toBe('#090909')
+      expect(document.documentElement.style.getPropertyValue('--label')).toBe('#F5F1EB')
+      expect(document.documentElement.style.getPropertyValue('--theme-accent')).toBe('#EF4444')
+    }
+  })
 })

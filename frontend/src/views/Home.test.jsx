@@ -90,4 +90,26 @@ describe('Home View Rendering & Defensive Edge Cases', () => {
     expect(html).toContain('Calories Overview')
     expect(html).toContain('kcal')
   })
+
+  it('does NOT contain promotional hero marketing slogans', () => {
+    const html = renderToString(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+    expect(html).not.toContain('Plan. Train. Track.')
+    expect(html).not.toContain('Get Stronger.')
+    expect(html).not.toContain('Your personal fitness companion')
+    expect(html).not.toContain('Track workouts, visualize muscle recovery')
+  })
+
+  it('renders clean fitness session status and start workout action on the home dashboard', () => {
+    const html = renderToString(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+    expect(html).toMatch(/Scheduled Session|Rest &amp; Recovery|Rest & Muscle Recovery/)
+    expect(html).toMatch(/Start Workout|Resume Workout/)
+  })
 })

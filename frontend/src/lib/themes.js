@@ -153,55 +153,115 @@ export function applyThemeToDocument(S = {}) {
   if (typeof document === 'undefined') return
   const de = document.documentElement
 
-  const themeId = S.bgTheme || 'warm-gold'
+  const isLight = S?.theme === 'light'
+  const themeId = S?.bgTheme || 'warm-gold'
   const preset = getThemePreset(themeId)
 
-  const primaryAccent = S.goldShade && themeId === 'warm-gold' ? S.goldShade : preset.primary
-  const secondaryAccent = S.bronzeShade && themeId === 'warm-gold' ? S.bronzeShade : preset.secondary
+  const primaryAccent = S?.goldShade && themeId === 'warm-gold' ? S.goldShade : preset.primary
+  const secondaryAccent = S?.bronzeShade && themeId === 'warm-gold' ? S.bronzeShade : preset.secondary
   const highlightAccent = preset.highlight
-  const bgDarkness = S.bgDarkness || preset.bg || '#090909'
-  const glowInt = S.ambientGlow === false ? 0 : (S.glowIntensity !== undefined ? Number(S.glowIntensity) : 1.0)
-  const blurInt = S.blurIntensity !== undefined ? Number(S.blurIntensity) : 1.0
-  const animOn = S.bgAnimation !== false
-  const glassOpacity = S.glassOpacity !== undefined ? Number(S.glassOpacity) : 0.80
+  const bgDarkness = S?.bgDarkness || preset.bg || '#090909'
+  const glowInt = S?.ambientGlow === false ? 0 : (S?.glowIntensity !== undefined ? Number(S.glowIntensity) : 1.0)
+  const blurInt = S?.blurIntensity !== undefined ? Number(S.blurIntensity) : 1.0
+  const animOn = S?.bgAnimation !== false
+  const glassOpacity = S?.glassOpacity !== undefined ? Number(S.glassOpacity) : 0.80
 
-  // 1. Root Color & Background Variables
-  de.style.setProperty('--bg', bgDarkness)
-  de.style.setProperty('--bg-el', '#151210')
+  // Set data attributes on <html>
+  de.dataset.theme = isLight ? 'light' : 'dark'
+  de.setAttribute('data-theme', isLight ? 'light' : 'dark')
+  de.dataset.bgTheme = preset.id
+  de.setAttribute('data-bg-theme', preset.id)
 
-  // Dynamic Accent Theme Custom Properties
+  if (isLight) {
+    // ---------------- Light Mode Surfaces & Hierarchy ----------------
+    de.style.setProperty('--bg', '#F6F8FB')
+    de.style.setProperty('--bg-el', '#FFFFFF')
+    de.style.setProperty('--surface', 'rgba(255, 255, 255, 0.92)')
+    de.style.setProperty('--surface-2', 'rgba(241, 245, 249, 0.95)')
+    de.style.setProperty('--surface-3', 'rgba(226, 232, 240, 0.95)')
+
+    // Text Hierarchy (High-contrast slate)
+    de.style.setProperty('--label', '#0F172A')
+    de.style.setProperty('--label-2', '#475569')
+    de.style.setProperty('--label-3', '#64748B')
+    de.style.setProperty('--label-4', 'rgba(15, 23, 42, 0.15)')
+
+    // Borders & Glassmorphism
+    de.style.setProperty('--sep', 'rgba(15, 23, 42, 0.08)')
+    de.style.setProperty('--sep-op', 'rgba(15, 23, 42, 0.04)')
+    de.style.setProperty('--border-gold', `rgba(${preset.rgb}, 0.22)`)
+    de.style.setProperty('--border-gold-hover', `rgba(${preset.rgb}, 0.55)`)
+    de.style.setProperty('--card-border', `1px solid rgba(${preset.rgb}, 0.20)`)
+    de.style.setProperty('--card-shadow', '0 8px 24px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -2px rgba(15, 23, 42, 0.04)')
+    de.style.setProperty('--glass-bg', 'rgba(255, 255, 255, 0.88)')
+    de.style.setProperty('--glass-bg-hover', 'rgba(255, 255, 255, 0.96)')
+    de.style.setProperty('--glass-border', `1px solid rgba(${preset.rgb}, 0.20)`)
+    de.style.setProperty('--glass-shadow', '0 8px 24px -4px rgba(15, 23, 42, 0.08)')
+    de.style.setProperty('--glass-highlight', '0 1px 2px rgba(0, 0, 0, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.9)')
+    de.style.setProperty('--grad-glass-surface', 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%)')
+    de.style.setProperty('--grad-text-hero', `linear-gradient(135deg, #0F172A 20%, #1E293B 60%, ${primaryAccent} 100%)`)
+    de.style.setProperty('--grad-text-glow', `linear-gradient(135deg, #0F172A 0%, ${primaryAccent} 100%)`)
+    de.style.setProperty('--on-acc', '#FFFFFF')
+
+    de.style.setProperty('--theme-accent-light', `rgba(${preset.rgb}, 0.12)`)
+    de.style.setProperty('--theme-accent-border', `rgba(${preset.rgb}, 0.30)`)
+    de.style.setProperty('--theme-accent-border-hover', `rgba(${preset.rgb}, 0.58)`)
+    de.style.setProperty('--theme-accent-glow', `rgba(${preset.rgb}, ${0.18 * glowInt})`)
+    de.style.setProperty('--gold-glow', `rgba(${preset.rgb}, ${0.18 * glowInt})`)
+  } else {
+    // ---------------- Dark Mode Surfaces & Hierarchy ----------------
+    de.style.setProperty('--bg', bgDarkness)
+    de.style.setProperty('--bg-el', '#151210')
+    de.style.setProperty('--surface', `rgba(20, 20, 22, ${glassOpacity})`)
+    de.style.setProperty('--surface-2', `rgba(26, 26, 30, ${glassOpacity})`)
+    de.style.setProperty('--surface-3', `rgba(34, 34, 40, ${glassOpacity})`)
+
+    // Text Hierarchy (Warm white to smoky grey)
+    de.style.setProperty('--label', '#F5F1EB')
+    de.style.setProperty('--label-2', '#A9A19A')
+    de.style.setProperty('--label-3', '#716B64')
+    de.style.setProperty('--label-4', 'rgba(169, 161, 154, 0.22)')
+
+    // Borders & Glassmorphism
+    de.style.setProperty('--sep', `rgba(${preset.rgb}, 0.12)`)
+    de.style.setProperty('--sep-op', 'rgba(255, 255, 255, 0.05)')
+    de.style.setProperty('--border-gold', `rgba(${preset.rgb}, 0.18)`)
+    de.style.setProperty('--border-gold-hover', `rgba(${preset.rgb}, 0.45)`)
+    de.style.setProperty('--card-border', `1px solid rgba(${preset.rgb}, 0.18)`)
+    de.style.setProperty('--card-shadow', '0 16px 40px -4px rgba(0, 0, 0, 0.65), 0 4px 14px -2px rgba(0, 0, 0, 0.40)')
+    de.style.setProperty('--glass-bg', 'rgba(20, 20, 22, 0.78)')
+    de.style.setProperty('--glass-bg-hover', 'rgba(28, 28, 32, 0.88)')
+    de.style.setProperty('--glass-border', `1px solid rgba(${preset.rgb}, 0.15)`)
+    de.style.setProperty('--glass-shadow', '0 16px 40px -4px rgba(0, 0, 0, 0.65), 0 4px 14px -2px rgba(0, 0, 0, 0.40)')
+    de.style.setProperty('--glass-highlight', 'inset 0 1px 1px 0 rgba(255, 208, 154, 0.15)')
+    de.style.setProperty('--grad-glass-surface', 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)')
+    de.style.setProperty('--grad-text-hero', `linear-gradient(135deg, #FFFFFF 15%, #F5F1EB 55%, ${primaryAccent} 100%)`)
+    de.style.setProperty('--grad-text-glow', `linear-gradient(135deg, #FFFFFF 0%, ${highlightAccent} 50%, ${primaryAccent} 100%)`)
+    de.style.setProperty('--on-acc', '#12100E')
+
+    de.style.setProperty('--theme-accent-light', `rgba(${preset.rgb}, 0.14)`)
+    de.style.setProperty('--theme-accent-border', `rgba(${preset.rgb}, 0.28)`)
+    de.style.setProperty('--theme-accent-border-hover', `rgba(${preset.rgb}, 0.50)`)
+    de.style.setProperty('--theme-accent-glow', `rgba(${preset.rgb}, ${0.35 * glowInt})`)
+    de.style.setProperty('--gold-glow', `rgba(${preset.rgb}, ${0.30 * glowInt})`)
+  }
+
+  // Dynamic Accent Theme Custom Properties (Shared across both modes)
   de.style.setProperty('--theme-accent', primaryAccent)
   de.style.setProperty('--theme-accent-secondary', secondaryAccent)
   de.style.setProperty('--theme-accent-highlight', highlightAccent)
   de.style.setProperty('--theme-accent-rgb', preset.rgb)
-  de.style.setProperty('--theme-accent-light', `rgba(${preset.rgb}, 0.14)`)
-  de.style.setProperty('--theme-accent-border', `rgba(${preset.rgb}, 0.28)`)
-  de.style.setProperty('--theme-accent-border-hover', `rgba(${preset.rgb}, 0.5)`)
-  de.style.setProperty('--theme-accent-glow', `rgba(${preset.rgb}, ${0.35 * glowInt})`)
   de.style.setProperty('--theme-accent-gradient', preset.heroGradient)
   de.style.setProperty('--theme-surface-tint', preset.surfaceTint)
 
-  // Legacy mappings so existing components throughout OpenGym dynamically adapt:
+  // System & Legacy mappings so all components dynamically adapt
   de.style.setProperty('--gold-primary', primaryAccent)
   de.style.setProperty('--gold-secondary', secondaryAccent)
   de.style.setProperty('--gold-highlight', highlightAccent)
-  de.style.setProperty('--gold-glow', `rgba(${preset.rgb}, ${0.30 * glowInt})`)
   de.style.setProperty('--mint', primaryAccent)
   de.style.setProperty('--mint-light', `rgba(${preset.rgb}, 0.14)`)
   de.style.setProperty('--acc', primaryAccent)
   de.style.setProperty('--acc-light', `rgba(${preset.rgb}, 0.14)`)
-  de.style.setProperty('--border-gold', `rgba(${preset.rgb}, 0.18)`)
-  de.style.setProperty('--border-gold-hover', `rgba(${preset.rgb}, 0.45)`)
-
-  // Text Hierarchy
-  de.style.setProperty('--label', '#F5F1EB')
-  de.style.setProperty('--label-2', '#A9A19A')
-  de.style.setProperty('--label-3', '#716B64')
-
-  // Surfaces & Glassmorphism
-  de.style.setProperty('--surface', `rgba(20, 20, 22, ${glassOpacity})`)
-  de.style.setProperty('--surface-2', `rgba(26, 26, 30, ${glassOpacity})`)
-  de.style.setProperty('--surface-3', `rgba(34, 34, 40, ${glassOpacity})`)
 
   // Dynamic Ambient Lighting Glow
   de.style.setProperty('--glow-color-1', preset.glow1)
@@ -211,6 +271,4 @@ export function applyThemeToDocument(S = {}) {
   de.style.setProperty('--glow-intensity', String(glowInt))
   de.style.setProperty('--blur-intensity', `${Math.round(26 * blurInt)}px`)
   de.style.setProperty('--bg-anim-state', animOn ? 'running' : 'paused')
-
-  de.dataset.bgTheme = preset.id
 }

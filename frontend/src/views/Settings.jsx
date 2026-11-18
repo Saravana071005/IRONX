@@ -79,15 +79,15 @@ export default function Settings() {
         <Row icon="rocket" iconTint="var(--indigo)" title={t('Self-host openGym')} subtitle={t('Google sign-in, sync across your devices, your own data.')} accessory="chevron"
           onClick={() => window.open(REPO, '_blank', 'noopener')} />
       </> : DEMO ? <>
-        <Row icon="sparkles" iconTint="var(--acc)" title={t('You’re in the demo')} subtitle={t('Example data, stored only in this browser — change anything you like.')} />
-        <Row icon="reset" iconTint="var(--blue)" title={t('Reset demo data')} accessory="chevron"
+        <Row icon="sparkles" iconTint="var(--theme-accent, #E8B477)" title={t('You’re in the demo')} subtitle={t('Example data, stored only in this browser — change anything you like.')} />
+        <Row icon="reset" iconTint="var(--theme-accent, #E8B477)" title={t('Reset demo data')} accessory="chevron"
           onClick={() => confirmSheet({ title: t('Reset demo data?'), message: t('Puts the example plan, workouts and weigh-ins back the way they started.'), confirmText: t('Reset'), onConfirm: () => { resetDemo(); nav('/home'); toast(t('Demo data reset')) } })} />
-        <Row icon="rocket" iconTint="var(--indigo)" title={t('Self-host openGym')} subtitle={t('Google sign-in, sync across your devices, your own data.')} accessory="chevron"
+        <Row icon="rocket" iconTint="var(--theme-accent, #E8B477)" title={t('Self-host openGym')} subtitle={t('Google sign-in, sync across your devices, your own data.')} accessory="chevron"
           onClick={() => window.open(REPO, '_blank', 'noopener')} />
       </> : user ? <>
         <Row
           icon={user.picture ? null : "personCircle"}
-          iconTint="var(--acc)"
+          iconTint="var(--theme-accent, #E8B477)"
           title={user.name}
           subtitle={user.email ? `${user.email} · Google Account` : t('Signed in with Google')}
         >
@@ -97,26 +97,26 @@ export default function Settings() {
         </Row>
         <Row
           icon="heart"
-          iconTint="var(--pink)"
+          iconTint="var(--theme-accent, #E8B477)"
           title={t('Personal Fitness Profile')}
           subtitle={user.profile?.fitnessGoal ? t('Goal: {0}', user.profile.fitnessGoal.replace(/_/g, ' ')) : t('Set height, weight, and fitness goals')}
           accessory="chevron"
           onClick={() => nav('/profile-setup')}
         />
-        {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
+        {user.admin && <Row icon="wrench" iconTint="var(--theme-accent, #E8B477)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
         <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({ title: t('Sign out?'), message: t('Your data is synced to your profile first, then cleared from this device.'), confirmText: t('Sign out'), danger: true, onConfirm: () => { signOut(); nav('/home') } })} />
         <Row icon="shield" iconTint="var(--red)" title={t('Sign out everywhere')} subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
       </> : (
         <>
           <Row
             icon="lock"
-            iconTint="var(--orange)"
+            iconTint="var(--theme-accent, #E8B477)"
             title={t('Guest Mode (Local Only)')}
             subtitle={t('Workouts and health logs live only on this browser.')}
           />
           <Row
             icon="sparkles"
-            iconTint="var(--acc)"
+            iconTint="var(--theme-accent, #E8B477)"
             title={t('Save My Progress with Google')}
             subtitle={t('Back up workouts, custom exercises, and health logs to your Google profile.')}
             accessory="chevron"
@@ -129,14 +129,14 @@ export default function Settings() {
     {/* ---------- general ---------- */}
     <Section title={t('General')} footer={t('Note: switching units only changes the label — logged numbers are not converted.')}>
       <SelectRow
-        icon="globe" iconTint="var(--blue)" title={t('Language')}
+        icon="globe" iconTint="var(--theme-accent, #E8B477)" title={t('Language')}
         value={S.lang || 'en'} onChange={v => update(s => { s.lang = v })}
         options={Object.entries(LANGS).map(([k, name]) => ({
           value: k, label: name,
           subtitle: INSTR_LANGS.includes(k) ? null : t("Exercise instructions aren't available in this language yet — they stay in English."),
         }))}
       />
-      <Row icon="scale" iconTint="var(--teal)" title={t('Weight unit')}>
+      <Row icon="scale" iconTint="var(--theme-accent, #E8B477)" title={t('Weight unit')}>
         <Segmented className="seg-inline"
           options={[{ value: 'kg', label: 'kg' }, { value: 'lb', label: 'lb' }]}
           value={S.unit} onChange={v => update(s => { s.unit = v })} />
@@ -145,22 +145,22 @@ export default function Settings() {
 
     {/* ---------- during a workout ---------- */}
     <Section title={t('During a workout')} footer={wakeOK ? t('The screen stays on while a workout is running, so you don’t have to unlock your phone between sets.') : null}>
-      <SelectRow icon="timer" iconTint="var(--orange)" title={t('Rest timer')}
+      <SelectRow icon="timer" iconTint="var(--theme-accent, #E8B477)" title={t('Rest timer')}
         value={S.restSec} onChange={v => update(s => { s.restSec = v })}
         options={[60, 90, 120, 150, 180].map(v => ({ value: v, label: v + 's' }))} />
       {(wakeOK || !MOBILE) && (
-        <Row icon="sun" iconTint="var(--yellow)" title={t('Keep screen awake')}
+        <Row icon="sun" iconTint="var(--theme-accent, #E8B477)" title={t('Keep screen awake')}
           subtitle={wakeOK ? null : t('Not supported in this browser.')}>
           <Switch checked={wakeOK && S.keepAwake !== false} disabled={!wakeOK}
             onChange={v => update(s => { s.keepAwake = v })} />
         </Row>
       )}
-      <Row icon="bell" iconTint="var(--pink)" title={t('Sounds')}>
+      <Row icon="bell" iconTint="var(--theme-accent, #E8B477)" title={t('Sounds')}>
         <Switch checked={!!S.sound} onChange={v => update(s => { s.sound = v })} />
       </Row>
       {/* Two names for the same judgement, so the column asks in the scale you already think in.
           The (i) sits before the control — you read it on the way to the choice, not after it. */}
-      <Row icon="target" iconTint="var(--purple)" title={t('Effort per set')}>
+      <Row icon="target" iconTint="var(--theme-accent, #E8B477)" title={t('Effort per set')}>
         <button className="helpbtn" aria-label={t('What are RIR and RPE?')} onClick={effortHelpSheet}><Icon name="info" /></button>
         <Segmented className="seg-inline"
           options={[{ value: 'none', label: t('Off') }, { value: 'rir', label: t('RIR') }, { value: 'rpe', label: t('RPE') }]}
@@ -175,7 +175,7 @@ export default function Settings() {
     >
       <Row
         icon="speakerWave"
-        iconTint="var(--mint)"
+        iconTint="var(--theme-accent, #E8B477)"
         title={t('Rest timer alert sound')}
         subtitle={t('Audible workout alarm when countdown reaches zero')}
       >
@@ -189,7 +189,7 @@ export default function Settings() {
         <>
           <SelectRow
             icon="musicNote"
-            iconTint="var(--teal)"
+            iconTint="var(--theme-accent, #E8B477)"
             title={t('Alert tone')}
             value={S.restAlertTone || 'alarm'}
             onChange={v => update(s => { s.restAlertTone = v })}
@@ -202,7 +202,7 @@ export default function Settings() {
 
           <Row
             icon="speakerWave"
-            iconTint="var(--blue)"
+            iconTint="var(--theme-accent, #E8B477)"
             title={t('Alert volume')}
             subtitle={`${Math.round((S.restAlertVolume !== undefined ? S.restAlertVolume : 1.0) * 100)}%`}
           >
@@ -214,7 +214,7 @@ export default function Settings() {
                 step="0.05"
                 value={S.restAlertVolume !== undefined ? S.restAlertVolume : 1.0}
                 onChange={e => update(s => { s.restAlertVolume = parseFloat(e.target.value) })}
-                style={{ flex: 1, accentColor: 'var(--mint)', cursor: 'pointer' }}
+                style={{ flex: 1, accentColor: 'var(--theme-accent, #E8B477)', cursor: 'pointer' }}
                 aria-label={t('Alert volume')}
               />
               <Button
@@ -233,7 +233,7 @@ export default function Settings() {
 
       <Row
         icon="target"
-        iconTint="var(--purple)"
+        iconTint="var(--theme-accent, #E8B477)"
         title={t('Vibration')}
         subtitle={t('Haptic pulse on rest completion (where supported)')}
       >
@@ -245,7 +245,7 @@ export default function Settings() {
 
       <Row
         icon="bell"
-        iconTint="var(--pink)"
+        iconTint="var(--theme-accent, #E8B477)"
         title={t('Browser notifications')}
         subtitle={t('System notification when timer ends, even in background tabs')}
       >
@@ -270,7 +270,7 @@ export default function Settings() {
       {/* iOS Safari / iPhone PWA Audio Compatibility Note */}
       <div style={{ padding: '12px 14px', background: 'var(--surface-2)', borderRadius: 12, margin: '8px 12px 14px 12px', border: '1px solid var(--sep)' }}>
         <div className="row" style={{ gap: 8, alignItems: 'center', marginBottom: 4 }}>
-          <Icon name="info" style={{ color: 'var(--blue)', fontSize: 16 }} />
+          <Icon name="info" style={{ color: 'var(--theme-accent, #E8B477)', fontSize: 16 }} />
           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
             {t('iPhone / Safari Audio Tips')}
           </span>
@@ -287,7 +287,7 @@ export default function Settings() {
       <Section title={t('Coach')} footer={hasConsent(S)
         ? t('The Coach designs and adjusts your plan; it never changes anything without your say-so.')
         : t('An AI coach that can build your plan and adjust it from what you log. Off until you turn it on.')}>
-        <Row icon="sparkles" iconTint="var(--acc)" title={hasConsent(S) ? t('Open the Coach') : t('Meet the Coach')}
+        <Row icon="sparkles" iconTint="var(--theme-accent, #E8B477)" title={hasConsent(S) ? t('Open the Coach') : t('Meet the Coach')}
           subtitle={hasConsent(S) ? t('Reviews, plan design, history and controls') : t('See what it would use, then decide')}
           accessory="chevron" onClick={() => nav('/coach')} />
       </Section>
@@ -297,6 +297,24 @@ export default function Settings() {
 
     {/* ---------- dynamic accent theme & ambient glow ---------- */}
     <Section title={t('Accent Theme & Ambient Glow')} footer={DEMO || MOBILE ? undefined : t('Selected accent and ambient lighting dynamically sync live across all pages.')}>
+      {/* Dark Mode / Light Mode Switch */}
+      <Row
+        icon="sparkles"
+        iconTint="var(--theme-accent, #E8B477)"
+        title={t('Appearance')}
+        subtitle={S.theme === 'light' ? t('Clean light surfaces & dark typography') : t('Deep black smoky glass & golden glow')}
+      >
+        <Segmented
+          className="seg-inline"
+          options={[
+            { value: 'dark', label: t('Dark Mode') },
+            { value: 'light', label: t('Light Mode') }
+          ]}
+          value={S.theme === 'light' ? 'light' : 'dark'}
+          onChange={v => update(s => { s.theme = v })}
+        />
+      </Row>
+
       {/* 7 Distinguishable Accent Themes */}
       <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 14, paddingTop: 14, paddingBottom: 16 }}>
         <div className="row between" style={{ alignItems: 'baseline' }}>
@@ -519,12 +537,12 @@ export default function Settings() {
 
     {/* ---------- data: fill it, bring things over, back it up, wipe it ---------- */}
     <Section title={t('Data')}>
-      <Row icon="sparkles" iconTint="var(--acc)" title={t('Load starter plan (PPL)')} accessory="chevron" onClick={loadStarterPlan} />
-      <Row icon="shuffle" iconTint="var(--teal)" title={t('Import from another app')}
+      <Row icon="sparkles" iconTint="var(--theme-accent, #E8B477)" title={t('Load starter plan (PPL)')} accessory="chevron" onClick={loadStarterPlan} />
+      <Row icon="shuffle" iconTint="var(--theme-accent, #E8B477)" title={t('Import from another app')}
         subtitle={t('FitNotes, Strong, Hevy — or body weight from Apple Health')}
         accessory="chevron" onClick={() => importRef.current.click()} />
-      <Row icon="upload" iconTint="var(--blue)" title={t('Import backup')} accessory="chevron" onClick={() => fileRef.current.click()} />
-      <Row icon="download" iconTint="var(--blue)" title={t('Export backup (JSON)')} accessory="chevron" onClick={doExport} />
+      <Row icon="upload" iconTint="var(--theme-accent, #E8B477)" title={t('Import backup')} accessory="chevron" onClick={() => fileRef.current.click()} />
+      <Row icon="download" iconTint="var(--theme-accent, #E8B477)" title={t('Export backup (JSON)')} accessory="chevron" onClick={doExport} />
       {/* Also drops anything the Coach is holding server-side: a wipe that leaves a pending
           proposal on the server behind would be a wipe in name only. */}
       <Row icon="trash" iconTint="var(--red)" title={t('Reset everything')} danger onClick={() => confirmSheet({ title: t('Reset everything?'), message: t('Deletes your plan, workouts and body weight on this device. This cannot be undone.'), confirmText: t('Delete everything'), danger: true, onConfirm: () => { if (user) forgetCoach().catch(() => {}); replaceState(JSON.parse(JSON.stringify(DEF)), true); nav('/home'); toast(t('All data reset')) } })} />
@@ -536,7 +554,7 @@ export default function Settings() {
 
     {/* "Add to Home screen" makes no sense inside the native app */}
     {!MOBILE && <Section title={t('Tip')}>
-      <Row icon="lightbulb" iconTint="var(--yellow)"
+      <Row icon="lightbulb" iconTint="var(--theme-accent, #E8B477)"
         title={IS_ANDROID ? t('In Chrome: ⋮ menu → Add to Home screen') : t('In Safari: Share → Add to Home Screen')}
         subtitle={t('to install openGym as a full-screen app.') + ' ' + (user ? t('Your data syncs with your profile — sign in anywhere to see it.') : t('Guest data stays on this device — export a backup now and then!'))} />
     </Section>}
