@@ -174,32 +174,35 @@ export default function Home() {
   return (
     <div className="narrow">
       {/* Header — Greeting inspired by Phone 2 in reference image */}
-      <div className="hdr" style={{ alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="hdr" style={{ alignItems: 'center', marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div
             onClick={() => nav('/settings')}
             style={{
-              width: 44,
-              height: 44,
+              width: 46,
+              height: 46,
               borderRadius: '50%',
-              background: 'var(--mint-light)',
-              color: 'var(--mint)',
+              background: 'rgba(0, 242, 254, 0.12)',
+              color: 'var(--cyan)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: 24,
               cursor: 'pointer',
-              flex: 'none'
+              flex: 'none',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(0, 242, 254, 0.28)',
+              boxShadow: '0 4px 16px rgba(0, 242, 254, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.2)'
             }}
             title={t('Settings')}
           >
             <Icon name="personCircle" />
           </div>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>
+            <h1 className="text-gradient-hero" style={{ fontSize: 26, fontWeight: 800, margin: 0, letterSpacing: '-0.024em', display: 'block' }}>
               {user ? t('Hi, {0} 👋', user.name) : 'Hi, Alex 👋'}
             </h1>
-            <div className="sub" style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 2 }}>
+            <div className="sub" style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 2, fontWeight: 500 }}>
               {t('Ready to crush your goals?')}
             </div>
           </div>
@@ -226,13 +229,13 @@ export default function Home() {
       </div>
 
       {/* Today's Workout Weekday & Date Header (Phase 1 & 8) */}
-      <div className="card" style={{ padding: '14px 16px', marginBottom: 16, background: 'var(--surface-1)', border: '1px solid var(--sep)', borderRadius: 14 }}>
+      <div className="card" style={{ padding: '16px 18px', marginBottom: 16 }}>
         <div className="row between" style={{ alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--mint)', letterSpacing: '0.05em' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--cyan)', letterSpacing: '0.08em' }}>
               {t("Today's Workout")}
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, margin: '2px 0 0 0', letterSpacing: '-0.02em', color: 'var(--label)' }}>
+            <div className="text-gradient-hero" style={{ fontSize: 22, fontWeight: 800, margin: '3px 0 0 0', letterSpacing: '-0.02em', display: 'block' }}>
               {todayInfo.fullFormatted}
             </div>
           </div>
@@ -431,7 +434,7 @@ export default function Home() {
       >
         <div className="row between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--mint)', letterSpacing: '0.06em' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--cyan)', letterSpacing: '0.08em' }}>
               {t("TODAY'S SCHEDULED WORKOUT")}
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--label)', marginTop: 2 }}>

@@ -42,7 +42,7 @@ function applyPrefs(theme, accent) {
   de.dataset.theme = theme === 'dark' ? 'dark' : 'light'
   de.dataset.accent = ACCENTS[accent] ? accent : 'mint'
   const meta = document.querySelector('meta[name="theme-color"]')
-  if (meta) meta.content = de.dataset.theme === 'dark' ? '#0f1413' : '#fbf9f5'
+  if (meta) meta.content = de.dataset.theme === 'dark' ? '#07080c' : '#fbf9f5'
 }
 
 function Shell() {
@@ -72,6 +72,12 @@ function Shell() {
 
   return (
     <>
+      <div className="aurora-fusion-bg" aria-hidden="true">
+        <div className="aurora-glow aurora-glow-1" />
+        <div className="aurora-glow aurora-glow-2" />
+        <div className="aurora-glow aurora-glow-3" />
+        <div className="aurora-glow aurora-glow-4" />
+      </div>
       <div className="layout-shell">
         <Sidebar onStart={startFlow} />
         <main className="layout-main">

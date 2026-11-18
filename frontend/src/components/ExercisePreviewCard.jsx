@@ -58,10 +58,13 @@ export default function ExercisePreviewCard({
     <div
       className="card"
       style={{
-        background: 'var(--surface-3, #161821)',
-        border: '1px solid var(--border)',
+        background: 'var(--surface)',
+        backgroundImage: 'var(--grad-glass-surface)',
+        backdropFilter: 'var(--glass-blur)',
+        WebkitBackdropFilter: 'var(--glass-blur)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
         borderTop: 'none',
-        borderRadius: '0 0 12px 12px',
+        borderRadius: '0 0 14px 14px',
         padding: compact ? '12px' : '16px',
         marginTop: -2,
         marginBottom: 8,
@@ -71,6 +74,7 @@ export default function ExercisePreviewCard({
         boxSizing: 'border-box',
         width: '100%',
         maxWidth: '100%',
+        boxShadow: '0 14px 32px -4px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.15)',
         animation: 'fadeIn 0.15s ease-out'
       }}
       onClick={e => e.stopPropagation()}
