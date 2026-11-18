@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { uid } from '../lib/format.js'
 import { beep, vibrate, playRestAlert, triggerRestNotification } from '../lib/sound.js'
-import { onRestTimerStart, onRestTimerComplete, onRestTimerStop } from '../lib/spotify.js'
 import { api } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { useStore } from './useStore.js'
@@ -45,10 +44,6 @@ export const useUI = create((set, get) => ({
     set({ timer: { left: sec, total: sec, initialTotal: sec, endsAt, paused: false, alertFired: false } })
     pushRestTimer(sec)
 
-    // Attempt Spotify auto-pause if user enabled it and music is playing
-    const S = useStore.getState().S
-    onRestTimerStart(S)
-
     timerTick = () => {
       const tm = get().timer
       if (!tm || tm.paused) return
@@ -62,23 +57,22 @@ export const useUI = create((set, get) => ({
           
           // 1. Play rest timer alert sound (default enabled, customizable tone and volume)
           if (currentS.restAlertEnabled !== false) {
-            const tone = currentS.restAlertTone || 'chime'
-            const volume = currentS.restAlertVolume !== undefined ? currentS.restAlertVolume : 0.8
+            const tone = currentS.restAlertTone || 'alarm'
+            const volume = currentS.restAlertVolume !== undefined ? currentS.restAlertVolume : 1.0
             playRestAlert(tone, volume)
           }
 
-          // 2. Haptic vibration
-          vibrate([200, 100, 200])
+          // 2. Haptic vibration (only where supported and enabled)
+          if (currentS.restVibrationEnabled !== false) {
+            vibrate([300, 150, 300, 150, 500])
+          }
 
           // 3. Browser system notification
           if (currentS.restNotifications) {
-            triggerRestNotification(t('Rest Complete!'), t('Ready for your next set — let’s crush it!'))
+            triggerRestNotification(t('REST COMPLETED — START NEXT SET'), t('Your rest period has ended. Time to crush the next set!'))
           }
 
-          // 4. Auto-resume Spotify if OpenGym paused it
-          onRestTimerComplete(currentS)
-
-          get().toast(t('Rest over — next set!'))
+          get().toast(t('REST COMPLETED — START NEXT SET'))
         }
         get().stopRest()
         return
@@ -87,7 +81,7 @@ export const useUI = create((set, get) => ({
       if (left <= 3) {
         const currentS = useStore.getState().S
         if (currentS.restAlertEnabled !== false) {
-          beep(true, 660, 0.08)
+          beep(true, 880, 0.1)
         }
       }
       set({ timer: { ...tm, left } })
@@ -129,7 +123,6 @@ export const useUI = create((set, get) => ({
     if (timerInt) clearInterval(timerInt); timerInt = null
     if (timerTick) document.removeEventListener('visibilitychange', timerTick); timerTick = null
     if (get().timer) cancelPushRestTimer()
-    onRestTimerStop()
     set({ timer: null })
   },
 

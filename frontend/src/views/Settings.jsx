@@ -16,13 +16,6 @@ import { forgetCoach } from '../lib/coach-api.js'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, SelectRow, Switch, Segmented, Button, TextField } from '../components/ui.jsx'
 import { ALERT_TONES, previewAlertTone, requestNotificationPermission } from '../lib/sound.js'
-import {
-  getSpotifyStatus,
-  startSpotifyConnect,
-  pauseSpotify,
-  resumeSpotify,
-  disconnectSpotify
-} from '../lib/spotify.js'
 
 export default function Settings() {
   const nav = useNavigate()
@@ -34,26 +27,6 @@ export default function Settings() {
   const fileRef = useRef(null)
   const importRef = useRef(null)
   const wakeOK = wakeLockSupported()
-  const [spotifyStatus, setSpotifyStatus] = useState({ configured: false, connected: false, loading: true })
-
-  useEffect(() => {
-    let alive = true
-    getSpotifyStatus().then(status => {
-      if (alive) setSpotifyStatus({ ...status, loading: false })
-    }).catch(() => {
-      if (alive) setSpotifyStatus({ configured: false, connected: false, loading: false })
-    })
-    return () => { alive = false }
-  }, [])
-
-  useEffect(() => {
-    if (window.location.hash.includes('spotify=connected')) {
-      toast(t('Spotify connected successfully!'))
-      getSpotifyStatus().then(status => setSpotifyStatus({ ...status, loading: false }))
-    } else if (window.location.hash.includes('spotify_error=')) {
-      toast(t('Spotify connection failed. Please try again.'))
-    }
-  }, [toast])
 
   const doExport = async () => {
     const json = JSON.stringify(S, null, 2)
@@ -195,9 +168,20 @@ export default function Settings() {
     </Section>
 
     {/* ---------- Rest Timer Alerts ---------- */}
-    <Section title={t('Rest Timer Alerts')} footer={t('Audible alerts and notifications help you stay focused without staring at your phone during rest intervals.')}>
-      <Row icon="speakerWave" iconTint="var(--mint)" title={t('Rest timer alert sound')} subtitle={t('Audible tone when countdown reaches zero')}>
-        <Switch checked={S.restAlertEnabled !== false} onChange={v => update(s => { s.restAlertEnabled = v })} />
+    <Section
+      title={t('Rest Timer Alerts')}
+      footer={t('A strong audio alarm and vibration notify you when your rest countdown ends so you can focus on your sets.')}
+    >
+      <Row
+        icon="speakerWave"
+        iconTint="var(--mint)"
+        title={t('Rest timer alert sound')}
+        subtitle={t('Audible workout alarm when countdown reaches zero')}
+      >
+        <Switch
+          checked={S.restAlertEnabled !== false}
+          onChange={v => update(s => { s.restAlertEnabled = v })}
+        />
       </Row>
 
       {S.restAlertEnabled !== false && (
@@ -206,7 +190,7 @@ export default function Settings() {
             icon="musicNote"
             iconTint="var(--teal)"
             title={t('Alert tone')}
-            value={S.restAlertTone || 'chime'}
+            value={S.restAlertTone || 'alarm'}
             onChange={v => update(s => { s.restAlertTone = v })}
             options={ALERT_TONES.map(tInfo => ({
               value: tInfo.id,
@@ -219,15 +203,15 @@ export default function Settings() {
             icon="speakerWave"
             iconTint="var(--blue)"
             title={t('Alert volume')}
-            subtitle={`${Math.round((S.restAlertVolume !== undefined ? S.restAlertVolume : 0.8) * 100)}%`}
+            subtitle={`${Math.round((S.restAlertVolume !== undefined ? S.restAlertVolume : 1.0) * 100)}%`}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', maxWidth: 200 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', maxWidth: 220 }}>
               <input
                 type="range"
                 min="0"
                 max="1"
                 step="0.05"
-                value={S.restAlertVolume !== undefined ? S.restAlertVolume : 0.8}
+                value={S.restAlertVolume !== undefined ? S.restAlertVolume : 1.0}
                 onChange={e => update(s => { s.restAlertVolume = parseFloat(e.target.value) })}
                 style={{ flex: 1, accentColor: 'var(--mint)', cursor: 'pointer' }}
                 aria-label={t('Alert volume')}
@@ -236,8 +220,8 @@ export default function Settings() {
                 size="sm"
                 variant="tinted"
                 icon="play"
-                onClick={() => previewAlertTone(S.restAlertTone || 'chime', S.restAlertVolume ?? 0.8)}
-                title={t('Preview tone')}
+                onClick={() => previewAlertTone(S.restAlertTone || 'alarm', S.restAlertVolume !== undefined ? S.restAlertVolume : 1.0)}
+                title={t('Preview alarm')}
               >
                 {t('Test')}
               </Button>
@@ -247,10 +231,22 @@ export default function Settings() {
       )}
 
       <Row
+        icon="target"
+        iconTint="var(--purple)"
+        title={t('Vibration')}
+        subtitle={t('Haptic pulse on rest completion (where supported)')}
+      >
+        <Switch
+          checked={S.restVibrationEnabled !== false}
+          onChange={v => update(s => { s.restVibrationEnabled = v })}
+        />
+      </Row>
+
+      <Row
         icon="bell"
         iconTint="var(--pink)"
         title={t('Browser notifications')}
-        subtitle={t('Alerts when timer ends, even in background tabs')}
+        subtitle={t('System notification when timer ends, even in background tabs')}
       >
         <Switch
           checked={!!S.restNotifications}
@@ -269,112 +265,21 @@ export default function Settings() {
           }}
         />
       </Row>
-    </Section>
 
-    {/* ---------- Spotify Integration ---------- */}
-    <Section
-      title={t('Spotify Integration')}
-      footer={t('Automatically pause Spotify music when rest timer starts, and resume when rest countdown finishes.')}
-    >
-      {!spotifyStatus.connected ? (
-        <Row
-          icon="musicNote"
-          iconTint="#1db954"
-          title={t('Connect Spotify')}
-          subtitle={spotifyStatus.configured !== false
-            ? t('Sync music playback with your rest intervals')
-            : t('Configure Spotify credentials on server to enable')}
-          accessory="chevron"
-          onClick={() => {
-            if (spotifyStatus.configured === false) {
-              toast(t('Spotify client ID & secret must be set in environment variables.'))
-              return
-            }
-            startSpotifyConnect('/settings')
-          }}
-        />
-      ) : (
-        <>
-          <Row
-            icon="musicNote"
-            iconTint="#1db954"
-            title={t('Spotify Connected')}
-            subtitle={spotifyStatus.track
-              ? t('Playing: {0}', spotifyStatus.track)
-              : (spotifyStatus.activeDevice ? t('Device: {0}', spotifyStatus.activeDevice) : t('Active & ready'))}
-          >
-            <span className="tag acc" style={{ fontSize: 11, padding: '2px 8px' }}>
-              ✓ {t('Linked')}
-            </span>
-          </Row>
-
-          <Row
-            icon="pause"
-            iconTint="var(--orange)"
-            title={t('Auto-pause during rest')}
-            subtitle={t('Pauses on rest start, resumes on timer zero')}
-          >
-            <Switch
-              checked={S.spotifyAutoPause !== false}
-              onChange={v => update(s => { s.spotifyAutoPause = v })}
-            />
-          </Row>
-
-          <Row
-            icon="play"
-            iconTint="var(--blue)"
-            title={t('Test playback control')}
-            subtitle={t('Verify remote play and pause')}
-          >
-            <div className="row" style={{ gap: 6 }}>
-              <Button
-                size="sm"
-                variant="tinted"
-                icon="pause"
-                onClick={async () => {
-                  const res = await pauseSpotify()
-                  if (res && res.ok) toast(t('Paused Spotify playback'))
-                  else toast(t(res?.message || 'Pause failed — ensure Spotify is playing'))
-                  getSpotifyStatus().then(st => setSpotifyStatus({ ...st, loading: false }))
-                }}
-              >
-                {t('Pause')}
-              </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                icon="play"
-                onClick={async () => {
-                  const res = await resumeSpotify()
-                  if (res && res.ok) toast(t('Resumed Spotify playback'))
-                  else toast(t(res?.message || 'Play failed — ensure active device'))
-                  getSpotifyStatus().then(st => setSpotifyStatus({ ...st, loading: false }))
-                }}
-              >
-                {t('Play')}
-              </Button>
-            </div>
-          </Row>
-
-          <Row
-            icon="signOut"
-            iconTint="var(--red)"
-            title={t('Disconnect Spotify')}
-            danger
-            onClick={() => confirmSheet({
-              title: t('Disconnect Spotify?'),
-              message: t('Removes Spotify connection from your OpenGym profile.'),
-              confirmText: t('Disconnect'),
-              danger: true,
-              onConfirm: async () => {
-                await disconnectSpotify()
-                setSpotifyStatus({ configured: true, connected: false, loading: false })
-                toast(t('Spotify disconnected'))
-              }
-            })}
-          />
-        </>
-      )}
+      {/* iOS Safari / iPhone PWA Audio Compatibility Note */}
+      <div style={{ padding: '12px 14px', background: 'var(--surface-2)', borderRadius: 12, margin: '8px 12px 14px 12px', border: '1px solid var(--sep)' }}>
+        <div className="row" style={{ gap: 8, alignItems: 'center', marginBottom: 4 }}>
+          <Icon name="info" style={{ color: 'var(--blue)', fontSize: 16 }} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
+            {t('iPhone / Safari Audio Tips')}
+          </span>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--label-2)', lineHeight: 1.45 }}>
+          {t('• Silent Switch: If your iPhone physical switch or Action Button is on Silent, iOS mutes browser speaker audio (headphones will still play normally).')}
+          <br />
+          {t('• Background Playback: iOS restricts audio in locked or background tabs; OpenGym recalculates elapsed time on return so your rest timer stays 100% accurate.')}
+        </div>
+      </div>
     </Section>
 
     {coachAvailable(config, user, { demo: DEMO, mobile: MOBILE }) && (

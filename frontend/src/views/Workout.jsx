@@ -5,7 +5,7 @@ import { useUI } from '../store/useUI.js'
 import { exOr, allExercises, BODYPARTS, registerCustom } from '../lib/exercises.js'
 import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, EFFORT, effortOf, stepEffort, capEffort } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, exCount, DAYN, uid } from '../lib/format.js'
-import { beep, vibrate } from '../lib/sound.js'
+import { beep, vibrate, unlockAudio } from '../lib/sound.js'
 import { t } from '../lib/i18n.js'
 import { api, API_BASE } from '../lib/api.js'
 import Media from '../components/Media.jsx'
@@ -896,6 +896,7 @@ function ActiveWorkout() {
     mutEntry(idx, e => {
       e.sets[i].done = !e.sets[i].done
       if (e.sets[i].done) {
+        unlockAudio()
         beep(S.sound, 1040, 0.12); vibrate(30)
         const isLastExInUnit = idx === unit[unit.length - 1]
         const unitDone = unit.every(ui => (ui === idx ? e : A.entries[ui]).sets.every(x => x.done))
