@@ -609,7 +609,11 @@ const routes = {
 
       // Safe linking: match by verified email if account exists
       if (!user) {
-        const existingByEmail = db.users.find(u => u.email && u.email.toLowerCase() === googleUser.email.toLowerCase());
+        let existingByEmail = db.users.find(u => u.email && u.email.toLowerCase() === googleUser.email.toLowerCase());
+        if (!existingByEmail && mongo) {
+          existingByEmail = await mongo.collection('users').findOne({ email: googleUser.email.toLowerCase() });
+          if (existingByEmail) db.users.push(existingByEmail);
+        }
         if (existingByEmail) {
           user = existingByEmail;
           user.googleSub = googleUser.sub;
@@ -646,6 +650,25 @@ const routes = {
         if (mongo) {
           try {
             await mongo.collection('users').insertOne(user);
+            // Create fresh isolated state with ZERO data for the new account
+            await mongo.collection('states').insertOne({
+              userId: user.id,
+              state: {
+                unit: 'kg', restSec: 90, sound: true, keepAwake: true, lang: 'en',
+                theme: 'dark', accent: 'mint', body: 'male', targetW: null,
+                bodyweight: [], routines: [], week: {}, dayPlan: {},
+                exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
+                reminder: { on: false, time: '08:00', tz: null }, effort: null,
+                coach: null, favorites: [], restAlertEnabled: true, restAlertTone: 'alarm',
+                restAlertVolume: 1.0, restVibrationEnabled: true, restNotifications: false,
+                nutritionTargets: { calorie: 1900, calories: 1900, protein: 140, carb: 220, carbs: 220, fat: 65, fibre: 30, diet: 'all', waterGoal: 2.5 },
+                meals: [], workoutTemplates: [], cardioLogs: [],
+                bgTheme: 'warm-gold', goldShade: '#E8B477', bronzeShade: '#C58A53',
+                bgDarkness: '#090909', ambientGlow: true, glowIntensity: 1.0, blurIntensity: 1.0,
+                glassOpacity: 0.80, bgAnimation: true, _ts: Date.now()
+              },
+              updatedAt: new Date().toISOString()
+            });
           } catch (err) {
             console.error('Mongo insert user error:', err.message);
           }
@@ -704,6 +727,36 @@ const routes = {
             { id: user.id },
             { $set: { profile: user.profile, name: user.name, updatedAt: user.updatedAt } }
           );
+
+          // Update initial bodyweight & target weight in user's state
+          if (profile.currentWeightKg) {
+            const today = new Date().toISOString().slice(0, 10);
+            const stateDoc = await mongo.collection('states').findOne({ userId: user.id });
+            const existingState = stateDoc?.state || {
+              unit: 'kg', restSec: 90, sound: true, keepAwake: true, lang: 'en',
+              theme: 'dark', accent: 'mint', body: 'male', targetW: null,
+              bodyweight: [], routines: [], week: {}, dayPlan: {},
+              exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
+              reminder: { on: false, time: '08:00', tz: null }, effort: null,
+              coach: null, favorites: [], restAlertEnabled: true, restAlertTone: 'alarm',
+              restAlertVolume: 1.0, restVibrationEnabled: true, restNotifications: false,
+              nutritionTargets: { calorie: 1900, calories: 1900, protein: 140, carb: 220, carbs: 220, fat: 65, fibre: 30, diet: 'all', waterGoal: 2.5 },
+              meals: [], workoutTemplates: [], cardioLogs: []
+            };
+            existingState.bodyweight = existingState.bodyweight || [];
+            if (!existingState.bodyweight.some(b => b.d === today)) {
+              existingState.bodyweight.push({ d: today, w: profile.currentWeightKg });
+            }
+            if (profile.targetWeightKg) {
+              existingState.targetW = profile.targetWeightKg;
+            }
+            existingState._ts = Date.now();
+            await mongo.collection('states').updateOne(
+              { userId: user.id },
+              { $set: { userId: user.id, state: existingState, updatedAt: new Date().toISOString() } },
+              { upsert: true }
+            );
+          }
         }
       } catch (err) {
         console.error('Mongo profile update error:', err.message);
@@ -920,19 +973,45 @@ const routes = {
   'GET /api/data': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
+    let state = null;
     if (process.env.MONGODB_URI) {
       try {
         const mongo = await getMongoDb();
         if (mongo) {
           const doc = await mongo.collection('states').findOne({ userId: user.id });
-          if (doc?.state) return json(res, 200, { state: doc.state });
+          if (doc?.state) {
+            state = doc.state;
+          }
+
+          // Hydrate workoutTemplates from scoped collections if missing or empty in state
+          if (state && (!state.workoutTemplates || !state.workoutTemplates.length)) {
+            const tplDoc = await mongo.collection('workout_templates').findOne({ userId: user.id });
+            if (tplDoc?.templates && tplDoc.templates.length) {
+              state.workoutTemplates = tplDoc.templates;
+            } else {
+              const userTpls = await mongo.collection('user_templates').find({ userId: user.id }).toArray();
+              if (userTpls && userTpls.length) {
+                state.workoutTemplates = userTpls;
+              }
+            }
+          }
+
+          // Hydrate weeklySchedule if missing or empty
+          if (state && (!state.weeklySchedule || !Object.keys(state.weeklySchedule).length)) {
+            const schedDoc = await mongo.collection('weekly_schedules').findOne({ userId: user.id });
+            if (schedDoc?.schedule) {
+              state.weeklySchedule = schedDoc.schedule;
+            }
+          }
+
+          if (state) return json(res, 200, { state });
         }
       } catch (err) {
         console.error('Mongo read state error:', err.message);
       }
     }
     try {
-      const state = JSON.parse(fs.readFileSync(stateFile(user.id), 'utf8'));
+      state = JSON.parse(fs.readFileSync(stateFile(user.id), 'utf8'));
       json(res, 200, { state });
     } catch { json(res, 200, { state: null }); }
   },
@@ -1039,13 +1118,55 @@ const routes = {
         const mongo = await getMongoDb();
         if (mongo) {
           const doc = await mongo.collection('workout_templates').findOne({ userId: user.id });
-          return json(res, 200, { templates: doc?.templates || [] });
+          if (doc?.templates && doc.templates.length) {
+            return json(res, 200, { ok: true, templates: doc.templates });
+          }
+          const userTpls = await mongo.collection('user_templates').find({ userId: user.id }).toArray();
+          if (userTpls && userTpls.length) {
+            return json(res, 200, { ok: true, templates: userTpls });
+          }
+          const stateDoc = await mongo.collection('states').findOne({ userId: user.id });
+          if (stateDoc?.state?.workoutTemplates && stateDoc.state.workoutTemplates.length) {
+            return json(res, 200, { ok: true, templates: stateDoc.state.workoutTemplates });
+          }
         }
       } catch (err) {
         console.error('Mongo get templates error:', err.message);
       }
     }
-    json(res, 200, { templates: [] });
+    try {
+      const state = JSON.parse(fs.readFileSync(stateFile(user.id), 'utf8'));
+      if (state?.workoutTemplates) {
+        return json(res, 200, { ok: true, templates: state.workoutTemplates });
+      }
+    } catch {}
+    json(res, 200, { ok: true, templates: [] });
+  },
+
+  'PUT /api/templates': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const templates = Array.isArray(body.templates) ? body.templates : [];
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          await mongo.collection('workout_templates').updateOne(
+            { userId: user.id },
+            { $set: { userId: user.id, templates, updatedAt: new Date().toISOString() } },
+            { upsert: true }
+          );
+          await mongo.collection('states').updateOne(
+            { userId: user.id },
+            { $set: { 'state.workoutTemplates': templates, updatedAt: new Date().toISOString() } }
+          );
+        }
+      } catch (err) {
+        console.error('Mongo put templates error:', err.message);
+      }
+    }
+    json(res, 200, { ok: true, templates });
   },
 
   'GET /api/schedule': async (req, res) => {

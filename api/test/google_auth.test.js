@@ -218,6 +218,96 @@ test('mergeGuestState safely imports guest workouts, routines, and meals without
   assert.equal(counts.meals, 1); // Only m2 was imported
 });
 
+test('validateProfileData accepts all 7 primary fitness goals and handles dietPreferences & workoutType', () => {
+  const baseProfile = {
+    fullName: 'Jordan Apex',
+    dateOfBirth: '1995-04-20',
+    sex: 'male',
+    heightCm: 180,
+    currentWeightKg: 82.5,
+    targetWeightKg: 80.0,
+    activityLevel: 'moderately_active',
+    fitnessExperience: 'intermediate',
+    preferredWorkoutDays: [1, 3, 5],
+    workoutType: 'strength',
+    dietPreferences: {
+      breakfast: ['Oatmeal & Whey', 'Whole Eggs & Toast'],
+      lunch: ['Chicken Breast & White Rice'],
+      dinner: ['Salmon & Sweet Potato']
+    },
+    onboardingCompleted: true
+  };
+
+  const allGoals = [
+    'fat_loss',
+    'weight_loss',
+    'muscle_gain',
+    'weight_gain',
+    'recomposition',
+    'general_fitness',
+    'maintenance'
+  ];
+
+  for (const goal of allGoals) {
+    const res = validateProfileData({ ...baseProfile, fitnessGoal: goal });
+    assert.equal(res.valid, true, `Goal ${goal} should be valid`);
+    assert.equal(res.profile.fitnessGoal, goal);
+    assert.equal(res.profile.workoutType, 'strength');
+    assert.equal(res.profile.onboardingCompleted, true);
+    assert.deepEqual(res.profile.dietPreferences.breakfast, ['Oatmeal & Whey', 'Whole Eggs & Toast']);
+  }
+
+  // Verify skipped diet preferences (null) is valid
+  const resSkipped = validateProfileData({ ...baseProfile, fitnessGoal: 'fat_loss', dietPreferences: null });
+  assert.equal(resSkipped.valid, true);
+  assert.equal(resSkipped.profile.dietPreferences, null);
+});
+
+test('mergeGuestState safely imports guest workoutTemplates, cardioLogs, and weeklySchedule', () => {
+  const cloudState = {
+    workouts: [{ id: 'w1' }],
+    routines: [{ id: 'r1' }],
+    meals: [{ id: 'm1' }],
+    workoutTemplates: [
+      { id: 'tpl_1', name: 'Chest & Triceps', exercises: [] }
+    ],
+    cardioLogs: [
+      { id: 'c1', type: 'running', durationMin: 30 }
+    ],
+    weeklySchedule: null
+  };
+
+  const guestState = {
+    workouts: [{ id: 'w1' }, { id: 'w2' }],
+    routines: [{ id: 'r1' }],
+    meals: [{ id: 'm1' }],
+    workoutTemplates: [
+      { id: 'tpl_1', name: 'Chest & Triceps (Dup)', exercises: [] },
+      { id: 'tpl_2', name: 'Leg Blitz', exercises: [] }
+    ],
+    cardioLogs: [
+      { id: 'c1', type: 'running (dup)', durationMin: 30 },
+      { id: 'c2', type: 'cycling', durationMin: 45 }
+    ],
+    weeklySchedule: {
+      days: { 1: 'tpl_1', 3: 'tpl_2' }
+    }
+  };
+
+  const { mergedState, counts } = mergeGuestState(cloudState, guestState);
+  assert.equal(mergedState.workoutTemplates.length, 2);
+  assert.equal(counts.workoutTemplates, 1); // Only tpl_2 imported
+  assert.equal(mergedState.workoutTemplates[0].id, 'tpl_1');
+  assert.equal(mergedState.workoutTemplates[1].id, 'tpl_2');
+
+  assert.equal(mergedState.cardioLogs.length, 2);
+  assert.equal(counts.cardioLogs, 1); // Only c2 imported
+
+  assert.ok(mergedState.weeklySchedule);
+  assert.equal(counts.weeklySchedule, 1);
+  assert.equal(mergedState.weeklySchedule.days[1], 'tpl_1');
+});
+
 test('HTTP endpoint GET /api/auth/google returns authorization URL or config error', async () => {
   const { default: handleRequest } = await import('../server.js');
   const http = await import('node:http');

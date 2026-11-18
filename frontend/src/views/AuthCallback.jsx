@@ -81,6 +81,10 @@ export default function AuthCallback() {
 
   const handleSkip = async () => {
     setLoading(true)
+    try {
+      localStorage.removeItem('gym_state_guest')
+      localStorage.removeItem('gym_state_v1')
+    } catch {}
     await pullState()
     navigate(targetPath, { replace: true })
   }

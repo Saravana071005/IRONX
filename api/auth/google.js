@@ -71,11 +71,28 @@ export function validateProfileData(data) {
 
   const activityLevel = String(data.activityLevel || 'moderately_active').trim();
   const fitnessExperience = String(data.fitnessExperience || 'intermediate').trim();
+  const workoutType = String(data.workoutType || 'strength').trim();
 
   let preferredWorkoutDays = Array.isArray(data.preferredWorkoutDays)
     ? data.preferredWorkoutDays.map(Number).filter(d => d >= 1 && d <= 7)
     : [1, 2, 3, 4, 5, 6];
   if (!preferredWorkoutDays.length) preferredWorkoutDays = [1, 2, 3, 4, 5, 6];
+
+  // Optional diet preferences (Step 4 can be skipped)
+  let dietPreferences = null;
+  if (data.dietPreferences && typeof data.dietPreferences === 'object') {
+    dietPreferences = {
+      breakfast: Array.isArray(data.dietPreferences.breakfast)
+        ? data.dietPreferences.breakfast.map(s => String(s).trim()).filter(Boolean)
+        : [],
+      lunch: Array.isArray(data.dietPreferences.lunch)
+        ? data.dietPreferences.lunch.map(s => String(s).trim()).filter(Boolean)
+        : [],
+      dinner: Array.isArray(data.dietPreferences.dinner)
+        ? data.dietPreferences.dinner.map(s => String(s).trim()).filter(Boolean)
+        : []
+    };
+  }
 
   const preferences = String(data.preferences || '').trim().slice(0, 500);
 
@@ -91,9 +108,12 @@ export function validateProfileData(data) {
       fitnessGoal,
       activityLevel,
       fitnessExperience,
+      workoutType,
       preferredWorkoutDays,
+      dietPreferences,
       preferences,
       completed: true,
+      onboardingCompleted: true,
       updatedAt: new Date().toISOString()
     },
     calculatedAge: age
@@ -240,6 +260,9 @@ export function mergeGuestState(cloudState = {}, guestState = {}) {
   let mergedWorkouts = 0;
   let mergedRoutines = 0;
   let mergedMeals = 0;
+  let mergedTemplates = 0;
+  let mergedCardio = 0;
+  let mergedWeeklySchedule = 0;
 
   // 1. Workouts: merge by id or date timestamp
   const existingWorkoutKeys = new Set(merged.workouts.map(w => w.id || w.d));
@@ -295,6 +318,37 @@ export function mergeGuestState(cloudState = {}, guestState = {}) {
   // 6. Favorites
   merged.favorites = Array.from(new Set([...merged.favorites, ...(guestState.favorites || [])]));
 
+  // 7. Workout Templates: merge without losing user's custom templates
+  merged.workoutTemplates = merged.workoutTemplates || [];
+  const existingTplIds = new Set(merged.workoutTemplates.map(t => t.id));
+  for (const gt of (guestState.workoutTemplates || [])) {
+    if (gt && gt.id && !existingTplIds.has(gt.id)) {
+      merged.workoutTemplates.push(gt);
+      existingTplIds.add(gt.id);
+      mergedTemplates++;
+    }
+  }
+
+  // 8. Cardio Logs: merge without duplicates
+  merged.cardioLogs = merged.cardioLogs || [];
+  const existingCardioIds = new Set(merged.cardioLogs.map(c => c.id));
+  for (const gc of (guestState.cardioLogs || [])) {
+    if (gc && gc.id && !existingCardioIds.has(gc.id)) {
+      merged.cardioLogs.push(gc);
+      existingCardioIds.add(gc.id);
+      mergedCardio++;
+    }
+  }
+
+  // 9. Weekly Schedule & Planner
+  if (guestState.weeklySchedule && typeof guestState.weeklySchedule === 'object') {
+    if (!merged.weeklySchedule) mergedWeeklySchedule++;
+    merged.weeklySchedule = { ...(guestState.weeklySchedule || {}), ...(merged.weeklySchedule || {}) };
+  }
+  if (!merged.weeklyPlanner && guestState.weeklyPlanner) {
+    merged.weeklyPlanner = guestState.weeklyPlanner;
+  }
+
   merged._ts = Date.now();
 
   return {
@@ -302,7 +356,10 @@ export function mergeGuestState(cloudState = {}, guestState = {}) {
     counts: {
       workouts: mergedWorkouts,
       routines: mergedRoutines,
-      meals: mergedMeals
+      meals: mergedMeals,
+      workoutTemplates: mergedTemplates,
+      cardioLogs: mergedCardio,
+      weeklySchedule: mergedWeeklySchedule
     }
   };
 }
@@ -320,6 +377,15 @@ export async function ensureMongoAuthIndexes(mongoDb) {
 
     const states = mongoDb.collection('states');
     await states.createIndex({ userId: 1 }, { unique: true });
+
+    const workoutTemplates = mongoDb.collection('workout_templates');
+    await workoutTemplates.createIndex({ userId: 1 });
+
+    const userTemplates = mongoDb.collection('user_templates');
+    await userTemplates.createIndex({ userId: 1, id: 1 });
+
+    const weeklySchedules = mongoDb.collection('weekly_schedules');
+    await weeklySchedules.createIndex({ userId: 1 });
   } catch (err) {
     console.error('Failed to create MongoDB auth indexes:', err.message);
   }

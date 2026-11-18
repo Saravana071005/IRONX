@@ -6,7 +6,9 @@ import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { MOBILE, nativeLoad, nativeSave, syncReminder } from '../lib/mobile.js'
 import { THEME_ALIASES, THEME_PRESETS } from '../lib/themes.js'
 
+export const getStorageKey = userId => userId ? `gym_state_user_${userId}` : 'gym_state_guest'
 const KEY = 'gym_state_v1'
+
 export const DEF = {
   unit: 'kg', restSec: 90, sound: true, keepAwake: true, lang: 'en',
   theme: 'dark', accent: 'mint', body: 'male', targetW: null,
@@ -40,9 +42,30 @@ export const DEF = {
 }
 const clone = o => JSON.parse(JSON.stringify(o))
 
-function loadState() {
+function loadState(userId = null) {
   try {
-    const raw = localStorage.getItem(KEY)
+    if (typeof localStorage === 'undefined') return clone(DEF)
+    if (!userId) {
+      try {
+        const u = JSON.parse(localStorage.getItem('gym_user'))
+        if (u?.id) userId = u.id
+      } catch {}
+    }
+    const key = getStorageKey(userId)
+    let raw = localStorage.getItem(key)
+
+    // Legacy migration check: if user key has no data, check legacy key
+    if (!raw && userId) {
+      const legacy = localStorage.getItem('gym_state_v1')
+      if (legacy) {
+        raw = legacy
+        try { localStorage.setItem(key, legacy) } catch {}
+      }
+    } else if (!raw && !userId) {
+      const legacy = localStorage.getItem('gym_state_v1')
+      if (legacy) raw = legacy
+    }
+
     if (raw) {
       const parsed = JSON.parse(raw)
       // Upgrade any legacy themes or old colors to the Dynamic Accent Theme System
@@ -61,7 +84,18 @@ function loadState() {
   return clone(DEF)
 }
 
-const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length)
+const hasData = st => {
+  if (!st || typeof st !== 'object') return false
+  const tpls = Array.isArray(st.workoutTemplates) ? st.workoutTemplates : (st.workoutTemplates && typeof st.workoutTemplates === 'object' ? Object.keys(st.workoutTemplates) : [])
+  return !!(
+    (st.workouts || []).length ||
+    (st.routines || []).length ||
+    (st.bodyweight || []).length ||
+    tpls.length ||
+    (st.meals || []).length ||
+    (st.cardioLogs || []).length
+  )
+}
 
 export const useStore = create((set, get) => {
   let pushTm = null
@@ -77,10 +111,16 @@ export const useStore = create((set, get) => {
   const persist = (S, push = true) => {
     S._ts = Date.now()
     registerCustom(S.customEx)
-    try { if (typeof localStorage !== 'undefined') localStorage.setItem(KEY, JSON.stringify(S)) } catch (e) {}
+    const user = get().user
+    const storageKey = getStorageKey(user?.id)
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(storageKey, JSON.stringify(S))
+      }
+    } catch (e) {}
     set({ S })
     if (MOBILE) nativePersist()
-    if (push && get().user) {
+    if (push && user) {
       clearTimeout(pushTm)
       pushTm = setTimeout(() => get().pushState(), 1500)
     }
@@ -108,12 +148,17 @@ export const useStore = create((set, get) => {
 
   // Everything a sign-out leaves behind on this device, whichever way it was triggered.
   const clearLocalSession = () => {
-    get().setUser(null)
+    const user = get().user
+    if (user?.id) {
+      try { localStorage.removeItem(getStorageKey(user.id)) } catch {}
+    }
     localStorage.removeItem('gym_auth_token')
     localStorage.removeItem('gym_guest')
     localStorage.removeItem('gym_dirty')
-    localStorage.removeItem(KEY)
-    persist(clone(DEF), false)
+    localStorage.removeItem('gym_user')
+    localStorage.removeItem('gym_state_v1')
+    get().setUser(null)
+    set({ user: null, S: clone(DEF) })
   }
 
   return {
@@ -200,9 +245,23 @@ export const useStore = create((set, get) => {
     setGuest(v) { if (v) localStorage.setItem('gym_guest', '1'); else localStorage.removeItem('gym_guest'); set({}) },
 
     setUser(u) {
-      if (u) { localStorage.setItem('gym_user', JSON.stringify(u)); localStorage.removeItem('gym_guest') }
-      else localStorage.removeItem('gym_user')
-      set({ user: u })
+      const prevUser = get().user
+      if (u) {
+        localStorage.setItem('gym_user', JSON.stringify(u))
+        localStorage.removeItem('gym_guest')
+        if (!prevUser || prevUser.id !== u.id) {
+          const userState = loadState(u.id)
+          registerCustom(userState.customEx)
+          set({ user: u, S: userState })
+        } else {
+          set({ user: u })
+        }
+      } else {
+        localStorage.removeItem('gym_user')
+        const guestState = loadState(null)
+        registerCustom(guestState.customEx)
+        set({ user: null, S: guestState })
+      }
     },
 
     async pushState() {
@@ -214,14 +273,16 @@ export const useStore = create((set, get) => {
     async pullState() {
       try {
         const { state } = await api('/api/data')
-        const S = get().S
-        const dirty = localStorage.getItem('gym_dirty') === '1'
-        if (state && (!hasData(S) || ((state._ts || 0) >= (S._ts || 0) && !dirty))) {
-          const active = S.active
+        const currentUser = get().user
+        if (state && currentUser) {
+          const active = get().S?.active
           const next = Object.assign(clone(DEF), state)
           if (active) next.active = active
           persist(next, false)
-        } else if (hasData(S)) { await get().pushState() }
+          localStorage.removeItem('gym_dirty')
+        } else if (state && !hasData(get().S)) {
+          persist(Object.assign(clone(DEF), state), false)
+        }
       } catch (e) { /* offline — keep local */ }
     },
 
