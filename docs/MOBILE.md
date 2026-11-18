@@ -91,6 +91,9 @@ that would simply install. Your free options:
   onto your own iPhone. Apple expires the signature after 7 days; re-run from Xcode to renew.
 - **AltStore:** automates that 7-day re-signing over Wi-Fi via a Mac companion app.
 
+### Background audio & rest timer
+External streaming apps (Spotify, Apple Music, YouTube Music) play independently in the background. Mobile operating systems (iOS and Android) sandbox web apps and PWAs, preventing unprivileged web pages from pausing or resuming external native music players. OpenGym provides a loud, synthesized Web Audio alert (with dynamic range compression, custom tones, volume control, and haptics) that plays at rest timer completion without interrupting background playback. See [REST_TIMER_AUDIO_LIMITATIONS.md](./REST_TIMER_AUDIO_LIMITATIONS.md) for full technical details.
+
 ### Release notes for maintainers
 
 - Bump `versionName`/`versionCode` in `android/app/build.gradle` per release; keep them in
