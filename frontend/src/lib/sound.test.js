@@ -1,10 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
+import fs from 'node:fs'
+import path from 'node:path'
 import {
   ALERT_TONES,
   playRestAlert,
   previewAlertTone,
   triggerRestNotification,
   requestNotificationPermission,
+  playNotificationSound,
+  unlockAudio,
   beep,
   vibrate
 } from './sound.js'
@@ -26,7 +30,34 @@ describe('Improved Rest Timer Alert Sound & Audio Synthesis', () => {
       expect(typeof tone.name).toBe('string')
       expect(tone.name.length).toBeGreaterThan(0)
       expect(typeof tone.description).toBe('string')
+      expect(typeof tone.file).toBe('string')
+      expect(tone.file.startsWith('/sounds/')).toBe(true)
     })
+  })
+
+  it('has valid PCM audio files generated in public/sounds directory', () => {
+    const soundsDir = path.resolve(__dirname, '../../public/sounds')
+    expect(fs.existsSync(soundsDir)).toBe(true)
+
+    const expectedFiles = [
+      'alarm.wav',
+      'boxing_bell.wav',
+      'digital_pulse.wav',
+      'gong.wav',
+      'chime.wav',
+      'notification.wav'
+    ]
+
+    expectedFiles.forEach(fileName => {
+      const p = path.join(soundsDir, fileName)
+      expect(fs.existsSync(p)).toBe(true)
+      const stat = fs.statSync(p)
+      expect(stat.size).toBeGreaterThan(1000) // Minimum valid audio file size
+    })
+  })
+
+  it('unlockAudio executes safely without throwing', () => {
+    expect(() => unlockAudio()).not.toThrow()
   })
 
   it('playRestAlert and previewAlertTone execute safely across all tones without throwing errors', () => {
@@ -38,6 +69,11 @@ describe('Improved Rest Timer Alert Sound & Audio Synthesis', () => {
     expect(() => previewAlertTone('alarm', 1.0)).not.toThrow()
   })
 
+  it('playNotificationSound executes safely without throwing', () => {
+    expect(() => playNotificationSound(0.9)).not.toThrow()
+    expect(() => playNotificationSound(0)).not.toThrow()
+  })
+
   it('clamps volume safely within [0.0, 1.0]', () => {
     expect(() => playRestAlert('alarm', -1)).not.toThrow()
     expect(() => playRestAlert('alarm', 2.0)).not.toThrow()
@@ -45,8 +81,13 @@ describe('Improved Rest Timer Alert Sound & Audio Synthesis', () => {
     expect(() => playRestAlert('alarm', undefined)).not.toThrow()
   })
 
-  it('triggerRestNotification returns false gracefully when notifications are not granted', () => {
-    const res = triggerRestNotification('REST COMPLETED — START NEXT SET', 'Time for next set')
+  it('triggerRestNotification executes safely with custom alert options and returns false when notifications are not granted', () => {
+    const res = triggerRestNotification('REST COMPLETED — START NEXT SET', 'Time for next set', {
+      playSound: true,
+      tone: 'chime',
+      volume: 0.8,
+      vibratePattern: [200, 100, 200]
+    })
     expect(typeof res).toBe('boolean')
   })
 

@@ -13,6 +13,7 @@ import {
 } from '../lib/customPlanner.js'
 import { todayISO, isoOf } from '../lib/format.js'
 import { cardioSheet } from '../sheets.jsx'
+import { unlockAudio } from '../lib/sound.js'
 
 const WEEKDAYS = [
   { d: 1, name: 'Monday' },
@@ -98,6 +99,7 @@ export default function WeeklyPlanner() {
 
   const handleStartWorkout = (template, targetIso) => {
     if (!template) return
+    unlockAudio()
     const session = createSessionFromTemplate(S, template.id, targetIso)
     if (session) {
       update(s => { s.active = session })

@@ -16,6 +16,7 @@ import {
   createSessionFromTemplate,
   getTodayDisplayDate
 } from '../lib/customPlanner.js'
+import { unlockAudio } from '../lib/sound.js'
 
 /**
  * WidgetBoundary isolates failures in individual dashboard sections
@@ -273,6 +274,7 @@ export default function Home() {
   }, [monday, todayStr, doneDays, S])
 
   const handleStartTodayWorkout = () => {
+    unlockAudio()
     if (S?.active) {
       nav('/workout')
       return

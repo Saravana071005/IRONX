@@ -15,7 +15,15 @@ import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { forgetCoach } from '../lib/coach-api.js'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, SelectRow, Switch, Segmented, Button, TextField } from '../components/ui.jsx'
-import { ALERT_TONES, previewAlertTone, requestNotificationPermission } from '../lib/sound.js'
+import {
+  ALERT_TONES,
+  previewAlertTone,
+  requestNotificationPermission,
+  triggerRestNotification,
+  unlockAudio,
+  beep,
+  vibrate
+} from '../lib/sound.js'
 import { THEME_PRESETS } from '../lib/themes.js'
 
 export default function Settings() {
@@ -155,8 +163,37 @@ export default function Settings() {
             onChange={v => update(s => { s.keepAwake = v })} />
         </Row>
       )}
-      <Row icon="bell" iconTint="var(--theme-accent, #E8B477)" title={t('Sounds')}>
-        <Switch checked={!!S.sound} onChange={v => update(s => { s.sound = v })} />
+      <Row
+        icon="bell"
+        iconTint="var(--theme-accent, #E8B477)"
+        title={t('Sounds')}
+        subtitle={t('Workout audio effects (beeps, countdowns, alarms)')}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {S.sound && (
+            <Button
+              size="sm"
+              variant="tinted"
+              icon="play"
+              onClick={() => {
+                unlockAudio()
+                beep(true, 1040, 0.15)
+                vibrate(30)
+                toast(t('Sound tested'))
+              }}
+              title={t('Test workout sound')}
+            >
+              {t('Test')}
+            </Button>
+          )}
+          <Switch
+            checked={!!S.sound}
+            onChange={v => {
+              if (v) unlockAudio()
+              update(s => { s.sound = v })
+            }}
+          />
+        </div>
       </Row>
       {/* Two names for the same judgement, so the column asks in the scale you already think in.
           The (i) sits before the control — you read it on the way to the choice, not after it. */}
@@ -177,11 +214,14 @@ export default function Settings() {
         icon="speakerWave"
         iconTint="var(--theme-accent, #E8B477)"
         title={t('Rest timer alert sound')}
-        subtitle={t('Audible workout alarm when countdown reaches zero')}
+        subtitle={t('Audible workout alarm when countdown reaches zero (plays in headphones)')}
       >
         <Switch
           checked={S.restAlertEnabled !== false}
-          onChange={v => update(s => { s.restAlertEnabled = v })}
+          onChange={v => {
+            if (v) unlockAudio()
+            update(s => { s.restAlertEnabled = v })
+          }}
         />
       </Row>
 
@@ -221,10 +261,14 @@ export default function Settings() {
                 size="sm"
                 variant="tinted"
                 icon="play"
-                onClick={() => previewAlertTone(S.restAlertTone || 'alarm', S.restAlertVolume !== undefined ? S.restAlertVolume : 1.0)}
-                title={t('Preview alarm')}
+                onClick={() => {
+                  unlockAudio()
+                  previewAlertTone(S.restAlertTone || 'alarm', S.restAlertVolume !== undefined ? S.restAlertVolume : 1.0)
+                  toast(t('Playing alert sound'))
+                }}
+                title={t('Test Sound')}
               >
-                {t('Test')}
+                {t('Test Sound')}
               </Button>
             </div>
           </Row>
@@ -255,6 +299,7 @@ export default function Settings() {
             if (v) {
               const res = await requestNotificationPermission()
               if (res === 'granted') {
+                unlockAudio()
                 update(s => { s.restNotifications = true })
                 toast(t('Rest notifications enabled!'))
               } else {
@@ -267,6 +312,34 @@ export default function Settings() {
         />
       </Row>
 
+      {/* Test Notification and Sound Button */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 12px 12px 12px' }}>
+        <Button
+          size="sm"
+          variant="tinted"
+          icon="bell"
+          onClick={() => {
+            unlockAudio()
+            const tone = S.restAlertTone || 'alarm'
+            const vol = S.restAlertVolume !== undefined ? S.restAlertVolume : 1.0
+            triggerRestNotification(
+              t('REST COMPLETED — START NEXT SET'),
+              t('Rest timer alert test: audio playing through your active output.'),
+              {
+                playSound: S.restAlertEnabled !== false && S.sound !== false,
+                tone,
+                volume: vol,
+                vibratePattern: S.restVibrationEnabled !== false ? [300, 150, 300] : []
+              }
+            )
+            toast(t('Test alert triggered (sound & notification)'))
+          }}
+          title={t('Test rest alert notification with sound')}
+        >
+          {t('Test Rest Alert & Sound')}
+        </Button>
+      </div>
+
       {/* iOS Safari / iPhone PWA Audio Compatibility Note */}
       <div style={{ padding: '12px 14px', background: 'var(--surface-2)', borderRadius: 12, margin: '8px 12px 14px 12px', border: '1px solid var(--sep)' }}>
         <div className="row" style={{ gap: 8, alignItems: 'center', marginBottom: 4 }}>
@@ -276,9 +349,11 @@ export default function Settings() {
           </span>
         </div>
         <div style={{ fontSize: 12, color: 'var(--label-2)', lineHeight: 1.45 }}>
-          {t('• Silent Switch: If your iPhone physical switch or Action Button is on Silent, iOS mutes browser speaker audio (headphones will still play normally).')}
+          {t('• Connected Headphones: Alert sounds route automatically through your active Bluetooth or wired headphones at the volume set above.')}
           <br />
-          {t('• Background Playback: iOS restricts audio in locked or background tabs; OpenGym recalculates elapsed time on return so your rest timer stays 100% accurate.')}
+          {t('• Silent Switch: When headphones are connected, audio plays through headphones even in Silent mode. On phone speakers, the hardware Silent switch mutes browser audio.')}
+          <br />
+          {t('• Background Limitation: When your iPhone is locked or Safari is backgrounded, iOS suspends browser JavaScript and WebAudio. OpenGym recalculates elapsed time immediately upon returning so your workout timer stays 100% accurate.')}
         </div>
       </div>
     </Section>

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { uid } from '../lib/format.js'
-import { beep, vibrate, playRestAlert, triggerRestNotification } from '../lib/sound.js'
+import { beep, vibrate, playRestAlert, triggerRestNotification, unlockAudio } from '../lib/sound.js'
 import { api } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { useStore } from './useStore.js'
@@ -40,6 +40,7 @@ export const useUI = create((set, get) => ({
 
   startRest(sec) {
     get().stopRest()
+    unlockAudio()
     const endsAt = Date.now() + sec * 1000
     set({ timer: { left: sec, total: sec, initialTotal: sec, endsAt, paused: false, alertFired: false } })
     pushRestTimer(sec)
@@ -56,7 +57,7 @@ export const useUI = create((set, get) => ({
           const currentS = useStore.getState().S
           
           // 1. Play rest timer alert sound (default enabled, customizable tone and volume)
-          if (currentS.restAlertEnabled !== false) {
+          if (currentS.restAlertEnabled !== false && currentS.sound !== false) {
             const tone = currentS.restAlertTone || 'alarm'
             const volume = currentS.restAlertVolume !== undefined ? currentS.restAlertVolume : 1.0
             playRestAlert(tone, volume)
@@ -69,7 +70,11 @@ export const useUI = create((set, get) => ({
 
           // 3. Browser system notification
           if (currentS.restNotifications) {
-            triggerRestNotification(t('REST COMPLETED — START NEXT SET'), t('Your rest period has ended. Time to crush the next set!'))
+            triggerRestNotification(
+              t('REST COMPLETED — START NEXT SET'),
+              t('Your rest period has ended. Time to crush the next set!'),
+              { playSound: false, vibratePattern: null }
+            )
           }
 
           get().toast(t('REST COMPLETED — START NEXT SET'))
@@ -80,7 +85,7 @@ export const useUI = create((set, get) => ({
 
       if (left <= 3) {
         const currentS = useStore.getState().S
-        if (currentS.restAlertEnabled !== false) {
+        if (currentS.restAlertEnabled !== false && currentS.sound !== false) {
           beep(true, 880, 0.1)
         }
       }

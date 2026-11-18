@@ -1,50 +1,303 @@
-// WebAudio loud rest-completion alarm synthesizers + haptics + notification integration
-let audioCtx = null
+// OpenGym Audio & Notification Subsystem
+// Dual-engine architecture: Native HTML5 Audio (primary for iOS headphone routing & PWA reliability)
+// + WebAudio Synthesizer (zero-latency in-memory fallback) + Haptics + Notification integration.
 
+let audioCtx = null
+let isUnlocked = false
+const audioElementCache = new Map()
+
+export const ALERT_TONES = [
+  { id: 'alarm', name: 'Power Alarm (Recommended)', description: 'Loud, repeating 3-burst gym alarm — cuts through gym noise', file: '/sounds/alarm.wav' },
+  { id: 'boxing_bell', name: 'Triple Boxing Bell', description: 'Authentic 3-strike round bell with rich brass resonance', file: '/sounds/boxing_bell.wav' },
+  { id: 'digital_pulse', name: 'Digital Siren', description: 'Piercing high-energy electronic pulse for sports headphones', file: '/sounds/digital_pulse.wav' },
+  { id: 'gong', name: 'Heavy Gym Gong', description: 'Deep, resonant acoustic gong with long decay', file: '/sounds/gong.wav' },
+  { id: 'chime', name: 'Melodic Chime', description: 'Clean ascending 4-note harmonic chord', file: '/sounds/chime.wav' }
+]
+
+/**
+ * Returns the cached or new AudioContext singleton.
+ */
 export function getAudioContext() {
   if (typeof window === 'undefined') return null
   if (!audioCtx) {
     const AudioCtx = window.AudioContext || window.webkitAudioContext
-    if (AudioCtx) audioCtx = new AudioCtx()
+    if (AudioCtx) {
+      try {
+        audioCtx = new AudioCtx()
+      } catch (e) {
+        audioCtx = null
+      }
+    }
   }
   return audioCtx
 }
 
-export function unlockAudio() {
-  try {
-    const ctx = getAudioContext()
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume().catch(() => {})
+/**
+ * Retrieves or lazily creates a cached HTMLAudioElement for an audio file.
+ * We rely on standard browser audio output routing so iOS naturally routes
+ * sound to Bluetooth headphones (AirPods), wired headphones, or device speaker.
+ */
+function getAudioElement(fileUrl) {
+  if (typeof window === 'undefined' || typeof Audio === 'undefined') return null
+  if (!audioElementCache.has(fileUrl)) {
+    try {
+      const audio = new Audio(fileUrl)
+      audio.preload = 'auto'
+      audioElementCache.set(fileUrl, audio)
+    } catch (e) {
+      return null
     }
-  } catch (e) {}
+  }
+  return audioElementCache.get(fileUrl)
 }
 
-// Auto-unlock WebAudio on user interaction anywhere on the window
+/**
+ * Initializes and unlocks browser audio after a genuine user interaction
+ * (e.g. starting a workout, tapping the screen, testing sound, or toggling preferences).
+ * Mobile Safari requires user gestures to unlock both Web Audio and HTML5 Audio.
+ */
+export function unlockAudio() {
+  if (typeof window === 'undefined') return
+  try {
+    // 1. Resume Web Audio AudioContext if suspended
+    const ctx = getAudioContext()
+    if (ctx) {
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {})
+      }
+      // Play a 1-sample silent buffer to satisfy iOS WebKit autoplay lock
+      if (!isUnlocked && ctx.state !== 'closed') {
+        try {
+          const buffer = ctx.createBuffer(1, 1, 22050)
+          const source = ctx.createBufferSource()
+          source.buffer = buffer
+          source.connect(ctx.destination)
+          source.start(0)
+        } catch (e) {}
+      }
+    }
+
+    // 2. Prime HTML5 Audio elements during user gesture
+    // Calling .load() during user gesture permits future programmatic .play() calls
+    ALERT_TONES.forEach(tone => {
+      const el = getAudioElement(tone.file)
+      if (el && typeof el.load === 'function' && el.readyState < 2) {
+        try { el.load() } catch (e) {}
+      }
+    })
+    const notifEl = getAudioElement('/sounds/notification.wav')
+    if (notifEl && typeof notifEl.load === 'function' && notifEl.readyState < 2) {
+      try { notifEl.load() } catch (e) {}
+    }
+
+    isUnlocked = true
+  } catch (e) {
+    // Audio unlock is best-effort and non-fatal
+  }
+}
+
+// Auto-register touch/click listeners to unlock audio on initial user activity
 if (typeof window !== 'undefined') {
-  const unlockEvents = ['touchstart', 'touchend', 'click', 'keydown']
+  const unlockEvents = ['touchstart', 'touchend', 'click', 'keydown', 'pointerdown']
   const onUserGesture = () => {
     unlockAudio()
   }
   unlockEvents.forEach(evt => window.addEventListener(evt, onUserGesture, { capture: true, passive: true }))
 }
 
-export const ALERT_TONES = [
-  { id: 'alarm', name: 'Power Alarm (Recommended)', description: 'Loud, repeating 3-burst gym alarm — cuts through gym noise' },
-  { id: 'boxing_bell', name: 'Triple Boxing Bell', description: 'Authentic 3-strike round bell with rich brass resonance' },
-  { id: 'digital_pulse', name: 'Digital Siren', description: 'Piercing high-energy electronic pulse for sports headphones' },
-  { id: 'gong', name: 'Heavy Gym Gong', description: 'Deep, resonant acoustic gong with long decay' },
-  { id: 'chime', name: 'Melodic Chime', description: 'Clean ascending 4-note harmonic chord' }
-]
+// Duplicate alert prevention guard (ensures rapid timer ticks do not fire overlapping audio)
+let lastAlertAt = 0
+let lastAlertToneId = ''
+const DEDUPE_WINDOW_MS = 600
 
 /**
- * Creates a loud, saturated audio chain with dynamic compression to maximize
- * perceived loudness (RMS) while preventing harsh digital clipping.
+ * Plays the chosen rest-completion alert with high acoustic power.
+ * Primary: HTML5 Audio file playback (routes through connected headphones or speaker via iOS).
+ * Fallback: Pure WebAudio harmonic synthesizer if audio file cannot be decoded or loaded.
  */
+export function playRestAlert(toneName = 'alarm', volume = 1.0, force = false) {
+  const now = Date.now()
+  const selected = (toneName || 'alarm').toLowerCase()
+
+  if (!force && lastAlertToneId === selected && (now - lastAlertAt < DEDUPE_WINDOW_MS)) {
+    return Promise.resolve(false)
+  }
+  lastAlertAt = now
+  lastAlertToneId = selected
+
+  const vol = Math.max(0, Math.min(1, Number(volume) ?? 1.0))
+  if (vol <= 0) return Promise.resolve(false)
+
+  const toneObj = ALERT_TONES.find(t => t.id === selected) || ALERT_TONES[0]
+  const fileUrl = toneObj?.file || `/sounds/${selected}.wav`
+
+  // 1. Try HTML5 Audio playback (primary engine)
+  const audio = getAudioElement(fileUrl)
+  if (audio) {
+    try {
+      audio.volume = vol
+      audio.currentTime = 0
+      const playPromise = audio.play()
+      if (playPromise !== undefined && typeof playPromise.then === 'function') {
+        return playPromise
+          .then(() => true)
+          .catch(() => {
+            // If HTML5 Audio was blocked by browser or failed, fallback to WebAudio
+            return playSynthesizedAlert(selected, vol)
+          })
+      }
+      return Promise.resolve(true)
+    } catch (e) {
+      return playSynthesizedAlert(selected, vol)
+    }
+  }
+
+  // 2. Direct fallback to WebAudio synthesizer
+  return playSynthesizedAlert(selected, vol)
+}
+
+/**
+ * Plays a short, crisp in-app notification chime (used for general alerts, test pushes, etc.).
+ */
+export function playNotificationSound(volume = 1.0) {
+  const vol = Math.max(0, Math.min(1, Number(volume) ?? 1.0))
+  if (vol <= 0) return Promise.resolve(false)
+
+  const audio = getAudioElement('/sounds/notification.wav')
+  if (audio) {
+    try {
+      audio.volume = vol
+      audio.currentTime = 0
+      const playPromise = audio.play()
+      if (playPromise !== undefined && typeof playPromise.then === 'function') {
+        return playPromise
+          .then(() => true)
+          .catch(() => playNotificationBeep(vol))
+      }
+      return Promise.resolve(true)
+    } catch (e) {
+      return playNotificationBeep(vol)
+    }
+  }
+  return playNotificationBeep(vol)
+}
+
+/**
+ * Preview an alert tone (e.g. from Settings). Force flag bypasses dedupe window.
+ */
+export function previewAlertTone(toneName = 'alarm', volume = 1.0) {
+  unlockAudio()
+  return playRestAlert(toneName, volume, true)
+}
+
+/**
+ * Notification permission requester.
+ */
+export async function requestNotificationPermission() {
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported'
+  try {
+    const res = await Notification.requestPermission()
+    return res
+  } catch (e) {
+    return 'denied'
+  }
+}
+
+/**
+ * Triggers a rest-completion notification:
+ * 1. Plays in-app notification audio alert (audible through headphones or speaker).
+ * 2. Triggers haptic vibration where supported.
+ * 3. Shows system Notification banner if granted.
+ */
+export function triggerRestNotification(title, body, options = {}) {
+  const {
+    playSound = true,
+    tone = 'alarm',
+    volume = 1.0,
+    vibratePattern = [300, 150, 300, 150, 500]
+  } = options
+
+  // 1. Play in-app audio alert
+  if (playSound) {
+    playRestAlert(tone, volume)
+  }
+
+  // 2. Haptic vibration
+  if (vibratePattern && vibratePattern.length) {
+    vibrate(vibratePattern)
+  }
+
+  // 3. System Notification banner
+  if (typeof window === 'undefined' || !('Notification' in window)) return false
+  if (Notification.permission !== 'granted') return false
+  try {
+    new Notification(title || 'REST COMPLETED — START NEXT SET', {
+      body: body || 'Your rest period has ended. Time to crush the next set!',
+      icon: '/icon-180.png',
+      badge: '/icon-180.png',
+      tag: 'opengym-rest-timer'
+    })
+    return true
+  } catch (e) {
+    return false
+  }
+}
+
+/**
+ * Short workout cue beep (for set completion, countdowns).
+ */
+export function beep(enabled, freq, dur, when) {
+  if (!enabled) return
+  try {
+    const ctx = getAudioContext()
+    if (!ctx) return
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {})
+    }
+    const o = ctx.createOscillator()
+    const g = ctx.createGain()
+    o.connect(g)
+    g.connect(ctx.destination)
+    o.frequency.value = freq || 880
+    o.type = 'sine'
+    const t0 = ctx.currentTime + (when || 0)
+    g.gain.setValueAtTime(0.001, t0)
+    g.gain.exponentialRampToValueAtTime(0.45, t0 + 0.02)
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + (dur || 0.18))
+    o.start(t0)
+    o.stop(t0 + (dur || 0.18) + 0.05)
+  } catch (e) {}
+}
+
+function playNotificationBeep(vol) {
+  try {
+    beep(true, 987, 0.15)
+    setTimeout(() => beep(true, 1318, 0.25), 100)
+    return Promise.resolve(true)
+  } catch (e) {
+    return Promise.resolve(false)
+  }
+}
+
+/**
+ * Haptic feedback helper.
+ */
+export function vibrate(p) {
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(p)
+    }
+  } catch (e) {}
+}
+
+// ---------------------------------------------------------------------------
+// WebAudio In-Memory Synthesizer Fallback Engine
+// ---------------------------------------------------------------------------
+
 function createLoudMasterChain(ctx, volume = 1.0) {
   const vol = Math.max(0, Math.min(1, Number(volume) ?? 1.0))
   const master = ctx.createGain()
 
-  // Dynamics compressor acts as a punchy limiter/maximizer for loud gym alerts
   let compressor = null
   try {
     compressor = ctx.createDynamicsCompressor()
@@ -60,35 +313,24 @@ function createLoudMasterChain(ctx, volume = 1.0) {
     master.connect(ctx.destination)
   }
 
-  // Master output level scaled by user volume
   master.gain.setValueAtTime(vol * 0.95, ctx.currentTime)
-
   return master
 }
 
-/**
- * Plays the chosen rest-completion alert with high acoustic power.
- */
-export function playRestAlert(toneName = 'alarm', volume = 1.0) {
+function playSynthesizedAlert(selected, vol) {
   const ctx = getAudioContext()
-  if (!ctx) return
+  if (!ctx) return Promise.resolve(false)
   if (ctx.state === 'suspended') {
     ctx.resume().catch(() => {})
   }
 
-  const vol = Math.max(0, Math.min(1, Number(volume) ?? 1.0))
-  if (vol <= 0) return
-
   const now = ctx.currentTime
   const master = createLoudMasterChain(ctx, vol)
 
-  const selected = (toneName || '').toLowerCase()
-
   switch (selected) {
     case 'boxing_bell': {
-      // Triple boxing ring bell: strikes at t=0, t=0.35, t=0.7s with metallic ring
       const strikes = [0, 0.35, 0.70]
-      const freqs = [659.25, 1318.5, 2637.0] // E5 fundamental + octaves
+      const freqs = [659.25, 1318.5, 2637.0]
 
       strikes.forEach((startTime, strikeIdx) => {
         const isLast = strikeIdx === strikes.length - 1
@@ -115,7 +357,6 @@ export function playRestAlert(toneName = 'alarm', volume = 1.0) {
     }
 
     case 'digital_pulse': {
-      // Piercing alternating siren pulses: 4 rapid hits + high sustained burst
       const pulses = [
         { freq: 880, start: 0, dur: 0.12 },
         { freq: 1174, start: 0.15, dur: 0.12 },
@@ -133,7 +374,7 @@ export function playRestAlert(toneName = 'alarm', volume = 1.0) {
         osc1.type = 'square'
         osc1.frequency.setValueAtTime(p.freq, t0)
         osc2.type = 'sawtooth'
-        osc2.frequency.setValueAtTime(p.freq * 1.005, t0) // slight detune for thickness
+        osc2.frequency.setValueAtTime(p.freq * 1.005, t0)
 
         osc1.connect(g)
         osc2.connect(g)
@@ -152,7 +393,6 @@ export function playRestAlert(toneName = 'alarm', volume = 1.0) {
     }
 
     case 'gong': {
-      // Heavy acoustic gym gong with fundamental 220Hz + thick harmonics
       const harmonics = [
         { f: 220, amp: 0.9, decay: 2.5, type: 'sine' },
         { f: 440, amp: 0.5, decay: 2.1, type: 'triangle' },
@@ -178,7 +418,6 @@ export function playRestAlert(toneName = 'alarm', volume = 1.0) {
     }
 
     case 'chime': {
-      // Bright 4-note ascending chord: 587 -> 740 -> 880 -> 1174 Hz
       const notes = [
         { freq: 587.33, start: 0, dur: 0.55 },
         { freq: 739.99, start: 0.12, dur: 0.65 },
@@ -206,8 +445,6 @@ export function playRestAlert(toneName = 'alarm', volume = 1.0) {
 
     case 'alarm':
     default: {
-      // Power Gym Alarm (Strong default): 3 loud repeating dual-harmonic bursts
-      // Pattern: BURST (0.24s) -> pause (0.08s) -> BURST (0.24s) -> pause (0.08s) -> SUSTAINED BURST (0.75s)
       const bursts = [
         { f1: 880, f2: 1760, start: 0, dur: 0.24 },
         { f1: 880, f2: 1760, start: 0.32, dur: 0.24 },
@@ -216,7 +453,6 @@ export function playRestAlert(toneName = 'alarm', volume = 1.0) {
 
       bursts.forEach(b => {
         const t0 = now + b.start
-        // Dual oscillators: sine fundamental for body + band-shaped square for cutting bite
         const osc1 = ctx.createOscillator()
         const osc2 = ctx.createOscillator()
         const g = ctx.createGain()
@@ -226,10 +462,8 @@ export function playRestAlert(toneName = 'alarm', volume = 1.0) {
         osc2.type = 'sine'
         osc2.frequency.setValueAtTime(b.f2, t0)
 
-        // Low-pass filter to soften excessive harshness while preserving acoustic punch
-        let filter = null
         try {
-          filter = ctx.createBiquadFilter()
+          const filter = ctx.createBiquadFilter()
           filter.type = 'lowpass'
           filter.frequency.setValueAtTime(3200, t0)
           osc1.connect(filter)
@@ -254,58 +488,6 @@ export function playRestAlert(toneName = 'alarm', volume = 1.0) {
       break
     }
   }
-}
 
-export function previewAlertTone(toneName = 'alarm', volume = 1.0) {
-  unlockAudio()
-  playRestAlert(toneName, volume)
-}
-
-export async function requestNotificationPermission() {
-  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported'
-  try {
-    const res = await Notification.requestPermission()
-    return res
-  } catch (e) {
-    return 'denied'
-  }
-}
-
-export function triggerRestNotification(title, body) {
-  if (typeof window === 'undefined' || !('Notification' in window)) return false
-  if (Notification.permission !== 'granted') return false
-  try {
-    new Notification(title || 'REST COMPLETED — START NEXT SET', {
-      body: body || 'Your rest period has ended. Time to crush the next set!',
-      icon: '/favicon.ico',
-      badge: '/favicon.ico'
-    })
-    return true
-  } catch (e) {
-    return false
-  }
-}
-
-export function beep(enabled, freq, dur, when) {
-  if (!enabled) return
-  try {
-    const ctx = getAudioContext()
-    if (!ctx) return
-    const o = ctx.createOscillator(), g = ctx.createGain()
-    o.connect(g); g.connect(ctx.destination)
-    o.frequency.value = freq || 880; o.type = 'sine'
-    const t0 = ctx.currentTime + (when || 0)
-    g.gain.setValueAtTime(0.001, t0)
-    g.gain.exponentialRampToValueAtTime(0.45, t0 + 0.02)
-    g.gain.exponentialRampToValueAtTime(0.001, t0 + (dur || 0.18))
-    o.start(t0); o.stop(t0 + (dur || 0.18) + 0.05)
-  } catch (e) { /* */ }
-}
-
-export function vibrate(p) {
-  try {
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function') {
-      navigator.vibrate(p)
-    }
-  } catch (e) { /* */ }
+  return Promise.resolve(true)
 }
