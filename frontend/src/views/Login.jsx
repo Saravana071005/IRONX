@@ -37,8 +37,11 @@ export default function Login() {
   }, [])
 
   const head = (
-    <div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0 18px', background: 'transparent' }}>
-      <IronHouseLogo size="lg" variant="black" />
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', margin: '20px 0 18px', background: 'transparent' }}>
+      <IronHouseLogo size={80} variant="black" />
+      <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '26px', fontWeight: 800, letterSpacing: '0.04em', margin: 0, color: 'var(--label)' }}>
+        IRON HOUSE
+      </h1>
     </div>
   )
   const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }

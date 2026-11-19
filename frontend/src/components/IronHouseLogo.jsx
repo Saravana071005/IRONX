@@ -1,20 +1,16 @@
 import React from 'react'
 
 /**
- * Official IRON HOUSE Brand Logo Component
- * - Full complete wordmark containing:
- *   - The full text "IRON HOUSE"
- *   - Symmetrical barbell plate stacks on both sides
- *   - Central Arc Reactor symbol replacing the letter 'O' in 'IRON'
- *   - Original proportions, spacing, and typography
- * - Clean pure black background (#000000) on black viewports
+ * Official IRON HOUSE Logo Symbol Component
+ * - Single official website logo: Glowing Orange Arc Reactor Emblem
+ * - Exact supplied artwork preserved (original orange color, circular proportions)
+ * - Displayed cleanly against black background
  * - STRICT RULES:
  *   - NO CSS glow
  *   - NO drop-shadow
  *   - NO gradient
- *   - NO rectangular card or glowing container
- *   - NO borders or additional decorative elements
- * - Always displays the COMPLETE IRON HOUSE logo (never Arc Reactor alone)
+ *   - NO borders or box-shadow
+ *   - NO extra graphics or modifications
  */
 export default function IronHouseLogo({
   size = 'md',
@@ -23,15 +19,15 @@ export default function IronHouseLogo({
   style = {}
 }) {
   const heights = {
-    xs: 18,
-    sm: 24,
-    md: 32,
-    lg: 44,
-    xl: 60
+    xs: 20,
+    sm: 28,
+    md: 36,
+    lg: 48,
+    xl: 64
   }
 
   const h = typeof size === 'number' ? size : heights[size] || heights.md
-  const logoSrc = variant === 'black' ? '/iron-house-logo-black.png?v=2' : '/iron-house-logo.png?v=2'
+  const logoSrc = variant === 'black' ? '/iron-house-logo-black.png?v=3' : '/iron-house-logo.png?v=3'
 
   return (
     <span
@@ -56,8 +52,9 @@ export default function IronHouseLogo({
         alt="IRON HOUSE"
         style={{
           height: `${h}px`,
-          width: 'auto',
+          width: `${h}px`,
           maxWidth: '100%',
+          aspectRatio: '1 / 1',
           display: 'block',
           objectFit: 'contain',
           background: 'transparent',

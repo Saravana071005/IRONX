@@ -14,6 +14,7 @@ import { loadStarterPlan, confirmSheet, importFromApp } from '../sheets.jsx'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { forgetCoach } from '../lib/coach-api.js'
 import Icon from '../components/Icon.jsx'
+import IronHouseLogo from '../components/IronHouseLogo.jsx'
 import { Section, Row, SelectRow, Switch, Segmented, Button, TextField } from '../components/ui.jsx'
 import {
   ALERT_TONES,
@@ -692,6 +693,9 @@ export default function Settings() {
         subtitle={t('to install IRON HOUSE as a full-screen app.') + ' ' + (user ? t('Your data syncs with your profile — sign in anywhere to see it.') : t('Guest data stays on this device — export a backup now and then!'))} />
     </Section>}
 
+    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24, marginBottom: 8 }}>
+      <IronHouseLogo size={36} />
+    </div>
     <div className="dim small" style={{ textAlign: 'center', marginTop: 4, lineHeight: 1.6 }}>
       IRON HOUSE · {t('Elite Strength & Conditioning')}<br />
       exercise data: hasaneyldrm/exercises-dataset (CC)

@@ -1,6 +1,6 @@
 /* IRON HOUSE service worker — runtime caching (works with Vite's hashed asset names).
    Media (img/gif) cache-first; everything else network-first with offline fallback. */
-const CACHE = 'iron-house-rt-v2'
+const CACHE = 'iron-house-rt-v3'
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', e => {

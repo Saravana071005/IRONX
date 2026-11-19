@@ -72,8 +72,11 @@ function Shell() {
   const authed = user || isGuest
   if (!ready && !authed && !isAuthCallback) return (
     <div id="app" style={{ background: '#000000' }}>
-      <div style={{ paddingTop: '42vh', display: 'flex', justifyContent: 'center', background: 'transparent' }}>
-        <IronHouseLogo size="lg" variant="black" />
+      <div style={{ paddingTop: '36vh', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', background: 'transparent' }}>
+        <IronHouseLogo size={88} variant="black" />
+        <span style={{ fontFamily: 'var(--font-heading)', fontSize: '22px', fontWeight: 800, letterSpacing: '0.06em', color: '#ffffff' }}>
+          IRON HOUSE
+        </span>
       </div>
     </div>
   )
@@ -103,8 +106,9 @@ function Shell() {
               >
                 <Icon name="bars" />
               </button>
-              <div className="mobile-header-brand" onClick={() => navigate('/home')} style={{ cursor: 'pointer', background: 'transparent', border: 'none', boxShadow: 'none' }}>
-                <IronHouseLogo size="xs" />
+              <div className="mobile-header-brand" onClick={() => navigate('/home')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', background: 'transparent', border: 'none', boxShadow: 'none' }}>
+                <IronHouseLogo size={28} />
+                <span className="sidebar-brand-title" style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '0.04em', color: 'var(--label)' }}>IRON HOUSE</span>
               </div>
               <div className="mobile-header-actions">
                 {S.active ? (
