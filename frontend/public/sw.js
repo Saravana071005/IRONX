@@ -1,6 +1,6 @@
-/* openGym service worker — runtime caching (works with Vite's hashed asset names).
+/* IRON HOUSE service worker — runtime caching (works with Vite's hashed asset names).
    Media (img/gif) cache-first; everything else network-first with offline fallback. */
-const CACHE = 'opengym-rt-v1'
+const CACHE = 'iron-house-rt-v2'
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', e => {
@@ -13,8 +13,8 @@ self.addEventListener('push', e => {
   e.waitUntil(self.registration.showNotification(data.title || 'IRON HOUSE', {
     body: data.body || '',
     icon: 'icon-512.png',
-    badge: 'icon-180.png',
-    tag: data.tag || 'opengym',
+    badge: 'icon-192.png',
+    tag: data.tag || 'iron-house',
     renotify: true
   }))
 })

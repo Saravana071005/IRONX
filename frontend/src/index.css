@@ -312,7 +312,7 @@ h1, h2, h3, h4, h5, h6, .hdr h1, .sidebar-brand-title, .modal-title, .sheet-titl
 .t-foot   {font-size:13px;line-height:1.38;font-weight:400;letter-spacing:-.001em}
 .t-cap    {font-size:12px;line-height:1.33;font-weight:400;letter-spacing:0}
 
-/* IRON HOUSE Official Orange Glow Brand & Logo System */
+/* IRON HOUSE Official Brand & Logo System - Strict Pure Black, Zero Glow */
 .iron-house-logo,
 .iron-house-emblem {
   display: inline-flex;
@@ -325,11 +325,11 @@ h1, h2, h3, h4, h5, h6, .hdr h1, .sidebar-brand-title, .modal-title, .sheet-titl
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
+  filter: none !important;
 }
 
 .iron-house-glow {
-  filter: drop-shadow(0 0 10px rgba(255, 122, 0, 0.50))
-          drop-shadow(0 0 24px rgba(255, 122, 0, 0.25));
+  filter: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -108,9 +108,9 @@ export default function Sidebar({ onStart, mobileOpen = false, onClose }) {
             title="IRON HOUSE Home"
           >
             {collapsed ? (
-              <IronHouseLogo iconOnly size={28} glow />
+              <IronHouseLogo size={10} style={{ maxWidth: '56px' }} />
             ) : (
-              <IronHouseLogo size="md" glow />
+              <IronHouseLogo size="md" />
             )}
           </div>
 
