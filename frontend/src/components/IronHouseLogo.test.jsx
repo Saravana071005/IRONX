@@ -3,8 +3,8 @@ import { renderToString } from 'react-dom/server'
 import IronHouseLogo from './IronHouseLogo.jsx'
 import { THEME_PRESETS } from '../lib/themes.js'
 
-describe('Official IRON HOUSE Arc Reactor Logo Component', () => {
-  it('renders official brand logo with official white artwork', () => {
+describe('Official IRON HOUSE Orange Glow Logo Component', () => {
+  it('renders official brand logo with orange glow artwork', () => {
     const html = renderToString(<IronHouseLogo />)
     expect(html).toContain('iron-house-logo')
     expect(html).toContain('/iron-house-logo.png')
@@ -14,17 +14,24 @@ describe('Official IRON HOUSE Arc Reactor Logo Component', () => {
     expect(html).not.toContain('openGym')
   })
 
-  it('preserves the original white luminous glow filter', () => {
-    const html = renderToString(<IronHouseLogo glow={true} />)
+  it('applies natural organic orange glow drop-shadow filter', () => {
+    const html = renderToString(<IronHouseLogo glow={true} variant="transparent" />)
     expect(html).toContain('iron-house-glow')
-    expect(html).toContain('rgba(255, 255, 255')
+    expect(html).toContain('rgba(255, 122, 0')
   })
 
-  it('supports iconOnly mode displaying the Arc Reactor emblem', () => {
+  it('supports variant="black" using solid black background asset', () => {
+    const html = renderToString(<IronHouseLogo variant="black" glow />)
+    expect(html).toContain('/iron-house-logo-black.png')
+    expect(html).toContain('alt="IRON HOUSE"')
+  })
+
+  it('supports iconOnly mode displaying the orange Arc Reactor emblem', () => {
     const html = renderToString(<IronHouseLogo iconOnly size="md" />)
     expect(html).toContain('iron-house-emblem')
     expect(html).toContain('/iron-house-reactor.png')
     expect(html).toContain('alt="IRON HOUSE Arc Reactor"')
+    expect(html).toContain('rgba(255, 122, 0')
     expect(html).not.toContain('/iron-house-logo.png')
   })
 
@@ -38,18 +45,25 @@ describe('Official IRON HOUSE Arc Reactor Logo Component', () => {
     expect(htmlCustom).toContain('height:50px')
   })
 
-  it('keeps the uploaded logo artwork white and unchanged across all theme presets', () => {
+  it('guarantees transparent background, no borders and no rectangular box shadows', () => {
+    const html = renderToString(<IronHouseLogo />)
+    expect(html).toContain('background:transparent')
+    expect(html).toContain('border:none')
+    expect(html).toContain('box-shadow:none')
+  })
+
+  it('keeps the orange logo artwork and glow consistent across all theme presets', () => {
     const themeIds = Object.keys(THEME_PRESETS)
     themeIds.forEach(id => {
       const preset = THEME_PRESETS[id]
       const html = renderToString(
         <div style={{ color: preset.primary, '--theme-accent': preset.primary }}>
-          <IronHouseLogo />
+          <IronHouseLogo glow />
         </div>
       )
-      // Logo image source and white glow remain strictly unchanged
+      // Orange logo image source and orange glow filter remain strictly intact
       expect(html).toContain('/iron-house-logo.png')
-      expect(html).toContain('rgba(255, 255, 255')
+      expect(html).toContain('rgba(255, 122, 0')
     })
   })
 })

@@ -1,17 +1,19 @@
 import React from 'react'
 
 /**
- * Official IRON HOUSE Logo Component
- * - Exact official artwork from the user-uploaded reference
- * - Preserves the symmetrical dumbbells on both sides
- * - Preserves the Arc Reactor symbol replacing the letter 'O' in 'IRON'
- * - Preserves the exact original lettering and proportions
- * - Stays crisp luminous white across all theme presets
+ * Official IRON HOUSE Orange Glow Logo Component
+ * - Bright shining orange with warm amber highlights
+ * - Arc Reactor symbol replacing the letter 'O' in 'IRON'
+ * - Symmetrical dumbbells on both sides
+ * - Natural organic contour glow following the exact artwork shape
+ * - ZERO rectangular glow, ZERO grey patches, ZERO background cards
+ * - Supports transparent-background and solid-black-background variants
  */
 export default function IronHouseLogo({
   size = 'md',
   glow = true,
   iconOnly = false,
+  variant = 'transparent', // 'transparent' | 'black'
   className = '',
   style = {}
 }) {
@@ -25,7 +27,7 @@ export default function IronHouseLogo({
 
   const h = typeof size === 'number' ? size : heights[size] || heights.md
 
-  // Icon-only view: Renders the glowing Arc Reactor emblem
+  // Icon-only view: Renders the glowing orange Arc Reactor emblem
   if (iconOnly) {
     const emblemH = Math.round(h * 0.95)
     return (
@@ -35,6 +37,9 @@ export default function IronHouseLogo({
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
+          background: 'transparent',
+          border: 'none',
+          boxShadow: 'none',
           lineHeight: 1,
           verticalAlign: 'middle',
           ...style
@@ -50,8 +55,11 @@ export default function IronHouseLogo({
             width: 'auto',
             display: 'block',
             objectFit: 'contain',
+            background: 'transparent',
+            border: 'none',
+            boxShadow: 'none',
             filter: glow
-              ? 'drop-shadow(0 0 8px rgba(255, 255, 255, 0.45)) drop-shadow(0 0 16px rgba(255, 255, 255, 0.20))'
+              ? 'drop-shadow(0 0 8px rgba(255, 122, 0, 0.55)) drop-shadow(0 0 18px rgba(255, 122, 0, 0.28))'
               : 'none',
             userSelect: 'none',
             pointerEvents: 'none'
@@ -61,6 +69,8 @@ export default function IronHouseLogo({
     )
   }
 
+  const logoSrc = variant === 'black' ? '/iron-house-logo-black.png' : '/iron-house-logo.png'
+
   return (
     <span
       className={`iron-house-logo ${glow ? 'iron-house-glow' : ''} ${className}`}
@@ -68,6 +78,9 @@ export default function IronHouseLogo({
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
+        background: 'transparent',
+        border: 'none',
+        boxShadow: 'none',
         lineHeight: 1,
         verticalAlign: 'middle',
         userSelect: 'none',
@@ -77,7 +90,7 @@ export default function IronHouseLogo({
       aria-label="IRON HOUSE"
     >
       <img
-        src="/iron-house-logo.png"
+        src={logoSrc}
         alt="IRON HOUSE"
         style={{
           height: `${h}px`,
@@ -85,8 +98,11 @@ export default function IronHouseLogo({
           maxWidth: '100%',
           display: 'block',
           objectFit: 'contain',
-          filter: glow
-            ? 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.45)) drop-shadow(0 0 20px rgba(255, 255, 255, 0.20))'
+          background: 'transparent',
+          border: 'none',
+          boxShadow: 'none',
+          filter: glow && variant === 'transparent'
+            ? 'drop-shadow(0 0 10px rgba(255, 122, 0, 0.50)) drop-shadow(0 0 24px rgba(255, 122, 0, 0.25))'
             : 'none',
           userSelect: 'none',
           pointerEvents: 'none'

@@ -71,9 +71,9 @@ function Shell() {
   const isAuthCallback = loc.pathname === '/auth-callback'
   const authed = user || isGuest
   if (!ready && !authed && !isAuthCallback) return (
-    <div id="app">
-      <div style={{ paddingTop: '42vh', display: 'flex', justifyContent: 'center' }}>
-        <IronHouseLogo size="lg" glow />
+    <div id="app" style={{ background: '#000000' }}>
+      <div style={{ paddingTop: '42vh', display: 'flex', justifyContent: 'center', background: 'transparent' }}>
+        <IronHouseLogo size="lg" glow variant="black" />
       </div>
     </div>
   )
@@ -103,7 +103,7 @@ function Shell() {
               >
                 <Icon name="bars" />
               </button>
-              <div className="mobile-header-brand" onClick={() => navigate('/home')} style={{ cursor: 'pointer' }}>
+              <div className="mobile-header-brand" onClick={() => navigate('/home')} style={{ cursor: 'pointer', background: 'transparent', border: 'none', boxShadow: 'none' }}>
                 <IronHouseLogo size="xs" glow />
               </div>
               <div className="mobile-header-actions">

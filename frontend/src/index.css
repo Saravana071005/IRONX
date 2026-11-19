@@ -312,7 +312,7 @@ h1, h2, h3, h4, h5, h6, .hdr h1, .sidebar-brand-title, .modal-title, .sheet-titl
 .t-foot   {font-size:13px;line-height:1.38;font-weight:400;letter-spacing:-.001em}
 .t-cap    {font-size:12px;line-height:1.33;font-weight:400;letter-spacing:0}
 
-/* IRON HOUSE Official Brand & Logo System */
+/* IRON HOUSE Official Orange Glow Brand & Logo System */
 .iron-house-logo,
 .iron-house-emblem {
   display: inline-flex;
@@ -322,11 +322,14 @@ h1, h2, h3, h4, h5, h6, .hdr h1, .sidebar-brand-title, .modal-title, .sheet-titl
   user-select: none;
   vertical-align: middle;
   line-height: 1;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .iron-house-glow {
-  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.45))
-          drop-shadow(0 0 20px rgba(255, 255, 255, 0.20));
+  filter: drop-shadow(0 0 10px rgba(255, 122, 0, 0.50))
+          drop-shadow(0 0 24px rgba(255, 122, 0, 0.25));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1965,6 +1968,9 @@ h4.sec{
   border-radius: var(--r-sm);
   transition: opacity var(--fast);
   min-width: 0;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 .sidebar-brand:hover { opacity: .92; }
 .sidebar-brand-icon {
