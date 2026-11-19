@@ -69,17 +69,43 @@ function Shell() {
   useWakeLock(!!S.active && S.keepAwake !== false)
 
   const isAuthCallback = loc.pathname === '/auth-callback'
+  const isProfileSetup = loc.pathname === '/profile-setup'
   const authed = user || isGuest
-  if (!ready && !authed && !isAuthCallback) return (
-    <div id="app" style={{ background: '#000000' }}>
-      <div style={{ paddingTop: '36vh', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', background: 'transparent' }}>
-        <IronHouseLogo size={88} variant="black" />
-        <span style={{ fontFamily: 'var(--font-heading)', fontSize: '22px', fontWeight: 800, letterSpacing: '0.06em', color: '#ffffff' }}>
-          IRON HOUSE
+
+  // Profile setup redirect: If user is authenticated via Google but profile setup is incomplete,
+  // guide them into the existing profile setup flow.
+  useEffect(() => {
+    if (ready && user && !isGuest && !user.profile?.completed && !isProfileSetup && !isAuthCallback) {
+      navigate('/profile-setup', { replace: true })
+    }
+  }, [ready, user, isGuest, isProfileSetup, isAuthCallback, navigate])
+
+  // Simple loading screen while initializing — pure black background, small spinner, "Loading..."
+  // No logo, brand name, slogan, decorative glow, or additional text.
+  if (!ready && !isAuthCallback) {
+    return (
+      <div
+        id="app"
+        style={{
+          background: '#000000',
+          minHeight: '100vh',
+          width: '100vw',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px'
+        }}
+        role="status"
+        aria-live="polite"
+      >
+        <div className="simple-loading-spinner" />
+        <span style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '13px', fontWeight: 500, letterSpacing: '0.02em', fontFamily: 'var(--font-sans)' }}>
+          Loading...
         </span>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <>
@@ -142,6 +168,7 @@ function Shell() {
                   <Route path="/auth-callback" element={<AuthCallback />} />
                   <Route path="/profile-setup" element={<ProfileSetup />} />
                   <Route path="/home" element={<Home />} />
+                  <Route path="/" element={<Navigate to="/home" replace />} />
                   <Route path="/planner" element={<WeeklyPlanner />} />
                   <Route path="/planner/day/:dayId" element={<DayPlanner />} />
                   <Route path="/exercise-library" element={<ExerciseLibrary />} />

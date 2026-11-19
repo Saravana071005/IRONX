@@ -332,6 +332,20 @@ h1, h2, h3, h4, h5, h6, .hdr h1, .sidebar-brand-title, .modal-title, .sheet-titl
   filter: none !important;
 }
 
+/* Minimal Startup Loading Spinner */
+.simple-loading-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: app-spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes app-spin {
+  to { transform: rotate(360deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .iron-house-glow,
   .iron-house-logo img,
