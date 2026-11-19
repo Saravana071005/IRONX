@@ -67,7 +67,7 @@ describe('Daily Health Log: Simplified Food & PDF Export Generator', () => {
     expect(doc.internal.getNumberOfPages()).toBeGreaterThanOrEqual(2);
     const pdfOutput = doc.output();
     expect(pdfOutput.length).toBeGreaterThan(1000);
-    expect(pdfOutput).toContain('openGym');
+    expect(pdfOutput).toContain('GYRA PRIME');
     expect(pdfOutput).toContain('1,900');
     expect(pdfOutput).toContain('Rolled oats, overnight soaked');
     expect(pdfOutput).toContain('Banana');

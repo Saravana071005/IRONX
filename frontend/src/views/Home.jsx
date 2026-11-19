@@ -33,7 +33,7 @@ class WidgetBoundary extends Component {
     return { hasError: true, error }
   }
   componentDidCatch(error, info) {
-    console.warn(`[openGym Widget Error] ${this.props.title || 'Widget'}:`, error, info)
+    console.warn(`[GYRA PRIME Widget Error] ${this.props.title || 'Widget'}:`, error, info)
   }
   render() {
     if (this.state.hasError) {
@@ -394,7 +394,7 @@ export default function Home() {
               margin: 0,
               color: '#F5F1EB',
               letterSpacing: '-0.025em',
-              fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif"
+              fontFamily: "var(--font-heading)"
             }}
           >
             {t('Hi, {0} 👋', userName)}
@@ -572,7 +572,7 @@ export default function Home() {
                 color: 'var(--label)',
                 letterSpacing: '-0.025em',
                 lineHeight: 1.15,
-                fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif"
+                fontFamily: "var(--font-heading)"
               }}
             >
               {S?.active

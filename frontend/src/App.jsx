@@ -10,6 +10,7 @@ import { useWakeLock } from './lib/wakelock.js'
 import { startFlow } from './sheets.jsx'
 import { applyThemeToDocument } from './lib/themes.js'
 import Icon from './components/Icon.jsx'
+import GyraPrimeLogo from './components/GyraPrimeLogo.jsx'
 import TabBar from './components/TabBar.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
@@ -71,8 +72,8 @@ function Shell() {
   const authed = user || isGuest
   if (!ready && !authed && !isAuthCallback) return (
     <div id="app">
-      <div style={{ paddingTop: '44vh', display: 'flex', justifyContent: 'center', fontSize: 34, color: 'var(--label-3)' }}>
-        <Icon name="dumbbell" />
+      <div style={{ paddingTop: '42vh', display: 'flex', justifyContent: 'center' }}>
+        <GyraPrimeLogo size="lg" glow />
       </div>
     </div>
   )
@@ -102,11 +103,8 @@ function Shell() {
               >
                 <Icon name="bars" />
               </button>
-              <div className="mobile-header-brand" onClick={() => navigate('/home')}>
-                <div className="mobile-header-brand-icon">
-                  <Icon name="dumbbell" />
-                </div>
-                <span className="mobile-header-brand-title">openGym</span>
+              <div className="mobile-header-brand" onClick={() => navigate('/home')} style={{ cursor: 'pointer' }}>
+                <GyraPrimeLogo size="xs" glow />
               </div>
               <div className="mobile-header-actions">
                 {S.active ? (

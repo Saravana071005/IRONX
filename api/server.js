@@ -56,7 +56,7 @@ const PORT = +(process.env.PORT || 3000);
 const isVercel = !!(process.env.VERCEL || process.env.NOW_REGION);
 const defaultDataDir = isVercel ? path.join(os.tmpdir(), 'opengym-data') : (fs.existsSync('/data') ? '/data' : path.resolve(process.cwd(), 'data'));
 const DATA = process.env.DATA_DIR || defaultDataDir;
-const RP_NAME = process.env.RP_NAME || 'openGym';
+const RP_NAME = process.env.RP_NAME || 'GYRA PRIME';
 const ORIGIN = (process.env.ORIGIN || 'http://localhost:8080').trim();
 const FRONTEND_ORIGIN = (process.env.FRONTEND_ORIGIN || process.env.ORIGIN || 'https://opengym-frontend-229c.onrender.com').trim();
 const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
@@ -1599,7 +1599,7 @@ const routes = {
   'POST /api/push/test': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
-    await sendPush(user.id, { title: 'openGym', body: 'Test notification ✅ — this is what alerts look like.', tag: 'test' });
+    await sendPush(user.id, { title: 'GYRA PRIME', body: 'Test notification ✅ — this is what alerts look like.', tag: 'test' });
     json(res, 200, { ok: true });
   },
 

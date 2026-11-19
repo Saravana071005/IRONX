@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { BODONI_MODA_BOLD_BASE64 } from './bodoniModaFontBase64.js';
 
 export const CHATGPT_ANALYSIS_PROMPT = `Analyze my complete daily food intake, hydration, cardio, steps, and strength training using the data in this report.
 
@@ -78,6 +79,19 @@ export function buildDailyReportDoc(data) {
   const darkTextColor = [30, 41, 59];
   const mutedTextColor = [100, 116, 139];
 
+  // Embed Bodoni Moda font if available
+  let brandFont = 'helvetica';
+  try {
+    if (BODONI_MODA_BOLD_BASE64) {
+      doc.addFileToVFS('BodoniModa-Bold.ttf', BODONI_MODA_BOLD_BASE64);
+      doc.addFont('BodoniModa-Bold.ttf', 'BodoniModa', 'bold');
+      doc.addFont('BodoniModa-Bold.ttf', 'BodoniModa', 'normal');
+      brandFont = 'BodoniModa';
+    }
+  } catch (e) {
+    brandFont = 'helvetica';
+  }
+
   let currentY = margin;
 
   // Header banner
@@ -86,10 +100,14 @@ export function buildDailyReportDoc(data) {
   doc.setDrawColor(226, 232, 240);
   doc.roundedRect(margin, currentY, contentWidth, 54, 4, 4, 'S');
 
-  doc.setFont('helvetica', 'bold');
+  try {
+    doc.setFont(brandFont, 'bold');
+  } catch {
+    doc.setFont('helvetica', 'bold');
+  }
   doc.setFontSize(18);
   doc.setTextColor(...primaryColor);
-  doc.text('openGym — Daily Health & Activity Report', margin + 14, currentY + 24);
+  doc.text('GYRA PRIME — Daily Health & Activity Report', margin + 14, currentY + 24);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
@@ -403,7 +421,7 @@ export function buildDailyReportDoc(data) {
     doc.setFontSize(8);
     doc.setTextColor(...mutedTextColor);
     doc.text(
-      `openGym Daily Health Log | Date: ${date} | Page ${i} of ${totalPages}`,
+      `GYRA PRIME Daily Health Log | Date: ${date} | Page ${i} of ${totalPages}`,
       pageWidth / 2,
       pageHeight - 16,
       { align: 'center' }
@@ -419,6 +437,6 @@ export function buildDailyReportDoc(data) {
 export function exportDailyReportPdf(data) {
   const doc = buildDailyReportDoc(data);
   const date = data?.date || new Date().toISOString().slice(0, 10);
-  doc.save(`openGym_daily_report_${date}.pdf`);
+  doc.save(`GYRA_PRIME_daily_report_${date}.pdf`);
   return doc;
 }

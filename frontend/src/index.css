@@ -1,23 +1,46 @@
-/* ============================================================================
-   openGym — design system
-   ----------------------------------------------------------------------------
-   Rebuilt around four rules, each aimed at a specific "generated" tell in the
-   previous sheet:
+@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
 
-   1. ONE TYPE SCALE, MOSTLY REGULAR WEIGHT. The old sheet set font-weight 700/800
-      on nearly every element, which flattens hierarchy — when everything shouts,
-      position is the only cue left. Here weight carries meaning: 600 for a title,
-      400 for its content, and size does the rest.
-   2. A NEUTRAL SURFACE RAMP. Cards are near-neutral greys a few points apart, not
-      saturated blue-greys. Colour is spent only on the accent and on status.
-   3. HAIRLINES, NOT BORDERS. Separators are sub-pixel and inset past the icon
-      rail, so a list reads as one object instead of a stack of outlined boxes.
-   4. MOTION THAT ACKNOWLEDGES, NOT ANIMATES. Presses scale ~2%, transitions run
-      140–220ms on an ease-out curve. Nothing bounces or slides for decoration.
+/* Bodoni Moda local font fallbacks for zero-layout-shift and offline reliability */
+@font-face {
+  font-family: 'Bodoni Moda';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/BodoniModa-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Bodoni Moda';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/BodoniModa-SemiBold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Bodoni Moda';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/BodoniModa-Bold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Bodoni Moda';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('/fonts/BodoniModa-ExtraBold.ttf') format('truetype');
+}
+
+/* ============================================================================
+   GYRA PRIME — Design & Typography System
    ========================================================================== */
 
 /* ---------------------------------------------------------------- tokens -- */
 :root {
+  /* Official Brand & Heading Typography (Bodoni Moda) */
+  --font-brand:   'Bodoni Moda', 'Playfair Display', 'Didot', 'Georgia', serif;
+  --font-heading: 'Bodoni Moda', 'Playfair Display', 'Didot', 'Georgia', serif;
+  --font-sans:    'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
   /* Surfaces — Deep Black & Warm Charcoal Liquid Glass */
   --bg:        #090909;
   --bg-el:     #151210;
@@ -272,20 +295,61 @@ button,.chip,.tile,.item,.wday,.cal-d,.swatch,.hm-c,.lrow,.seg button,.stp butto
   .aurora-glow{animation:none!important}
 }
 
-/* ------------------------------------------------------------ type scale & gradient typography -- */
-h1, h2, h3, .hdr h1, .sidebar-brand-title {
-  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+/* ------------------------------------------------------------ Bodoni Moda Typography & Scale -- */
+h1, h2, h3, h4, h5, h6, .hdr h1, .sidebar-brand-title, .modal-title, .sheet-title, .dialog-title {
+  font-family: var(--font-heading);
+  letter-spacing: -0.015em;
+  font-weight: 700;
 }
 
-.t-large  {font-family:'Outfit','Plus Jakarta Sans',sans-serif;font-size:34px;line-height:1.06;font-weight:800;letter-spacing:-.028em}
-.t-title  {font-family:'Outfit','Plus Jakarta Sans',sans-serif;font-size:28px;line-height:1.12;font-weight:700;letter-spacing:-.024em}
-.t-title2 {font-family:'Outfit','Plus Jakarta Sans',sans-serif;font-size:22px;line-height:1.18;font-weight:700;letter-spacing:-.021em}
-.t-head   {font-size:17px;line-height:1.29;font-weight:600;letter-spacing:-.012em}
+.t-large  {font-family: var(--font-heading);font-size:34px;line-height:1.06;font-weight:800;letter-spacing:-.020em}
+.t-title  {font-family: var(--font-heading);font-size:28px;line-height:1.12;font-weight:700;letter-spacing:-.015em}
+.t-title2 {font-family: var(--font-heading);font-size:22px;line-height:1.18;font-weight:700;letter-spacing:-.012em}
+.t-head   {font-family: var(--font-heading);font-size:17px;line-height:1.29;font-weight:600;letter-spacing:-.008em}
 .t-body   {font-size:17px;line-height:1.29;font-weight:400;letter-spacing:-.012em}
 .t-callout{font-size:16px;line-height:1.31;font-weight:400;letter-spacing:-.009em}
 .t-sub    {font-size:15px;line-height:1.33;font-weight:400;letter-spacing:-.006em}
 .t-foot   {font-size:13px;line-height:1.38;font-weight:400;letter-spacing:-.001em}
 .t-cap    {font-size:12px;line-height:1.33;font-weight:400;letter-spacing:0}
+
+/* GYRA PRIME Brand & Logo System */
+.gyra-prime-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55em;
+  color: var(--theme-accent, #E8B477);
+  fill: currentColor;
+  text-decoration: none;
+  user-select: none;
+  vertical-align: middle;
+  line-height: 1;
+  transition: color 0.25s ease, filter 0.25s ease;
+}
+
+.gyra-prime-logo.gyra-glow,
+.gyra-dumbbell-emblem.gyra-glow {
+  filter: drop-shadow(0 0 10px var(--theme-accent-glow, rgba(232, 180, 119, 0.40)))
+          drop-shadow(0 0 22px var(--theme-accent-glow, rgba(232, 180, 119, 0.20)));
+}
+
+.gyra-prime-wordmark {
+  font-family: var(--font-brand, 'Bodoni Moda', 'Playfair Display', serif);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1;
+  color: inherit;
+  transition: color 0.25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gyra-prime-logo.gyra-glow,
+  .gyra-dumbbell-emblem.gyra-glow {
+    filter: none !important;
+  }
+}
 
 /* Glossy Gradient Text Classes */
 .text-gradient-hero {
@@ -931,7 +995,8 @@ h4.sec{
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;
   padding:14px 18px;border-radius:var(--r);font-size:16px;font-weight:600;
-  letter-spacing:-.012em;background:var(--surface-2);color:var(--label);
+  font-family: var(--font-heading);
+  letter-spacing:0.015em;background:var(--surface-2);color:var(--label);
   backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
   border:1px solid rgba(255,255,255,0.1);
   box-shadow:0 4px 16px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.15);
@@ -1023,7 +1088,8 @@ h4.sec{
 }
 #tabbar button{
   flex:1;min-height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-  color:var(--label-3);font-size:11px;font-weight:500;letter-spacing:-.01em;
+  color:var(--label-3);font-size:11px;font-weight:500;letter-spacing:0.01em;
+  font-family: var(--font-heading);
   transition:color var(--fast),transform var(--fast);
   position:relative;
 }
@@ -1931,10 +1997,10 @@ h4.sec{
 }
 .sidebar-brand-text { display: flex; flex-direction: column; min-width: 0; }
 .sidebar-brand-title {
-  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
-  font-size: 22px;
+  font-family: var(--font-heading);
+  font-size: 20px;
   font-weight: 800;
-  letter-spacing: -.024em;
+  letter-spacing: 0.04em;
   line-height: 1.15;
   color: var(--label);
   text-shadow: none;
@@ -2038,8 +2104,10 @@ h4.sec{
   padding: 11px 14px;
   border-radius: var(--r-sm);
   color: var(--label-2);
+  font-family: var(--font-heading);
   font-size: 15px;
   font-weight: 500;
+  letter-spacing: 0.01em;
   transition: background var(--fast), color var(--fast), transform var(--fast), border-color var(--fast);
   text-align: left;
   border: 1px solid transparent;

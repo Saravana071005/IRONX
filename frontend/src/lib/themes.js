@@ -127,6 +127,24 @@ export const THEME_PRESETS = {
     glow4: '#2DD4BF',
     heroGradient: 'linear-gradient(135deg, #2DD4BF 0%, #14B8A6 50%, #0F766E 100%)',
     surfaceTint: 'rgba(16, 24, 24, 0.85)'
+  },
+  'warm-white': {
+    id: 'warm-white',
+    name: 'Warm White',
+    label: 'Warm White',
+    description: 'Crisp warm ivory & luminous pearl white on obsidian black',
+    primary: '#FDFBF7',
+    secondary: '#E2DFD8',
+    highlight: '#FFFFFF',
+    dark: '#78716C',
+    rgb: '253, 251, 247',
+    bg: '#0A0A0A',
+    glow1: '#FDFBF7',
+    glow2: '#E2DFD8',
+    glow3: '#78716C',
+    glow4: '#FFFFFF',
+    heroGradient: 'linear-gradient(135deg, #FFFFFF 0%, #FDFBF7 50%, #E2DFD8 100%)',
+    surfaceTint: 'rgba(22, 22, 22, 0.85)'
   }
 }
 
@@ -141,7 +159,9 @@ export const THEME_ALIASES = {
   'blue': 'electric-blue',
   'green': 'emerald-green',
   'red': 'crimson-red',
-  'teal': 'dark-teal'
+  'teal': 'dark-teal',
+  'white': 'warm-white',
+  'warm-ivory': 'warm-white'
 }
 
 export function getThemePreset(id) {

@@ -5,6 +5,7 @@ import { effectiveRoutine } from '../lib/history.js'
 import { todayISO } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import Icon from './Icon.jsx'
+import GyraPrimeLogo from './GyraPrimeLogo.jsx'
 
 export default function Sidebar({ onStart, mobileOpen = false, onClose }) {
   const nav = useNavigate()
@@ -104,16 +105,12 @@ export default function Sidebar({ onStart, mobileOpen = false, onClose }) {
           <div
             className="sidebar-brand"
             onClick={() => handleNav('/home')}
-            title="openGym Home"
+            title="GYRA PRIME Home"
           >
-            <div className="sidebar-brand-icon">
-              <Icon name="dumbbell" />
-            </div>
-            {!collapsed && (
-              <div className="sidebar-brand-text">
-                <span className="sidebar-brand-title">openGym</span>
-                <span className="sidebar-brand-sub">{t('Futuristic Fitness')}</span>
-              </div>
+            {collapsed ? (
+              <GyraPrimeLogo iconOnly size={28} glow />
+            ) : (
+              <GyraPrimeLogo size="md" glow />
             )}
           </div>
 

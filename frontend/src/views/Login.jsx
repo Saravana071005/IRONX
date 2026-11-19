@@ -5,6 +5,7 @@ import { startGoogleLogin } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import Icon from '../components/Icon.jsx'
+import GyraPrimeLogo from '../components/GyraPrimeLogo.jsx'
 import { Button } from '../components/ui.jsx'
 
 function GoogleIcon() {
@@ -36,12 +37,9 @@ export default function Login() {
   }, [])
 
   const head = (
-    <>
-      <div style={{ fontSize: 54, display: 'flex', justifyContent: 'center', color: 'var(--acc)' }}>
-        <Icon name="dumbbell" />
-      </div>
-      <h1 style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-.028em', margin: '10px 0 4px' }}>openGym</h1>
-    </>
+    <div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0 18px' }}>
+      <GyraPrimeLogo size="lg" glow />
+    </div>
   )
   const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }
 
@@ -53,7 +51,7 @@ export default function Login() {
         <div className="muted" style={{ marginBottom: 30 }}>{t('Live demo — everything stays in this browser.')}</div>
         <Button variant="primary" icon="sparkles" onClick={() => setGuest(true)}>{t('Start the demo')}</Button>
         <div className="card small muted" style={{ textAlign: 'left', marginTop: 16 }}>
-          {t('This demo runs entirely in your browser on example data — nothing is sent anywhere. Cloud sync and personal fitness profiles come with the openGym server.')}
+          {t('This demo runs entirely in your browser on example data — nothing is sent anywhere. Cloud sync and personal fitness profiles come with the GYRA PRIME server.')}
         </div>
         <div className="dim small" style={{ marginTop: 22, lineHeight: 1.6 }}>
           <a href={REPO} target="_blank" rel="noopener">{t('Self-host it in a minute →')}</a>

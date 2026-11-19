@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { THEME_PRESETS, THEME_ALIASES, getThemePreset, applyThemeToDocument } from './themes.js'
 
 describe('Dynamic Accent Theme System', () => {
-  it('defines the 7 required distinct accent themes', () => {
+  it('defines the required distinct accent themes including Warm White', () => {
     const requiredThemes = [
       'warm-gold',
       'silver',
@@ -10,7 +10,8 @@ describe('Dynamic Accent Theme System', () => {
       'emerald-green',
       'orange',
       'crimson-red',
-      'dark-teal'
+      'dark-teal',
+      'warm-white'
     ]
     requiredThemes.forEach(id => {
       const preset = THEME_PRESETS[id]
