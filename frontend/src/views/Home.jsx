@@ -201,19 +201,19 @@ export default function Home() {
 
   // Calculate calories and macros for donut chart (0 if no foods logged)
   const loggedCalories = useMemo(() => {
-    return foodsToday.reduce((acc, f) => acc + (Number(f?.calories) || Number(f?.calorie) || 0), 0)
+    return foodsToday.reduce((acc, f) => acc + (Number(f?.calories) || Number(f?.calorie) || Number(f?.energy_kcal) || 0), 0)
   }, [foodsToday])
 
   const proteinGrams = useMemo(() => {
-    return foodsToday.reduce((acc, f) => acc + (Number(f?.protein) || 0), 0)
+    return foodsToday.reduce((acc, f) => acc + (Number(f?.protein) || Number(f?.protein_g) || 0), 0)
   }, [foodsToday])
 
   const carbsGrams = useMemo(() => {
-    return foodsToday.reduce((acc, f) => acc + (Number(f?.carb) || Number(f?.carbs) || 0), 0)
+    return foodsToday.reduce((acc, f) => acc + (Number(f?.carb) || Number(f?.carbs) || Number(f?.carb_g) || 0), 0)
   }, [foodsToday])
 
   const fatsGrams = useMemo(() => {
-    return foodsToday.reduce((acc, f) => acc + (Number(f?.fat) || 0), 0)
+    return foodsToday.reduce((acc, f) => acc + (Number(f?.fat) || Number(f?.fat_g) || 0), 0)
   }, [foodsToday])
 
   const totalMacroGrams = proteinGrams + carbsGrams + fatsGrams
@@ -225,7 +225,7 @@ export default function Home() {
   const caloriePct = targetCalories > 0 ? Math.min(100, Math.max(0, Math.round((loggedCalories / targetCalories) * 100))) : 0
 
   // Workouts and week strip calculation
-  const todayWorkout = (S?.workouts || []).find(w => w && w.d === todayStr)
+  const todayWorkout = (S?.workouts || []).find(w => w && (w.d === todayStr || w.date === todayStr))
   const wThisWeek = (S?.workouts || []).filter(w => w && w.d && weekKey(w.d) === weekKey(todayStr)).length
   const plannedPerWeek = Object.keys(S?.week || {}).filter(k => S?.week?.[k]).length || 5
 
@@ -543,6 +543,8 @@ export default function Home() {
                   {todayInfo.dayName || t('Today')} · {
                     S?.active
                       ? t('In Progress')
+                      : todayWorkout
+                      ? t('Completed ✓')
                       : !hasTemplates
                       ? t('Workout Setup')
                       : scheduledTemplate
@@ -567,6 +569,8 @@ export default function Home() {
               >
                 {S?.active
                   ? (S.active.name || t('Active Workout'))
+                  : todayWorkout
+                  ? (todayWorkout.name || scheduledTemplate?.name || t('Completed Workout'))
                   : !hasTemplates
                   ? t('Set Up Your First Workout Template')
                   : scheduledTemplate
@@ -579,6 +583,34 @@ export default function Home() {
               {!hasTemplates ? (
                 <div style={{ color: 'var(--label-2)', fontSize: 13, marginTop: 10, maxWidth: 520, lineHeight: 1.45 }}>
                   {t('Create your workout template to start tracking your fitness journey.')}
+                </div>
+              ) : todayWorkout ? (
+                /* Fitness Metrics for Completed Workout */
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 16,
+                    marginTop: 12,
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--label-2)' }}>
+                    <Icon name="dumbbell" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                    <span>
+                      {`${todayWorkout.entries?.length || 0} ${t('exercises completed')}`}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--label-2)' }}>
+                    <Icon name="timer" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                    <span>{`${Math.max(1, Math.round((todayWorkout.dur || 0) / 60000))} min`}</span>
+                  </div>
+                  {todayWorkout.vol > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--label-2)' }}>
+                      <Icon name="flame" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                      <span>{`${Math.round(todayWorkout.vol)} kg`}</span>
+                    </div>
+                  )}
                 </div>
               ) : S?.active || scheduledTemplate ? (
                 /* Clean Fitness Metrics Row */
@@ -662,6 +694,29 @@ export default function Home() {
                 >
                   <span>{t('Resume Workout')}</span>
                   <Icon name="arrowRight" size={15} />
+                </button>
+              ) : todayWorkout ? (
+                <button
+                  onClick={() => nav('/nutrition')}
+                  style={{
+                    marginTop: 22,
+                    padding: '12px 24px',
+                    borderRadius: 9999,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: 'var(--theme-accent-gradient, linear-gradient(135deg, #FFD09A 0%, #E8B477 100%))',
+                    color: '#12100E',
+                    fontWeight: 800,
+                    fontSize: 14,
+                    border: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 8px 24px var(--theme-accent-glow, rgba(232, 180, 119, 0.35))',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                  }}
+                >
+                  <Icon name="check" size={15} />
+                  <span>{t('View in Health Log')}</span>
                 </button>
               ) : scheduledTemplate ? (
                 <button
@@ -1042,6 +1097,42 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+            ) : todayWorkout ? (
+              // Completed workout for today
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--mint)', fontSize: 13, fontWeight: 700 }}>
+                  <Icon name="check" size={16} />
+                  <span>{t("Workout Completed ✓")}</span>
+                </div>
+                <div
+                  style={{
+                    fontSize: 26,
+                    fontWeight: 800,
+                    color: 'var(--label)',
+                    marginTop: 6,
+                    fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif",
+                    letterSpacing: '-0.02em'
+                  }}
+                >
+                  {todayWorkout.name || scheduledTemplate?.name || t('Completed Workout')}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 10, color: 'var(--label-2)', fontSize: 13, fontWeight: 500, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Icon name="stack" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                    <span>{todayWorkout.entries?.length || 0} {t('Exercises')}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Icon name="clock" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                    <span>{Math.max(1, Math.round((todayWorkout.dur || 0) / 60000))} min</span>
+                  </div>
+                  {todayWorkout.vol > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Icon name="dumbbell" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                      <span>{Math.round(todayWorkout.vol)} kg</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             ) : scheduledTemplate ? (
               // Scheduled template for today
               <div>
@@ -1163,6 +1254,28 @@ export default function Home() {
               >
                 <span>{t('Resume Workout')}</span>
                 <Icon name="arrowRight" size={15} />
+              </button>
+            ) : todayWorkout ? (
+              <button
+                onClick={() => nav('/nutrition')}
+                style={{
+                  padding: '12px 26px',
+                  borderRadius: 9999,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: 'var(--theme-accent-gradient, linear-gradient(135deg, #FFD09A 0%, #E8B477 100%))',
+                  color: '#12100E',
+                  fontWeight: 800,
+                  fontSize: 14,
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 8px 24px var(--theme-accent-glow, rgba(232, 180, 119, 0.35))',
+                  transition: 'transform 0.15s ease'
+                }}
+              >
+                <Icon name="check" size={15} />
+                <span>{t('View in Health Log')}</span>
               </button>
             ) : scheduledTemplate ? (
               <button

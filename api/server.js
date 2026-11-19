@@ -1001,6 +1001,65 @@ const routes = {
             }
           }
 
+          // Hydrate meals if missing or empty
+          if (state && (!state.meals || !state.meals.length)) {
+            const mList = await mongo.collection('meal_logs').find({ user_id: user.id }).toArray();
+            if (mList && mList.length) {
+              state.meals = mList.map(m => ({
+                id: m.id || m._id?.toString(),
+                d: m.date || m.d,
+                date: m.date || m.d,
+                type: m.meal_type || m.type || 'lunch',
+                meal_type: m.meal_type || m.type || 'lunch',
+                name: m.food_name || m.name,
+                food_name: m.food_name || m.name,
+                qty: m.serving_quantity || m.qty || 1,
+                serving_quantity: m.serving_quantity || m.qty || 1,
+                unit: m.serving_unit || m.unit || 'g',
+                serving_unit: m.serving_unit || m.unit || 'g',
+                energy_kcal: m.energy_kcal != null ? m.energy_kcal : (m.calories != null ? m.calories : 0),
+                calories: m.energy_kcal != null ? m.energy_kcal : (m.calories != null ? m.calories : 0),
+                protein_g: m.protein_g != null ? m.protein_g : (m.protein != null ? m.protein : 0),
+                protein: m.protein_g != null ? m.protein_g : (m.protein != null ? m.protein : 0),
+                carb_g: m.carb_g != null ? m.carb_g : (m.carb != null ? m.carb : (m.carbs != null ? m.carbs : 0)),
+                carb: m.carb_g != null ? m.carb_g : (m.carb != null ? m.carb : (m.carbs != null ? m.carbs : 0)),
+                fat_g: m.fat_g != null ? m.fat_g : (m.fat != null ? m.fat : 0),
+                fat: m.fat_g != null ? m.fat_g : (m.fat != null ? m.fat : 0),
+                notes: m.notes || null,
+                created_at: m.created_at || m.createdAt
+              }));
+            }
+          }
+
+          // Hydrate cardioLogs if missing or empty
+          if (state && (!state.cardioLogs || !state.cardioLogs.length)) {
+            const cList = await mongo.collection('cardio_logs').find({ $or: [{ userId: user.id }, { user_id: user.id }] }).toArray();
+            if (cList && cList.length) {
+              state.cardioLogs = cList.map(c => ({
+                id: c.id || c._id?.toString(),
+                d: c.d || c.date,
+                date: c.d || c.date,
+                activity: c.activity || c.activity_type || 'Walking',
+                activity_type: c.activity || c.activity_type || 'Walking',
+                durationMinutes: c.durationMinutes != null ? c.durationMinutes : (c.duration_min != null ? c.duration_min : 0),
+                totalDurationMinutes: c.totalDurationMinutes != null ? c.totalDurationMinutes : (c.duration_min != null ? c.duration_min : 0),
+                distanceKm: c.distanceKm != null ? c.distanceKm : (c.distance_km != null ? c.distance_km : null),
+                distance_km: c.distance_km != null ? c.distance_km : (c.distanceKm != null ? c.distanceKm : null),
+                steps: c.steps != null ? c.steps : null,
+                calories_burned: c.calories_burned != null ? c.calories_burned : null,
+                createdAt: c.createdAt || c.created_at
+              }));
+            }
+          }
+
+          // Hydrate workouts if missing or empty
+          if (state && (!state.workouts || !state.workouts.length)) {
+            const wList = await mongo.collection('workout_sessions').find({ userId: user.id }).toArray();
+            if (wList && wList.length) {
+              state.workouts = wList;
+            }
+          }
+
           if (state) return json(res, 200, { state });
         }
       } catch (err) {
@@ -1097,6 +1156,39 @@ const routes = {
             }));
             if (workoutOps.length > 0) {
               await mongo.collection('workout_sessions').bulkWrite(workoutOps, { ordered: false }).catch(() => {});
+            }
+          }
+
+          if (Array.isArray(body.state.meals) && body.state.meals.length > 0) {
+            const mealOps = body.state.meals.map(m => {
+              const entry = {
+                id: m.id,
+                user_id: user.id,
+                date: m.date || m.d,
+                meal_type: String(m.meal_type || m.type || 'lunch').toLowerCase(),
+                food_id: m.food_id || m.foodId || null,
+                food_name: m.food_name || m.name || 'Food item',
+                serving_quantity: Number(m.serving_quantity || m.qty) || 1,
+                serving_unit: m.serving_unit || m.unit || 'g',
+                serving_grams: Number(m.serving_grams || m.grams) || 0,
+                energy_kcal: Number(m.energy_kcal != null ? m.energy_kcal : (m.calories != null ? m.calories : m.calorie)) || 0,
+                protein_g: Number(m.protein_g != null ? m.protein_g : m.protein) || 0,
+                carb_g: Number(m.carb_g != null ? m.carb_g : (m.carb != null ? m.carb : m.carbs)) || 0,
+                fat_g: Number(m.fat_g != null ? m.fat_g : m.fat) || 0,
+                fibre_g: Number(m.fibre_g != null ? m.fibre_g : m.fibre) || 0,
+                notes: m.notes || null,
+                created_at: m.created_at || m.createdAt || new Date().toISOString()
+              };
+              return {
+                updateOne: {
+                  filter: { user_id: user.id, id: entry.id },
+                  update: { $set: { ...entry, user_id: user.id, updatedAt: new Date().toISOString() } },
+                  upsert: true
+                }
+              };
+            });
+            if (mealOps.length > 0) {
+              await mongo.collection('meal_logs').bulkWrite(mealOps, { ordered: false }).catch(() => {});
             }
           }
         }

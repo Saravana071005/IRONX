@@ -1326,7 +1326,7 @@ export const saveWorkoutTemplate = (update, id, data) => saveUserTemplate(update
 /**
  * Dedicated Cardio Activities list.
  */
-export const CARDIO_ACTIVITIES = ['Walking', 'Running', 'Jogging']
+export const CARDIO_ACTIVITIES = ['Walking', 'Running', 'Jogging', 'Cycling']
 
 /**
  * Dedicated Cardio Metrics calculation:

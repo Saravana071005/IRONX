@@ -46,11 +46,15 @@ export default function CardioModal({ initialEntry = null, defaultDate = null, o
     const entry = {
       id: initialEntry?.id || 'cardio_' + uid(),
       d: date,
+      date,
       activity,
+      activity_type: activity,
       durationHours: metrics.hours,
       durationMinutes: metrics.minutes,
       totalDurationMinutes: metrics.totalDurationMinutes,
+      duration_min: metrics.totalDurationMinutes,
       distanceKm: metrics.distanceKm,
+      distance_km: metrics.distanceKm,
       createdAt: initialEntry?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
@@ -135,7 +139,7 @@ export default function CardioModal({ initialEntry = null, defaultDate = null, o
         <label className="lbl2" style={{ display: 'block', marginBottom: 8, fontSize: 12, fontWeight: 600 }}>
           {t('Activity')}
         </label>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(95px, 1fr))', gap: 8 }}>
           {CARDIO_ACTIVITIES.map(act => {
             const isSelected = activity === act
             return (

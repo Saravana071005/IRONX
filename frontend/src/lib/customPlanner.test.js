@@ -245,8 +245,8 @@ describe('Custom Workout Planner, Exercise Templates & Cardio Logging (All 12 Ph
   })
 
   // 9. Cardio activity selection
-  it('9. Cardio activity selection: provides Walking, Running, and Jogging activities', () => {
-    expect(CARDIO_ACTIVITIES).toEqual(['Walking', 'Running', 'Jogging'])
+  it('9. Cardio activity selection: provides Walking, Running, Jogging, and Cycling activities', () => {
+    expect(CARDIO_ACTIVITIES).toEqual(['Walking', 'Running', 'Jogging', 'Cycling'])
   })
 
   // 10 & 11. Cardio duration calculation and distance storage

@@ -568,9 +568,32 @@ export async function syncHealthLogsFromMongo(userId, date) {
     // Sync meals if local SQLite cache is empty for date
     const existingMeals = d.prepare("SELECT COUNT(*) as count FROM meal_logs WHERE user_id = ? AND date = ?").get(userId, date);
     if (!existingMeals || existingMeals.count === 0) {
-      const mFoods = await mongo.collection('meal_logs').find({ user_id: userId, date }).toArray();
-      for (const f of mFoods) {
-        addMealLog(f);
+      let mFoods = await mongo.collection('meal_logs').find({ user_id: userId, date }).toArray();
+      if (!mFoods || mFoods.length === 0) {
+        const stateDoc = await mongo.collection('states').findOne({ userId });
+        if (stateDoc?.state?.meals && Array.isArray(stateDoc.state.meals)) {
+          mFoods = stateDoc.state.meals.filter(m => (m && (m.date === date || m.d === date)));
+        }
+      }
+      for (const f of (mFoods || [])) {
+        addMealLog({
+          id: f.id || 'food_' + Math.random().toString(36).slice(2, 9),
+          user_id: userId,
+          date: f.date || f.d || date,
+          meal_type: String(f.meal_type || f.type || 'lunch').toLowerCase(),
+          food_id: f.food_id || f.foodId || null,
+          food_name: f.food_name || f.name || 'Food item',
+          serving_quantity: Number(f.serving_quantity || f.qty) || 1,
+          serving_unit: f.serving_unit || f.unit || 'g',
+          serving_grams: Number(f.serving_grams || f.grams) || 0,
+          energy_kcal: Number(f.energy_kcal != null ? f.energy_kcal : (f.calories != null ? f.calories : 0)),
+          protein_g: Number(f.protein_g != null ? f.protein_g : (f.protein != null ? f.protein : 0)),
+          carb_g: Number(f.carb_g != null ? f.carb_g : (f.carb != null ? f.carb : 0)),
+          fat_g: Number(f.fat_g != null ? f.fat_g : (f.fat != null ? f.fat : 0)),
+          fibre_g: Number(f.fibre_g != null ? f.fibre_g : (f.fibre != null ? f.fibre : 0)),
+          notes: f.notes || null,
+          created_at: f.created_at || f.createdAt || new Date().toISOString()
+        });
       }
     }
 
@@ -586,18 +609,72 @@ export async function syncHealthLogsFromMongo(userId, date) {
     // Sync cardio if local SQLite cache is empty for date
     const existingCardio = d.prepare("SELECT COUNT(*) as count FROM cardio_logs WHERE user_id = ? AND date = ?").get(userId, date);
     if (!existingCardio || existingCardio.count === 0) {
-      const mCardio = await mongo.collection('cardio_logs').find({ user_id: userId, date }).toArray();
-      for (const c of mCardio) {
-        addCardioLog(c);
+      let mCardio = await mongo.collection('cardio_logs').find({ $or: [{ userId, d: date }, { user_id: userId, date }] }).toArray();
+      if (!mCardio || mCardio.length === 0) {
+        const stateDoc = await mongo.collection('states').findOne({ userId });
+        if (stateDoc?.state?.cardioLogs && Array.isArray(stateDoc.state.cardioLogs)) {
+          mCardio = stateDoc.state.cardioLogs.filter(c => (c && (c.d === date || c.date === date)));
+        }
+      }
+      for (const c of (mCardio || [])) {
+        addCardioLog({
+          id: c.id,
+          user_id: userId,
+          date: c.date || c.d || date,
+          activity_type: c.activity_type || c.activity || 'Walking',
+          duration_min: Number(c.duration_min != null ? c.duration_min : (c.totalDurationMinutes || c.durationMinutes || 0)),
+          distance_km: c.distance_km != null ? Number(c.distance_km) : (c.distanceKm != null ? Number(c.distanceKm) : null),
+          steps: c.steps != null ? Number(c.steps) : null,
+          calories_burned: c.calories_burned != null ? Number(c.calories_burned) : null,
+          notes: c.notes || null,
+          created_at: c.created_at || c.createdAt || new Date().toISOString()
+        });
       }
     }
 
-    // Sync strength if local SQLite cache is empty for date
+    // Sync strength from completed workout sessions if local SQLite strength cache is empty for date
     const existingStrength = d.prepare("SELECT COUNT(*) as count FROM strength_logs WHERE user_id = ? AND date = ?").get(userId, date);
     if (!existingStrength || existingStrength.count === 0) {
-      const mStrength = await mongo.collection('strength_logs').find({ user_id: userId, date }).toArray();
-      for (const s of mStrength) {
-        addStrengthLog(s);
+      let mStrength = await mongo.collection('strength_logs').find({ user_id: userId, date }).toArray();
+      if (mStrength && mStrength.length > 0) {
+        for (const s of mStrength) {
+          addStrengthLog(s);
+        }
+      } else {
+        // Look up completed workout sessions for this date
+        let mWorkouts = await mongo.collection('workout_sessions').find({ userId, d: date }).toArray();
+        if (!mWorkouts || mWorkouts.length === 0) {
+          const stateDoc = await mongo.collection('states').findOne({ userId });
+          if (stateDoc?.state?.workouts && Array.isArray(stateDoc.state.workouts)) {
+            mWorkouts = stateDoc.state.workouts.filter(w => (w && w.d === date));
+          }
+        }
+        if (mWorkouts && mWorkouts.length > 0) {
+          for (const w of mWorkouts) {
+            const durMin = Math.max(1, Math.round((w.dur || 0) / 60000));
+            const entries = w.entries || [];
+            for (let i = 0; i < entries.length; i++) {
+              const e = entries[i];
+              const doneSets = (e.sets || []).filter(s => s.done);
+              const topWeight = Math.max(0, ...doneSets.map(s => s.w || 0), e.topW || 0);
+              const repsStr = doneSets.map(s => s.r).filter(Boolean).join(', ');
+              addStrengthLog({
+                id: `w_${w.id}_${e.id || i}`,
+                user_id: userId,
+                date: w.d || date,
+                exercise_name: e.name || e.id || 'Exercise',
+                muscle_group: w.name || 'Strength',
+                sets: doneSets.length || (e.sets || []).length || 1,
+                reps: doneSets.length ? (doneSets[0]?.r || null) : null,
+                weight_kg: topWeight || null,
+                duration_min: i === 0 ? durMin : null,
+                calories_burned: null,
+                notes: `${w.name || 'Strength Workout'} · ${doneSets.length} sets${repsStr ? ` (${repsStr} reps)` : ''}`,
+                created_at: w.createdAt || new Date(w.start || Date.now()).toISOString()
+              });
+            }
+          }
+        }
       }
     }
 
