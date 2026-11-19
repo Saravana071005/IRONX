@@ -28,7 +28,7 @@ export const DEF = {
   restNotifications: false,
   nutritionTargets: { calorie: 1900, calories: 1900, protein: 140, carb: 220, carbs: 220, fat: 65, fibre: 30, diet: 'all', waterGoal: 2.5 },
   meals: [],
-  workoutTemplates: null,
+  workoutTemplates: [],
   cardioLogs: [],
   bgTheme: 'warm-gold',
   goldShade: '#E8B477',
@@ -54,14 +54,8 @@ function loadState(userId = null) {
     const key = getStorageKey(userId)
     let raw = localStorage.getItem(key)
 
-    // Legacy migration check: if user key has no data, check legacy key
-    if (!raw && userId) {
-      const legacy = localStorage.getItem('gym_state_v1')
-      if (legacy) {
-        raw = legacy
-        try { localStorage.setItem(key, legacy) } catch {}
-      }
-    } else if (!raw && !userId) {
+    // Only unauthenticated guest sessions may read legacy guest state
+    if (!raw && !userId) {
       const legacy = localStorage.getItem('gym_state_v1')
       if (legacy) raw = legacy
     }

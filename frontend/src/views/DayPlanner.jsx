@@ -38,14 +38,14 @@ export default function DayPlanner() {
   ensureWeeklyPlannerState(S)
 
   const dayName = DAY_NAMES[dNum] || 'Day'
-  const scheduleDay = S.weeklyPlanner?.templates?.[0]?.days?.[dNum] || DEFAULT_WEEKLY_SCHEDULE[dNum]
+  const scheduleDay = S.weeklyPlanner?.templates?.[0]?.days?.[dNum] || null
 
   const routineId = S.week?.[dNum]
   const routine = (S.routines || []).find(r => r.id === routineId)
 
   // Local editable state for this day's routine
   const [dayType, setDayType] = useState(routine?.type || scheduleDay?.type || 'strength')
-  const [muscleGroup, setMuscleGroup] = useState(routine?.muscle || scheduleDay?.muscle || 'Shoulder')
+  const [muscleGroup, setMuscleGroup] = useState(routine?.muscle || scheduleDay?.muscle || 'Chest')
   const [routineName, setRoutineName] = useState(routine?.name || scheduleDay?.routineName || `${dayName} Workout`)
   const [exercises, setExercises] = useState(routine?.ex ? JSON.parse(JSON.stringify(routine.ex)) : [])
 

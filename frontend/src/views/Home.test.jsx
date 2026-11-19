@@ -103,13 +103,84 @@ describe('Home View Rendering & Defensive Edge Cases', () => {
     expect(html).not.toContain('Track workouts, visualize muscle recovery')
   })
 
-  it('renders clean fitness session status and start workout action on the home dashboard', () => {
+  it('renders Set Up Your First Workout Template when no templates exist for new user', () => {
+    useStore.getState().S.workoutTemplates = []
     const html = renderToString(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     )
-    expect(html).toMatch(/Scheduled Session|Rest &amp; Recovery|Rest & Muscle Recovery/)
-    expect(html).toMatch(/Start Workout|Resume Workout/)
+    expect(html).toContain('Set Up Your First Workout Template')
+    expect(html).toContain('Create Template')
+    expect(html).not.toContain('Back + Biceps')
+    expect(html).not.toContain('1,368')
+  })
+
+  it('renders No weight records yet and Add Weight action when weight history is empty', () => {
+    useStore.getState().S.bodyweight = []
+    const html = renderToString(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+    expect(html).toContain('No weight records yet')
+    expect(html).toContain('Add Weight')
+  })
+
+  it('renders single data point for manual weight entry without fabricating curves', () => {
+    useStore.getState().S.bodyweight = [{ d: '2026-11-19', w: 79.5 }]
+    const html = renderToString(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+    expect(html).toContain('79.5 kg')
+    expect(html).not.toContain('No weight records yet')
+  })
+
+  it('renders No Workout Scheduled and Open Weekly Planner when templates exist but none assigned today', () => {
+    useStore.getState().S.workoutTemplates = [
+      { id: 'tpl_chest', name: 'Chest Blast', exercises: [] }
+    ]
+    useStore.getState().S.weeklySchedule = {}
+    useStore.getState().S.dayPlan = {}
+    const html = renderToString(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+    expect(html).toContain('No Workout Scheduled')
+    expect(html).toContain('Open Weekly Planner')
+    expect(html).not.toContain('Start Workout')
+  })
+
+  it('renders Rest & Recovery when today is explicitly marked as rest day', () => {
+    useStore.getState().S.workoutTemplates = [
+      { id: 'tpl_chest', name: 'Chest Blast', exercises: [] }
+    ]
+    const today = new Date().getDay()
+    useStore.getState().S.weeklySchedule = { [today]: 'rest' }
+    const html = renderToString(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+    expect(html).toContain('Rest &amp; Recovery')
+    expect(html).not.toContain('Start Workout')
+  })
+
+  it('renders assigned template and Start Workout when template is scheduled for today', () => {
+    const today = new Date().getDay()
+    useStore.getState().S.workoutTemplates = [
+      { id: 'tpl_leg', name: 'Leg Destroyer', exercises: [{ id: 'ex1', name: 'Squat', sets: 4, reps: 10 }] }
+    ]
+    useStore.getState().S.weeklySchedule = { [today]: 'tpl_leg' }
+    const html = renderToString(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+    expect(html).toContain('Leg Destroyer')
+    expect(html).toContain('Start Workout')
   })
 })

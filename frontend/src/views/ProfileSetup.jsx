@@ -196,13 +196,9 @@ export default function ProfileSetup() {
         setUser(res.user)
       }
 
-      // Sync initial bodyweight & target weight in local store state
-      const todayIso = new Date().toISOString().slice(0, 10)
+      // Sync target weight in local store state without creating fake daily logs
       update(s => {
         s.bodyweight = s.bodyweight || []
-        if (!s.bodyweight.some(b => b.d === todayIso)) {
-          s.bodyweight.push({ d: todayIso, w: Number(currentWeightKg) })
-        }
         if (targetWeightKg) {
           s.targetW = Number(targetWeightKg)
         }

@@ -1052,12 +1052,7 @@ export function ensureWeeklyPlannerState(S) {
   if (S.weeklyPlanner && S.weeklyPlanner.templates?.length) {
     return S
   }
-  const defaults = buildDefaultPlannerState(S)
-  S.weeklyPlanner = defaults.weeklyPlanner
-  if (!S.routines || !S.routines.length) {
-    S.routines = defaults.routines
-    S.week = defaults.week
-  }
+  S.weeklyPlanner = { templates: [] }
   return S
 }
 
@@ -1176,15 +1171,15 @@ export function deleteUserTemplate(update, templateId) {
 
 /**
  * Returns the weekly schedule mapping (Monday: 1 .. Saturday: 6, Sunday: 0)
- * Defaults all days to 'rest' if not yet assigned.
+ * Returns null if not yet assigned, or 'rest' if explicitly configured as rest.
  */
 export function getWeeklySchedule(S) {
   const sched = S?.weeklySchedule || {}
   const week = S?.week || {}
   const res = {}
   for (let d = 0; d < 7; d++) {
-    const val = sched[d] !== undefined ? sched[d] : (week[d] || 'rest')
-    res[d] = val === null || val === '' ? 'rest' : val
+    const val = sched[d] !== undefined ? sched[d] : (week[d] !== undefined ? week[d] : null)
+    res[d] = (val === null || val === '' || val === 'none' || val === 'not_scheduled') ? null : val
   }
   return res
 }
@@ -1197,14 +1192,14 @@ export function saveWeeklySchedule(update, schedule) {
     s.weeklySchedule = { ...(s.weeklySchedule || {}), ...schedule }
     s.week = s.week || {}
     for (const [d, val] of Object.entries(schedule)) {
-      s.week[d] = val === 'rest' ? null : val
+      s.week[d] = (!val || val === 'rest' || val === 'none') ? null : val
     }
   })
 }
 
 /**
  * Determines today's scheduled workout from the Weekly Workout Planner (single source of truth).
- * If no template is assigned, returns isRest: true.
+ * Distinguishes between explicit Rest Day, Not Scheduled, and an assigned template.
  */
 export function getTodayScheduledWorkout(S, targetDate = new Date()) {
   const d = typeof targetDate === 'string'
@@ -1220,16 +1215,23 @@ export function getTodayScheduledWorkout(S, targetDate = new Date()) {
     templateId = schedule[weekdayIdx]
   }
 
-  if (!templateId || templateId === 'rest' || templateId === 'none') {
-    return { isRest: true, template: null, templateId: null, iso, weekdayIdx }
+  // Explicit rest day
+  if (templateId === 'rest') {
+    return { isRest: true, isUnscheduled: false, template: null, templateId: 'rest', iso, weekdayIdx }
   }
 
+  // Not scheduled
+  if (!templateId || templateId === 'none' || templateId === '' || templateId === 'not_scheduled') {
+    return { isRest: false, isUnscheduled: true, template: null, templateId: null, iso, weekdayIdx }
+  }
+
+  // User template assigned
   const template = getUserTemplateById(S, templateId)
   if (!template) {
-    return { isRest: true, template: null, templateId: null, iso, weekdayIdx }
+    return { isRest: false, isUnscheduled: true, template: null, templateId: null, iso, weekdayIdx }
   }
 
-  return { isRest: false, template, templateId: template.id, iso, weekdayIdx }
+  return { isRest: false, isUnscheduled: false, template, templateId: template.id, iso, weekdayIdx }
 }
 
 /**

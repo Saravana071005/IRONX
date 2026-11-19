@@ -744,9 +744,6 @@ const routes = {
               meals: [], workoutTemplates: [], cardioLogs: []
             };
             existingState.bodyweight = existingState.bodyweight || [];
-            if (!existingState.bodyweight.some(b => b.d === today)) {
-              existingState.bodyweight.push({ d: today, w: profile.currentWeightKg });
-            }
             if (profile.targetWeightKg) {
               existingState.targetW = profile.targetWeightKg;
             }

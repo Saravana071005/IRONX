@@ -327,9 +327,10 @@ export default function WeeklyPlanner() {
           const dayDateFormatted = `${dayDate.getDate()} ${dayDate.toLocaleDateString(dateLocale(), { month: 'short' })}`
           const isToday = dayIso === todayStr
 
-          const assignedTemplateId = schedule[d] || 'rest'
+          const assignedTemplateId = schedule[d] || null
           const isRest = assignedTemplateId === 'rest'
-          const assignedTemplate = !isRest ? userTemplates.find(t => t.id === assignedTemplateId) : null
+          const isUnscheduled = !assignedTemplateId || assignedTemplateId === 'none'
+          const assignedTemplate = (!isRest && !isUnscheduled) ? userTemplates.find(t => t.id === assignedTemplateId) : null
 
           // Completed workout or cardio on this day
           const dayWorkout = (S.workouts || []).find(w => w.d === dayIso)
@@ -348,12 +349,12 @@ export default function WeeklyPlanner() {
                   : 'var(--surface)',
                 border: isToday
                   ? '1px solid var(--theme-accent-border-hover, rgba(232, 180, 119, 0.6))'
-                  : isRest
+                  : isRest || isUnscheduled
                     ? '1px solid var(--sep)'
                     : '1px solid var(--border-gold)',
                 borderLeft: isToday
                   ? '6px solid var(--theme-accent, #E8B477)'
-                  : isRest
+                  : isRest || isUnscheduled
                     ? '6px solid var(--sep)'
                     : '6px solid var(--theme-accent, #E8B477)',
                 boxShadow: isToday
@@ -419,12 +420,12 @@ export default function WeeklyPlanner() {
                         padding: '3px 10px',
                         borderRadius: 9999,
                         fontWeight: 700,
-                        background: isRest ? 'var(--surface-2)' : 'var(--theme-accent-light, rgba(232, 180, 119, 0.14))',
-                        color: isRest ? 'var(--label-2)' : 'var(--theme-accent, #E8B477)',
-                        border: isRest ? '1px solid var(--sep)' : '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.3))'
+                        background: isRest || isUnscheduled ? 'var(--surface-2)' : 'var(--theme-accent-light, rgba(232, 180, 119, 0.14))',
+                        color: isRest || isUnscheduled ? 'var(--label-2)' : 'var(--theme-accent, #E8B477)',
+                        border: isRest || isUnscheduled ? '1px solid var(--sep)' : '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.3))'
                       }}
                     >
-                      {isRest ? t('Rest Day') : assignedTemplate?.name || t('Custom Workout')}
+                      {isRest ? t('Rest Day') : isUnscheduled ? t('Not Scheduled') : (assignedTemplate?.name || t('Custom Workout'))}
                     </span>
                   </div>
                 </div>
@@ -436,8 +437,8 @@ export default function WeeklyPlanner() {
                   </label>
                   <select
                     className="input"
-                    value={assignedTemplateId}
-                    onChange={e => handleDayTemplateChange(d, e.target.value)}
+                    value={assignedTemplateId || ''}
+                    onChange={e => handleDayTemplateChange(d, e.target.value || null)}
                     style={{
                       width: '100%',
                       fontSize: 14,
@@ -451,6 +452,7 @@ export default function WeeklyPlanner() {
                       cursor: 'pointer'
                     }}
                   >
+                    <option value="" style={{ background: 'var(--surface-2)', color: 'var(--label)' }}>{t('Not Scheduled')}</option>
                     <option value="rest" style={{ background: 'var(--surface-2)', color: 'var(--label)' }}>{t('Rest Day')}</option>
                     {userTemplates.map(tpl => (
                       <option key={tpl.id} value={tpl.id} style={{ background: 'var(--surface-2)', color: 'var(--label)' }}>
@@ -462,6 +464,11 @@ export default function WeeklyPlanner() {
               </div>
 
               {/* Template Exercises Preview or Rest Day Details */}
+              {isUnscheduled && (
+                <div style={{ marginTop: 8, paddingTop: 10, borderTop: '1px solid var(--sep)', fontSize: 12, color: 'var(--label-2)' }}>
+                  {t('No workout template assigned. Choose a template or mark as Rest Day.')}
+                </div>
+              )}
               {assignedTemplate ? (
                 <div style={{ marginTop: 8, paddingTop: 12, borderTop: '1px solid var(--sep)' }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--label-2)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>

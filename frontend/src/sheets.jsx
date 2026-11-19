@@ -88,44 +88,154 @@ function WeightInput({ value, setValue, unit }) {
 /* ============================ body weight ============================ */
 function BwSheet({ required, onDone, close }) {
   const st = useStore(s => s.S)
-  const unit = st.unit
-  const bw = lastBW(st)
-  const [v, setV] = useState(bw ? bw.w : 70)
+  const unit = st.unit || 'kg'
+  const [selectedDate, setSelectedDate] = useState(todayISO())
+  const existingForDate = (st.bodyweight || []).find(b => b.d === selectedDate)
+  const [v, setV] = useState(existingForDate ? String(existingForDate.w) : '')
+
+  const handleDateChange = (newDate) => {
+    setSelectedDate(newDate)
+    const ex = (st.bodyweight || []).find(b => b.d === newDate)
+    setV(ex ? String(ex.w) : '')
+  }
+
   const save = () => {
-    const n = Math.round((v || 0) * 10) / 10
-    if (!n || n <= 0) { toast(t('Enter a valid weight')); return }
+    const num = parseFloat(v)
+    if (isNaN(num) || num <= 0) {
+      toast(t('Enter a valid weight'))
+      return
+    }
+    const n = Math.round(num * 10) / 10
     update(s => {
-      const iso = todayISO()
-      const ex = s.bodyweight.find(b => b.d === iso)
-      if (ex) { ex.w = n; ex.t = Date.now() } else s.bodyweight.push({ d: iso, w: n, t: Date.now() })
-      s.bodyweight.sort((a, b) => (a.d < b.d ? -1 : 1))
+      s.bodyweight = s.bodyweight || []
+      const ex = s.bodyweight.find(b => b.d === selectedDate)
+      if (ex) {
+        ex.w = n
+        ex.u = unit
+        ex.t = Date.now()
+      } else {
+        s.bodyweight.push({ d: selectedDate, w: n, u: unit, t: Date.now() })
+      }
+      s.bodyweight.sort((a, b) => (a.d < b.d ? -1 : (a.d > b.d ? 1 : 0)))
     })
     close()
-    if (onDone) onDone(n); else toast(t('Weight saved'))
+    if (onDone) onDone(n)
+    else toast(t('Weight saved'))
   }
-  const recent = [...st.bodyweight].reverse().slice(0, 3)
-  const delEntry = d => update(s => { s.bodyweight = s.bodyweight.filter(b => b.d !== d) })
-  return <>
-    <h3>{required ? t('Quick check-in') : t('Log body weight')}</h3>
-    <div className="muted small">{required ? t('Slide or tap to set your weight — tracked before every workout so your curve stays honest.') : t('Today') + ', ' + fmtDate(todayISO(), true)}</div>
-    <WeightInput value={v} setValue={setV} unit={unit} />
-    <div style={{ height: 14 }} />
-    <Button variant="primary" onClick={save}>{required ? t('Save & start workout') : t('Save')}</Button>
-    {required && <>
-      <div style={{ height: 8 }} /><Button variant="ghost" className="dim" onClick={() => { close(); onDone && onDone(null) }}>{t('Start without weighing in')}</Button>
-      <div style={{ height: 2 }} /><Button variant="ghost" className="dim" icon="reset" onClick={() => { close(); nav('/workout') }}>{t('Choose a different workout')}</Button>
-    </>}
-    {!required && recent.length > 0 && <>
-      <h4 className="sec">{t('Recent weigh-ins')}</h4>
-      <div className="list" style={{ gap: 0 }}>
-        {recent.map(b => <div key={b.d} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
-          <span className="small muted">{fmtDate(b.d, true)}</span>
-          <span className="row" style={{ gap: 12 }}><b>{fmtNum(b.w)} {unit}</b>
-            <button className="iconbtn" style={{ width: 32, height: 30, borderRadius: 8, fontSize: 15, color: 'var(--red)' }} onClick={() => delEntry(b.d)} aria-label="delete"><Icon name="trash" /></button></span>
-        </div>)}
+
+  const recent = [...(st.bodyweight || [])].reverse().slice(0, 5)
+  const delEntry = d => update(s => { s.bodyweight = (s.bodyweight || []).filter(b => b.d !== d) })
+
+  return (
+    <>
+      <h3>{required ? t('Quick check-in') : t('Log body weight')}</h3>
+      <div className="muted small" style={{ marginBottom: 12 }}>
+        {t('Manual body weight recording. Track only your actual entered weight.')}
       </div>
-    </>}
-  </>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--label-2)', marginBottom: 6 }}>
+            {t('Date')}
+          </label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={e => handleDateChange(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              borderRadius: 12,
+              background: 'var(--surface-2)',
+              border: '1px solid var(--sep)',
+              color: 'var(--label)',
+              fontSize: 14,
+              fontWeight: 600,
+              outline: 'none'
+            }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--label-2)', marginBottom: 6 }}>
+            {t('Body Weight')} ({unit})
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="number"
+              step="0.1"
+              placeholder="0.0"
+              value={v}
+              onChange={e => setV(e.target.value)}
+              autoFocus
+              style={{
+                flex: 1,
+                padding: '10px 14px',
+                borderRadius: 12,
+                background: 'var(--surface-2)',
+                border: '1.5px solid var(--theme-accent-border, rgba(232, 180, 119, 0.4))',
+                color: 'var(--label)',
+                fontSize: 18,
+                fontWeight: 700,
+                outline: 'none'
+              }}
+            />
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--theme-accent, #E8B477)' }}>
+              {unit}
+            </span>
+          </div>
+          {existingForDate && (
+            <div style={{ fontSize: 11, color: 'var(--theme-accent, #E8B477)', marginTop: 4, fontWeight: 600 }}>
+              {t('Updating existing record for this date')}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Button variant="primary" onClick={save} disabled={!v || isNaN(parseFloat(v)) || parseFloat(v) <= 0}>
+        {required ? t('Save & start workout') : t('Save Weight')}
+      </Button>
+
+      {required && (
+        <>
+          <div style={{ height: 8 }} />
+          <Button variant="ghost" className="dim" onClick={() => { close(); onDone && onDone(null) }}>
+            {t('Start without weighing in')}
+          </Button>
+          <div style={{ height: 2 }} />
+          <Button variant="ghost" className="dim" icon="reset" onClick={() => { close(); nav('/workout') }}>
+            {t('Choose a different workout')}
+          </Button>
+        </>
+      )}
+
+      {!required && recent.length > 0 && (
+        <>
+          <h4 className="sec" style={{ marginTop: 20 }}>{t('Recorded Weight History')}</h4>
+          <div className="list" style={{ gap: 0 }}>
+            {recent.map(b => (
+              <div key={b.d} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+                <span className="small muted">{fmtDate(b.d, true)}</span>
+                <span className="row" style={{ gap: 12 }}>
+                  <b style={{ cursor: 'pointer' }} onClick={() => handleDateChange(b.d)}>
+                    {fmtNum(b.w)} {b.u || unit}
+                  </b>
+                  <button
+                    className="iconbtn"
+                    style={{ width: 32, height: 30, borderRadius: 8, fontSize: 15, color: 'var(--red)' }}
+                    onClick={() => delEntry(b.d)}
+                    aria-label="delete"
+                  >
+                    <Icon name="trash" />
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  )
 }
 export function bwSheet(opts = {}) {
   const h = ui().openSheet(close => <BwSheet {...opts} close={close} />, { locked: !!opts.required })
@@ -1103,7 +1213,101 @@ function doFinishWorkout() {
   })
   useUI.getState().stopRest()
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
-  ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} close={close} />, { kind: 'center', locked: true })
+  ui().openSheet(close => <PostWorkoutWeightPrompt w={w} prs={prs} e1prs={e1prs} close={close} />, { kind: 'center', locked: true })
+}
+
+function PostWorkoutWeightPrompt({ w, prs, e1prs, close }) {
+  const st = useStore(s => s.S)
+  const update = useStore(s => s.update)
+  const unit = st.unit || 'kg'
+  const [val, setVal] = useState('')
+
+  const handleSaveWeight = () => {
+    const num = parseFloat(val)
+    if (!isNaN(num) && num > 0) {
+      const n = Math.round(num * 10) / 10
+      update(s => {
+        s.bodyweight = s.bodyweight || []
+        const iso = w.d || todayISO()
+        const ex = s.bodyweight.find(b => b.d === iso)
+        if (ex) {
+          ex.w = n
+          ex.u = unit
+          ex.t = Date.now()
+        } else {
+          s.bodyweight.push({ d: iso, w: n, u: unit, t: Date.now() })
+        }
+        s.bodyweight.sort((a, b) => (a.d < b.d ? -1 : (a.d > b.d ? 1 : 0)))
+      })
+      useUI.getState().toast(t('Weight saved'))
+    }
+    close()
+    ui().openSheet(c => <FinishSummary w={w} prs={prs} e1prs={e1prs} close={c} />, { kind: 'center', locked: true })
+  }
+
+  const handleSkip = () => {
+    close()
+    ui().openSheet(c => <FinishSummary w={w} prs={prs} e1prs={e1prs} close={c} />, { kind: 'center', locked: true })
+  }
+
+  return (
+    <div style={{ textAlign: 'center', padding: '16px 8px' }}>
+      <div style={{ fontSize: 36, marginBottom: 8, color: 'var(--theme-accent, #E8B477)', display: 'flex', justifyContent: 'center' }}>
+        <Icon name="scale" size={38} />
+      </div>
+      <h3 style={{ margin: '0 0 6px 0', fontSize: 20, fontWeight: 800, color: 'var(--label)' }}>
+        {t('Would you like to record your body weight today?')}
+      </h3>
+      <p style={{ fontSize: 13, color: 'var(--label-2)', margin: '0 0 20px 0', lineHeight: 1.4 }}>
+        {t('Keep your progress graph accurate by logging your actual weight.')}
+      </p>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 20 }}>
+        <input
+          type="number"
+          step="0.1"
+          placeholder="0.0"
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          autoFocus
+          style={{
+            width: 140,
+            fontSize: 24,
+            fontWeight: 800,
+            textAlign: 'center',
+            padding: '10px 14px',
+            borderRadius: 14,
+            background: 'var(--surface-2)',
+            border: '1.5px solid var(--theme-accent-border, rgba(232, 180, 119, 0.4))',
+            color: 'var(--label)',
+            outline: 'none'
+          }}
+        />
+        <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--theme-accent, #E8B477)' }}>
+          {unit}
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 300, margin: '0 auto' }}>
+        <Button
+          variant="primary"
+          onClick={handleSaveWeight}
+          disabled={!val || isNaN(parseFloat(val)) || parseFloat(val) <= 0}
+          style={{ padding: '12px', fontWeight: 800 }}
+        >
+          {t('Save Weight')}
+        </Button>
+        <Button
+          variant="ghost"
+          className="dim"
+          onClick={handleSkip}
+          style={{ padding: '10px', fontSize: 13 }}
+        >
+          {t('Skip for Now')}
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 export function cardioSheet(initialEntry = null, defaultDate = null, onSaved = null) {
