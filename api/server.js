@@ -1337,8 +1337,55 @@ const routes = {
               if (workoutOps.length > 0) {
                 await mongo.collection('workout_sessions').bulkWrite(workoutOps, { ordered: false }).catch(() => {});
               }
+
+              // Persist muscle training records scoped by userId, workoutSessionId, and workoutDate
+              const muscleOps = [];
+              body.state.workouts.forEach(w => {
+                const wDate = String(w.d || w.date || '').slice(0, 10);
+                (w.entries || []).forEach(e => {
+                  const doneSets = (e.sets || []).filter(s => s && s.done);
+                  if (!doneSets.length) return;
+                  const primaryMuscles = Array.isArray(e.primaryMuscles)
+                    ? e.primaryMuscles
+                    : (e.targetMuscles ? [e.targetMuscles] : (e.muscleGroup ? [e.muscleGroup] : []));
+                  const secondaryMuscles = Array.isArray(e.secondaryMuscles) ? e.secondaryMuscles : [];
+                  const record = {
+                    userId: user.id,
+                    workoutSessionId: w.id,
+                    workoutDate: wDate,
+                    workoutName: w.name || 'Strength Workout',
+                    exerciseId: e.id,
+                    exerciseName: e.name || e.n || e.id,
+                    muscleGroups: {
+                      primary: primaryMuscles,
+                      secondary: secondaryMuscles
+                    },
+                    completedSets: doneSets.length,
+                    completedReps: doneSets.reduce((sum, s) => sum + (Number(s.r) || 0), 0),
+                    sets: doneSets.map(s => ({
+                      weight: Number(s.w) || 0,
+                      reps: Number(s.r) || 0,
+                      done: true
+                    })),
+                    volumeKg: doneSets.reduce((sum, s) => sum + (Number(s.w) || 0) * (Number(s.r) || 0), 0),
+                    updatedAt: new Date().toISOString()
+                  };
+                  muscleOps.push({
+                    updateOne: {
+                      filter: { userId: user.id, workoutSessionId: w.id, exerciseId: e.id },
+                      update: { $set: record },
+                      upsert: true
+                    }
+                  });
+                });
+              });
+
+              if (muscleOps.length > 0) {
+                await mongo.collection('muscle_history').bulkWrite(muscleOps, { ordered: false }).catch(() => {});
+              }
             } else {
               await mongo.collection('workout_sessions').deleteMany({ userId: user.id }).catch(() => {});
+              await mongo.collection('muscle_history').deleteMany({ userId: user.id }).catch(() => {});
             }
           }
 
@@ -1401,6 +1448,69 @@ const routes = {
     const updates = body?.settings || body || {};
     const settings = await saveUserSettings(user.id, updates);
     json(res, 200, { ok: true, settings });
+  },
+
+  /* ---------- Muscle Training History & Recovery Load ---------- */
+  'GET /api/muscle-history': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const url = new URL(req.url, 'http://localhost');
+    const date = url.searchParams.get('date');
+    const startDate = url.searchParams.get('startDate');
+    const endDate = url.searchParams.get('endDate');
+
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          const filter = { userId: user.id };
+          if (date) {
+            filter.workoutDate = date;
+          } else if (startDate && endDate) {
+            filter.workoutDate = { $gte: startDate, $lte: endDate };
+          }
+          const records = await mongo.collection('muscle_history').find(filter).sort({ workoutDate: -1 }).toArray();
+          return json(res, 200, { ok: true, history: records });
+        }
+      } catch (err) {
+        console.error('Mongo read muscle_history error:', err.message);
+      }
+    }
+
+    // Local file fallback isolated strictly by user.id
+    try {
+      const state = JSON.parse(fs.readFileSync(stateFile(user.id), 'utf8'));
+      const workouts = state.workouts || [];
+      const history = [];
+      workouts.forEach(w => {
+        const wDate = String(w.d || w.date || '').slice(0, 10);
+        if (date && wDate !== date) return;
+        if (startDate && endDate && (wDate < startDate || wDate > endDate)) return;
+        (w.entries || []).forEach(e => {
+          const doneSets = (e.sets || []).filter(s => s && s.done);
+          if (!doneSets.length) return;
+          history.push({
+            userId: user.id,
+            workoutSessionId: w.id,
+            workoutDate: wDate,
+            workoutName: w.name || 'Strength Workout',
+            exerciseId: e.id,
+            exerciseName: e.name || e.n || e.id,
+            muscleGroups: {
+              primary: e.primaryMuscles || (e.targetMuscles ? [e.targetMuscles] : (e.muscleGroup ? [e.muscleGroup] : [])),
+              secondary: e.secondaryMuscles || []
+            },
+            completedSets: doneSets.length,
+            completedReps: doneSets.reduce((sum, s) => sum + (Number(s.r) || 0), 0),
+            sets: doneSets.map(s => ({ weight: Number(s.w) || 0, reps: Number(s.r) || 0, done: true })),
+            volumeKg: doneSets.reduce((sum, s) => sum + (Number(s.w) || 0) * (Number(s.r) || 0), 0)
+          });
+        });
+      });
+      return json(res, 200, { ok: true, history });
+    } catch {
+      return json(res, 200, { ok: true, history: [] });
+    }
   },
 
   /* ---------- Complete Account & Fitness Reset System ---------- */
@@ -1477,6 +1587,7 @@ const routes = {
             mongo.collection('user_templates').deleteMany({ userId: user.id }),
             mongo.collection('weekly_schedules').deleteMany({ userId: user.id }),
             mongo.collection('workout_sessions').deleteMany({ userId: user.id }),
+            mongo.collection('muscle_history').deleteMany({ userId: user.id }),
             mongo.collection('meal_logs').deleteMany({ user_id: user.id }),
             mongo.collection('cardio_logs').deleteMany({ $or: [{ userId: user.id }, { user_id: user.id }] }),
             mongo.collection('custom_exercises').deleteMany({ userId: user.id }),
@@ -1798,6 +1909,7 @@ export async function handleRequest(req, res) {
 }
 
 export default handleRequest;
+export { db, makeSession, readSession };
 
 const isRender = !!process.env.RENDER;
 const isDirectRun = process.argv[1] && (process.argv[1].endsWith('server.js') || process.argv[1].includes('server.js'));

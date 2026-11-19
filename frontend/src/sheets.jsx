@@ -14,7 +14,7 @@ import Icon from './components/Icon.jsx'
 import { Button, Slider, Switch, Segmented, SelectRow, TextArea } from './components/ui.jsx'
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
-import { loadOfWorkouts } from './lib/muscles.js'
+import { loadOfWorkouts, getExerciseMuscleBreakdown, resolveExerciseMeta } from './lib/muscles.js'
 import { parseImport, mergeImport } from './lib/import-csv.js'
 import { buildPlanBundle, parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
@@ -1147,11 +1147,37 @@ function doFinishWorkout() {
     if (rec && !prs.includes(e.id)) e1prs.push({ id: e.id, ...rec })
   })
   const w = {
-    id: A.id, d: A.d, start: A.start, end: Date.now(), routineId: A.routineId, name: A.name, bw: A.bw,
+    id: A.id,
+    d: (A.d || todayISO()).slice(0, 10),
+    start: A.start,
+    end: Date.now(),
+    routineId: A.routineId,
+    name: A.name,
+    bw: A.bw,
     // `target` (what the session prescribed) is kept alongside the sets: without it a
     // finished workout cannot say whether it hit its reps, and a timed session reads back
     // as "0 reps". It is what the progression engine works from.
-    entries: A.entries.map(e => ({ id: e.id, sets: e.sets, topW: e.topW || null, target: e.target || null })).filter(e => e.sets.some(s => s.done)),
+    // Preserving resolved exercise name, category, bodyPart, and muscle breakdown
+    // guarantees 100% muscle balance persistence in cloud storage and exports.
+    entries: A.entries
+      .filter(e => e.sets && e.sets.some(s => s && s.done))
+      .map(e => {
+        const breakdown = getExerciseMuscleBreakdown(e.id, e, st.customEx)
+        const meta = breakdown.meta
+        return {
+          id: e.id,
+          name: e.name || e.n || meta?.n || e.id,
+          category: e.category || e.bodyPart || meta?.bp || 'other',
+          bodyPart: e.bodyPart || e.category || meta?.bp || 'other',
+          muscleGroup: meta?.tg || e.muscleGroup || '',
+          targetMuscles: meta?.tg || '',
+          primaryMuscles: breakdown.primary,
+          secondaryMuscles: breakdown.secondary,
+          sets: e.sets,
+          topW: e.topW || null,
+          target: e.target || null
+        }
+      }),
     prs
   }
   w.dur = w.end - w.start

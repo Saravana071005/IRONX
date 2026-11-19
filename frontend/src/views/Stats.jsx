@@ -316,7 +316,7 @@ export default function Stats() {
         />
       </div>
 
-      {workouts.length > 0 && <MuscleBalanceChart S={S} />}
+      <MuscleBalanceChart S={S} />
 
       <div className="cols">
         {/* Body weight card with time range */}

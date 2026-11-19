@@ -34,18 +34,25 @@ export const MUSCLE_NAME = {
 
 // Every spelling that occurs in the dataset's `tg` and `sm` fields. null = not drawable.
 const ALIAS = {
+  // canonical slugs map to themselves
+  trapezius: 'trapezius', deltoids: 'deltoids', chest: 'chest', 'upper-back': 'upper-back',
+  serratus: 'serratus', biceps: 'biceps', triceps: 'triceps', forearm: 'forearm',
+  abs: 'abs', obliques: 'obliques', 'lower-back': 'lower-back', gluteal: 'gluteal',
+  quadriceps: 'quadriceps', hamstring: 'hamstring', adductors: 'adductors',
+  'hip-flexors': 'hip-flexors', calves: 'calves', tibialis: 'tibialis',
   // primaries
-  abs: 'abs', pectorals: 'chest', biceps: 'biceps', glutes: 'gluteal', delts: 'deltoids',
-  triceps: 'triceps', 'upper back': 'upper-back', lats: 'upper-back', calves: 'calves',
+  glutes: 'gluteal', delts: 'deltoids', pectorals: 'chest',
+  'upper back': 'upper-back', lats: 'upper-back',
   quads: 'quadriceps', forearms: 'forearm', hamstrings: 'hamstring', spine: 'lower-back',
-  traps: 'trapezius', adductors: 'adductors', 'serratus anterior': 'serratus',
+  traps: 'trapezius', 'serratus anterior': 'serratus',
   abductors: 'gluteal', 'levator scapulae': 'trapezius', 'cardiovascular system': null,
   // secondaries
-  shoulder: 'deltoids', shoulders: 'deltoids', deltoids: 'deltoids', 'rear deltoids': 'deltoids',
-  'rotator cuff': 'deltoids', quadriceps: 'quadriceps', core: 'abs', abdominals: 'abs',
-  'lower abs': 'abs', chest: 'chest', 'upper chest': 'chest', 'hip flexors': 'hip-flexors',
-  obliques: 'obliques', 'lower back': 'lower-back', rhomboids: 'upper-back',
-  trapezius: 'trapezius', back: 'upper-back', 'latissimus dorsi': 'upper-back',
+  shoulder: 'deltoids', shoulders: 'deltoids', 'rear deltoids': 'deltoids',
+  'front delts': 'deltoids', 'front deltoid': 'deltoids', 'front deltoids': 'deltoids',
+  'rotator cuff': 'deltoids', core: 'abs', abdominals: 'abs',
+  'lower abs': 'abs', 'upper chest': 'chest', 'hip flexors': 'hip-flexors',
+  'lower back': 'lower-back', rhomboids: 'upper-back',
+  back: 'upper-back', 'latissimus dorsi': 'upper-back',
   brachialis: 'biceps', soleus: 'calves', shins: 'tibialis', wrists: 'forearm',
   'wrist flexors': 'forearm', 'wrist extensors': 'forearm', 'grip muscles': 'forearm',
   groin: 'adductors', 'inner thighs': 'adductors',
@@ -82,13 +89,66 @@ const SECONDARY = 0.4   // a supporting muscle counts this much against a primar
 function mapPredefinedSecondaries(id, category) {
   const cat = String(category || '').toLowerCase()
   if (cat.includes('chest')) return ['triceps', 'deltoids']
-  if (cat.includes('shoulder')) return ['triceps', 'trapezius']
+  if (cat.includes('shoulder')) return ['triceps']
+  if (cat.includes('lat') || cat.includes('pull')) return ['biceps']
+  if (cat.includes('row')) return ['biceps']
   if (cat.includes('back')) return ['biceps', 'lower-back']
-  if (cat.includes('bicep')) return ['forearm']
-  if (cat.includes('tricep')) return ['chest']
-  if (cat.includes('leg')) return ['hamstring', 'gluteal', 'calves']
+  if (cat.includes('bicep')) return []
+  if (cat.includes('tricep')) return []
+  if (cat.includes('squat')) return ['gluteal']
+  if (cat.includes('deadlift') || cat.includes('rdl')) return ['gluteal']
+  if (cat.includes('leg')) return ['hamstring', 'gluteal']
   if (cat.includes('core') || cat.includes('abs')) return ['obliques']
   return []
+}
+
+function mapPredefinedMeta(predefined) {
+  const name = String(predefined.name || '').toLowerCase()
+  const id = String(predefined.id || '').toLowerCase()
+  const text = `${id} ${name}`
+
+  if (/romanian deadlift|rdl|stiff.*deadlift/i.test(text)) {
+    return { tg: 'hamstring', sm: ['gluteal'] }
+  }
+  if (/lat pulldown|lat pull/i.test(text)) {
+    return { tg: 'upper-back', sm: ['biceps'] }
+  }
+  if (/barbell row|dumbbell row|cable row|t-bar row|seated row/i.test(text)) {
+    return { tg: 'upper-back', sm: ['biceps'] }
+  }
+  if (/bench press|chest press/i.test(text)) {
+    return { tg: 'chest', sm: ['triceps', 'deltoids'] }
+  }
+  if (/shoulder press|overhead press|military press/i.test(text)) {
+    return { tg: 'deltoids', sm: ['triceps'] }
+  }
+  if (/squat|leg press/i.test(text)) {
+    return { tg: 'quadriceps', sm: ['gluteal'] }
+  }
+  if (/leg curl|hamstring curl/i.test(text)) {
+    return { tg: 'hamstring', sm: [] }
+  }
+  if (/leg extension/i.test(text)) {
+    return { tg: 'quadriceps', sm: [] }
+  }
+  if (/calf raise/i.test(text)) {
+    return { tg: 'calves', sm: [] }
+  }
+  if (/curl|bicep/i.test(text)) {
+    return { tg: 'biceps', sm: [] }
+  }
+  if (/tricep|skull crusher|pushdown|extension/i.test(text)) {
+    return { tg: 'triceps', sm: [] }
+  }
+  if (/deadlift/i.test(text)) {
+    return { tg: 'lower-back', sm: ['gluteal', 'hamstring', 'upper-back'] }
+  }
+
+  const cat = String(predefined.category || '').toLowerCase()
+  return {
+    tg: predefined.muscleGroup?.toLowerCase() || cat || '',
+    sm: mapPredefinedSecondaries(predefined.id, cat)
+  }
 }
 
 /**
@@ -101,12 +161,13 @@ export function resolveExerciseMeta(id, entry = null, customEx = []) {
   if (id && Array.isArray(INITIAL_PREDEFINED_EXERCISES)) {
     const predefined = INITIAL_PREDEFINED_EXERCISES.find(e => e.id === id)
     if (predefined) {
+      const pm = mapPredefinedMeta(predefined)
       return {
         id: predefined.id,
         n: predefined.name,
         bp: predefined.category?.toLowerCase() || 'other',
-        tg: predefined.muscleGroup?.toLowerCase() || predefined.category?.toLowerCase() || '',
-        sm: mapPredefinedSecondaries(predefined.id, predefined.category)
+        tg: pm.tg,
+        sm: pm.sm
       }
     }
   }
@@ -128,32 +189,61 @@ export function resolveExerciseMeta(id, entry = null, customEx = []) {
   if (name) {
     const foundByName = INITIAL_PREDEFINED_EXERCISES?.find(e => e.name.toLowerCase() === name)
     if (foundByName) {
+      const pm = mapPredefinedMeta(foundByName)
       return {
         id: foundByName.id,
         n: foundByName.name,
         bp: foundByName.category?.toLowerCase() || 'other',
-        tg: foundByName.muscleGroup?.toLowerCase() || foundByName.category?.toLowerCase() || '',
-        sm: mapPredefinedSecondaries(foundByName.id, foundByName.category)
+        tg: pm.tg,
+        sm: pm.sm
       }
     }
 
-    if (/shoulder|overhead press|military press|lateral raise|rear delt|front raise|deltoid|arnold press|sh_db|sh_bb/i.test(name)) {
-      return { id: id || name, n: entry?.name || name, bp: 'shoulders', tg: 'deltoids', sm: ['trapezius', 'triceps'] }
-    }
+    // Explicit name and variation matching
     if (/bench press|chest press|push-up|push up|dumbbell fly|cable crossover|dip|pec deck|ch_db|ch_bb|incline.*press/i.test(name)) {
       return { id: id || name, n: entry?.name || name, bp: 'chest', tg: 'chest', sm: ['triceps', 'deltoids'] }
     }
-    if (/pull-up|pull up|chin-up|lat pulldown|lat pull|barbell row|dumbbell row|cable row|deadlift|back extension|t-bar row|face pull|bk_lat|bk_bb/i.test(name)) {
-      return { id: id || name, n: entry?.name || name, bp: 'back', tg: 'upper-back', sm: ['biceps', 'lower-back', 'trapezius'] }
+    if (/lat pulldown|lat pull|pulldown/i.test(name)) {
+      return { id: id || name, n: entry?.name || name, bp: 'back', tg: 'upper-back', sm: ['biceps'] }
     }
-    if (/bicep|curl|hammer curl|preacher|chin-up|bi_bb|bi_db/i.test(name)) {
-      return { id: id || name, n: entry?.name || name, bp: 'upper arms', tg: 'biceps', sm: ['forearm'] }
+    if (/barbell row|dumbbell row|cable row|t-bar row|bent-over row|bent over row/i.test(name)) {
+      return { id: id || name, n: entry?.name || name, bp: 'back', tg: 'upper-back', sm: ['biceps'] }
     }
-    if (/tricep|skull crusher|pushdown|kickback|close grip bench|tri_cable|tri_db/i.test(name)) {
-      return { id: id || name, n: entry?.name || name, bp: 'upper arms', tg: 'triceps', sm: ['chest'] }
+    if (/shoulder press|overhead press|military press|arnold press|sh_db_press|sh_bb_press/i.test(name)) {
+      return { id: id || name, n: entry?.name || name, bp: 'shoulders', tg: 'deltoids', sm: ['triceps'] }
     }
-    if (/squat|leg press|lunge|leg extension|hamstring curl|romanian deadlift|rdl|calf raise|glute bridge|hip thrust|leg_sq|leg_cu/i.test(name)) {
-      return { id: id || name, n: entry?.name || name, bp: 'upper legs', tg: 'quadriceps', sm: ['hamstring', 'gluteal', 'calves'] }
+    if (/lateral raise|front raise|rear delt|deltoid|sh_lat_raise|sh_front_raise|sh_rear_fly/i.test(name)) {
+      return { id: id || name, n: entry?.name || name, bp: 'shoulders', tg: 'deltoids', sm: ['trapezius'] }
+    }
+    if (/romanian deadlift|rdl|stiff-leg deadlift|stiff leg deadlift/i.test(name)) {
+      return { id: id || name, n: entry?.name || name, bp: 'upper legs', tg: 'hamstring', sm: ['gluteal'] }
+    }
+    if (/deadlift/i.test(name)) {
+      return { id: id || name, n: entry?.name || name, bp: 'back', tg: 'lower-back', sm: ['gluteal', 'hamstring', 'upper-back'] }
+    }
+    if (/squat|leg press|hack squat|leg_sq/i.test(name)) {
+      return { id: id || name, n: entry?.name || name, bp: 'upper legs', tg: 'quadriceps', sm: ['gluteal'] }
+    }
+    if (/leg extension/i.test(name)) {
+      return { id: id || name, n: entry?.name || name, bp: 'upper legs', tg: 'quadriceps', sm: [] }
+    }
+    if (/hamstring curl|leg curl|leg_cu/i.test(name)) {
+      return { id: id || name, n: entry?.name || name, bp: 'upper legs', tg: 'hamstring', sm: [] }
+    }
+    if (/calf raise|calves/i.test(name)) {
+      return { id: id || name, n: entry?.name || name, bp: 'lower legs', tg: 'calves', sm: [] }
+    }
+    if (/lunge|glute bridge|hip thrust/i.test(name)) {
+      return { id: id || name, n: entry?.name || name, bp: 'upper legs', tg: 'gluteal', sm: ['quadriceps', 'hamstring'] }
+    }
+    if (/pull-up|pull up|chin-up|back extension|face pull|bk_lat|bk_bb/i.test(name)) {
+      return { id: id || name, n: entry?.name || name, bp: 'back', tg: 'upper-back', sm: ['biceps', 'lower-back'] }
+    }
+    if (/bicep|curl|hammer curl|preacher|bi_bb|bi_db/i.test(name)) {
+      return { id: id || name, n: entry?.name || name, bp: 'upper arms', tg: 'biceps', sm: [] }
+    }
+    if (/tricep|skull crusher|pushdown|kickback|close grip bench|tri_cable|tri_db|triceps extension/i.test(name)) {
+      return { id: id || name, n: entry?.name || name, bp: 'upper arms', tg: 'triceps', sm: [] }
     }
     if (/plank|crunch|hanging leg raise|ab wheel|russian twist|cable woodchop|core|ab_/i.test(name)) {
       return { id: id || name, n: entry?.name || name, bp: 'waist', tg: 'abs', sm: ['obliques'] }
@@ -167,6 +257,55 @@ export function resolveExerciseMeta(id, entry = null, customEx = []) {
     bp,
     tg: bp,
     sm: []
+  }
+}
+
+/**
+ * Returns clean muscle breakdown distinguishing primary and secondary muscles
+ */
+export function getExerciseMuscleBreakdown(id, entry = null, customEx = []) {
+  const meta = resolveExerciseMeta(id, entry, customEx)
+  const weights = musclesOf(meta)
+
+  const primary = []
+  const secondary = []
+
+  const rawTg = String(meta?.tg || '').toLowerCase().trim()
+  const tgSlug = ALIAS[rawTg] !== undefined ? ALIAS[rawTg] : null
+  if (tgSlug && MUSCLES.includes(tgSlug)) {
+    primary.push(tgSlug)
+  }
+
+  // Check weights >= 0.8
+  for (const slug in weights) {
+    if (weights[slug] >= 0.8 && !primary.includes(slug)) {
+      primary.push(slug)
+    }
+  }
+
+  // Secondary muscles from meta.sm
+  if (Array.isArray(meta?.sm)) {
+    meta.sm.forEach(m => {
+      const raw = String(m || '').toLowerCase().trim()
+      const slug = ALIAS[raw] !== undefined ? ALIAS[raw] : null
+      if (slug && MUSCLES.includes(slug) && !primary.includes(slug) && !secondary.includes(slug)) {
+        secondary.push(slug)
+      }
+    })
+  }
+
+  for (const slug in weights) {
+    if (weights[slug] > 0 && weights[slug] < 0.8 && !primary.includes(slug) && !secondary.includes(slug)) {
+      secondary.push(slug)
+    }
+  }
+
+  return {
+    meta,
+    primary,
+    secondary,
+    primaryNames: primary.map(s => MUSCLE_NAME[s] || s),
+    secondaryNames: secondary.map(s => MUSCLE_NAME[s] || s)
   }
 }
 
