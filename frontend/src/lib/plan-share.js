@@ -67,8 +67,8 @@ export function buildPlanBundle(S, name) {
  */
 export function parsePlan(raw) {
   const data = typeof raw === 'string' ? JSON.parse(raw) : raw
-  if (!data || (!data.opengym_plan && !data.gyra_plan) || !Array.isArray(data.routines)) {
-    throw new Error(t('this isn’t a GYRA PRIME plan file'))
+  if (!data || (!data.opengym_plan && !data.gyra_plan && !data.ironhouse_plan) || !Array.isArray(data.routines)) {
+    throw new Error(t('this isn’t an IRON HOUSE plan file'))
   }
   const customEx = (Array.isArray(data.customEx) ? data.customEx : []).filter(c => c && c.id)
   const known = new Set(customEx.map(c => c.id))
@@ -243,7 +243,7 @@ export function planPrintHTML(S, owner) {
 </style></head>
 <body><div class="doc">
   <header>
-    <div class="kicker">GYRA PRIME</div>
+    <div class="kicker">IRON HOUSE</div>
     <h1>${esc(t('Weekly Training Plan'))}</h1>
     ${sub ? `<div class="sub">${sub}</div>` : ''}
   </header>
@@ -251,7 +251,7 @@ export function planPrintHTML(S, owner) {
   ${weekHTML(S)}
   <h3 class="block">${esc(t('Routines'))}</h3>
   ${body}
-  <footer>${esc(t('Made with GYRA PRIME'))}</footer>
+  <footer>${esc(t('Made with IRON HOUSE'))}</footer>
 </div></body></html>`
 }
 

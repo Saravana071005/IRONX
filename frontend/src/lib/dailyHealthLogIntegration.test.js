@@ -230,7 +230,7 @@ describe('Daily Health Log: Full End-to-End Tracking Suite (Simplified Food Entr
 
     expect(doc).toBeDefined();
     const pdfStr = doc.output();
-    expect(pdfStr).toContain('GYRA PRIME');
+    expect(pdfStr).toContain('IRON HOUSE');
     expect(pdfStr).toContain('1,900');
     expect(pdfStr).toContain('Grilled Salmon with Quinoa');
     expect(pdfStr).toContain('Romanian Deadlift');

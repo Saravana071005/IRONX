@@ -5,7 +5,7 @@ import { effectiveRoutine } from '../lib/history.js'
 import { todayISO } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import Icon from './Icon.jsx'
-import GyraPrimeLogo from './GyraPrimeLogo.jsx'
+import IronHouseLogo from './IronHouseLogo.jsx'
 
 export default function Sidebar({ onStart, mobileOpen = false, onClose }) {
   const nav = useNavigate()
@@ -105,12 +105,12 @@ export default function Sidebar({ onStart, mobileOpen = false, onClose }) {
           <div
             className="sidebar-brand"
             onClick={() => handleNav('/home')}
-            title="GYRA PRIME Home"
+            title="IRON HOUSE Home"
           >
             {collapsed ? (
-              <GyraPrimeLogo iconOnly size={28} glow />
+              <IronHouseLogo iconOnly size={28} glow />
             ) : (
-              <GyraPrimeLogo size="md" glow />
+              <IronHouseLogo size="md" glow />
             )}
           </div>
 

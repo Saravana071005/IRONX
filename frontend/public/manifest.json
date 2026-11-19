@@ -1,7 +1,7 @@
 {
-  "name": "GYRA PRIME",
-  "short_name": "GYRA PRIME",
-  "description": "GYRA PRIME – Elite Personal Strength, Conditioning & Health Intelligence",
+  "name": "IRON HOUSE",
+  "short_name": "IRON HOUSE",
+  "description": "IRON HOUSE – Elite Strength, Conditioning & Health Intelligence",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -204,7 +204,7 @@ export default function ProfileSetup() {
         }
       })
 
-      toast(t('Profile setup complete! Welcome to GYRA PRIME.'))
+      toast(t('Profile setup complete! Welcome to IRON HOUSE.'))
       navigate('/home', { replace: true })
     } catch (err) {
       toast(err.message || t('Failed to save profile'))
@@ -229,7 +229,7 @@ export default function ProfileSetup() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 18, color: 'var(--theme-accent, #E8B477)' }}>⚡</span>
             <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--theme-accent, #E8B477)' }}>
-              {t('GYRA PRIME Onboarding')}
+              {t('IRON HOUSE Onboarding')}
             </span>
           </div>
         )}
@@ -390,7 +390,7 @@ export default function ProfileSetup() {
               {t('What is your primary fitness goal?')}
             </h2>
             <p style={{ fontSize: 14, color: 'var(--label-2)', margin: '0 0 20px 0', lineHeight: 1.45 }}>
-              {t('Select your main focus so GYRA PRIME can customize your calorie targets and workout progression.')}
+              {t('Select your main focus so IRON HOUSE can customize your calorie targets and workout progression.')}
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>

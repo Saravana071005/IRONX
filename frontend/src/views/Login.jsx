@@ -5,7 +5,7 @@ import { startGoogleLogin } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import Icon from '../components/Icon.jsx'
-import GyraPrimeLogo from '../components/GyraPrimeLogo.jsx'
+import IronHouseLogo from '../components/IronHouseLogo.jsx'
 import { Button } from '../components/ui.jsx'
 
 function GoogleIcon() {
@@ -38,7 +38,7 @@ export default function Login() {
 
   const head = (
     <div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0 18px' }}>
-      <GyraPrimeLogo size="lg" glow />
+      <IronHouseLogo size="lg" glow />
     </div>
   )
   const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }
@@ -51,7 +51,7 @@ export default function Login() {
         <div className="muted" style={{ marginBottom: 30 }}>{t('Live demo — everything stays in this browser.')}</div>
         <Button variant="primary" icon="sparkles" onClick={() => setGuest(true)}>{t('Start the demo')}</Button>
         <div className="card small muted" style={{ textAlign: 'left', marginTop: 16 }}>
-          {t('This demo runs entirely in your browser on example data — nothing is sent anywhere. Cloud sync and personal fitness profiles come with the GYRA PRIME server.')}
+          {t('This demo runs entirely in your browser on example data — nothing is sent anywhere. Cloud sync and personal fitness profiles come with the IRON HOUSE server.')}
         </div>
         <div className="dim small" style={{ marginTop: 22, lineHeight: 1.6 }}>
           <a href={REPO} target="_blank" rel="noopener">{t('Self-host it in a minute →')}</a>

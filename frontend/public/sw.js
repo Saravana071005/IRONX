@@ -10,7 +10,7 @@ self.addEventListener('activate', e => {
 })
 self.addEventListener('push', e => {
   const data = e.data ? e.data.json() : {}
-  e.waitUntil(self.registration.showNotification(data.title || 'GYRA PRIME', {
+  e.waitUntil(self.registration.showNotification(data.title || 'IRON HOUSE', {
     body: data.body || '',
     icon: 'icon-512.png',
     badge: 'icon-180.png',

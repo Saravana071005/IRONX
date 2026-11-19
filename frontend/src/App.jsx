@@ -10,7 +10,7 @@ import { useWakeLock } from './lib/wakelock.js'
 import { startFlow } from './sheets.jsx'
 import { applyThemeToDocument } from './lib/themes.js'
 import Icon from './components/Icon.jsx'
-import GyraPrimeLogo from './components/GyraPrimeLogo.jsx'
+import IronHouseLogo from './components/IronHouseLogo.jsx'
 import TabBar from './components/TabBar.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
@@ -73,7 +73,7 @@ function Shell() {
   if (!ready && !authed && !isAuthCallback) return (
     <div id="app">
       <div style={{ paddingTop: '42vh', display: 'flex', justifyContent: 'center' }}>
-        <GyraPrimeLogo size="lg" glow />
+        <IronHouseLogo size="lg" glow />
       </div>
     </div>
   )
@@ -104,7 +104,7 @@ function Shell() {
                 <Icon name="bars" />
               </button>
               <div className="mobile-header-brand" onClick={() => navigate('/home')} style={{ cursor: 'pointer' }}>
-                <GyraPrimeLogo size="xs" glow />
+                <IronHouseLogo size="xs" glow />
               </div>
               <div className="mobile-header-actions">
                 {S.active ? (
