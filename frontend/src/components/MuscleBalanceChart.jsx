@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BodyMap, { BodyMapLegend } from './BodyMap.jsx'
-import { loadOfWorkouts, rankOf, MUSCLE_NAME, musclesOf, MUSCLES } from '../lib/muscles.js'
+import { loadOfWorkouts, rankOf, MUSCLE_NAME, musclesOf, MUSCLES, resolveExerciseMeta } from '../lib/muscles.js'
 import { EXIDX } from '../lib/exercises.js'
 import { isHardSet } from '../lib/effort.js'
 import { todayISO, weekKey, fmtNum } from '../lib/format.js'
@@ -45,8 +45,8 @@ export default function MuscleBalanceChart({ S }) {
 
   const on = hard && rated
   const load = useMemo(() => {
-    return loadOfWorkouts(inWin, on ? isHardSet : null)
-  }, [inWin, on])
+    return loadOfWorkouts(inWin, on ? isHardSet : null, S?.customEx)
+  }, [inWin, on, S?.customEx])
 
   const { worked } = useMemo(() => rankOf(load), [load])
   const totalWorkedSets = useMemo(() => {
@@ -67,7 +67,7 @@ export default function MuscleBalanceChart({ S }) {
     for (const w of inWin) {
       for (const e of (w.entries || [])) {
         if (!e) continue
-        const exMeta = EXIDX[e.id]
+        const exMeta = resolveExerciseMeta(e.id, e, S?.customEx)
         const muscleWeights = musclesOf(exMeta || { bp: e.bodyPart || e.bp })
         const weight = muscleWeights[muscleSlug]
 
@@ -387,7 +387,7 @@ export default function MuscleBalanceChart({ S }) {
           >
             {win === 1
               ? t('No muscle activity recorded today.')
-              : t('No muscle activity recorded in this time range.')}
+              : t('No muscle activity recorded yet.')}
           </div>
 
           <div

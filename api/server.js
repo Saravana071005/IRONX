@@ -15,6 +15,7 @@ import * as coachJobs from './coach/jobs.js';
 import { coachRoutes } from './coach/routes.js';
 import { startCadence } from './coach/cadence.js';
 import { nutritionRoutes } from './nutrition/routes.js';
+import { clearAllNutritionDataForUser } from './nutrition/db.js';
 import { getMongoDb, pingMongo } from './db/mongo.js';
 import {
   calculateAge,
@@ -196,6 +197,122 @@ function atomicWrite(file, content) {
   fs.renameSync(tmp, file);
 }
 const stateFile = uid => path.join(DATA, 'state-' + uid.replace(/[^a-zA-Z0-9_-]/g, '') + '.json');
+const settingsFile = uid => path.join(DATA, 'settings-' + uid.replace(/[^a-zA-Z0-9_-]/g, '') + '.json');
+
+function defaultUserSettings(userId = null) {
+  return {
+    userId: userId || 'guest',
+    themeMode: 'dark',
+    themePreset: 'warm-gold',
+    accentColor: '#E8B477',
+    ambientGlowIntensity: 1.0,
+    upperGlowIntensity: 1.0,
+    backgroundSettings: {
+      bgDarkness: '#090909',
+      bgAnimation: true,
+      glassOpacity: 0.80,
+      blurIntensity: 1.0
+    },
+    language: 'en',
+    measurementUnit: 'kg',
+    notificationPreferences: {
+      restAlertEnabled: true,
+      restAlertTone: 'alarm',
+      restAlertVolume: 1.0,
+      restVibrationEnabled: true,
+      restNotifications: false
+    },
+    calorieTarget: 1900,
+    waterGoalLitres: 2.5,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+async function getUserSettings(userId) {
+  if (!userId) return defaultUserSettings('guest');
+  if (process.env.MONGODB_URI) {
+    try {
+      const mongo = await getMongoDb();
+      if (mongo) {
+        const doc = await mongo.collection('user_settings').findOne({ userId });
+        if (doc) {
+          const { _id, ...clean } = doc;
+          return {
+            ...defaultUserSettings(userId),
+            ...clean,
+            backgroundSettings: {
+              ...(defaultUserSettings(userId).backgroundSettings),
+              ...(clean.backgroundSettings || {})
+            },
+            notificationPreferences: {
+              ...(defaultUserSettings(userId).notificationPreferences),
+              ...(clean.notificationPreferences || {})
+            }
+          };
+        }
+      }
+    } catch (e) {
+      console.error('Mongo read user_settings error:', e.message);
+    }
+  }
+  try {
+    const sFile = settingsFile(userId);
+    if (fs.existsSync(sFile)) {
+      const parsed = JSON.parse(fs.readFileSync(sFile, 'utf8'));
+      return {
+        ...defaultUserSettings(userId),
+        ...parsed,
+        backgroundSettings: {
+          ...(defaultUserSettings(userId).backgroundSettings),
+          ...(parsed.backgroundSettings || {})
+        },
+        notificationPreferences: {
+          ...(defaultUserSettings(userId).notificationPreferences),
+          ...(parsed.notificationPreferences || {})
+        }
+      };
+    }
+  } catch {}
+  return defaultUserSettings(userId);
+}
+
+async function saveUserSettings(userId, updates = {}) {
+  if (!userId) return null;
+  const current = await getUserSettings(userId);
+  const updated = {
+    ...current,
+    ...updates,
+    backgroundSettings: {
+      ...(current.backgroundSettings || {}),
+      ...(updates.backgroundSettings || {})
+    },
+    notificationPreferences: {
+      ...(current.notificationPreferences || {}),
+      ...(updates.notificationPreferences || {})
+    },
+    userId,
+    updatedAt: new Date().toISOString()
+  };
+
+  try { atomicWrite(settingsFile(userId), JSON.stringify(updated, null, 2)); } catch {}
+
+  if (process.env.MONGODB_URI) {
+    try {
+      const mongo = await getMongoDb();
+      if (mongo) {
+        await mongo.collection('user_settings').updateOne(
+          { userId },
+          { $set: updated },
+          { upsert: true }
+        );
+      }
+    } catch (e) {
+      console.error('Mongo write user_settings error:', e.message);
+    }
+  }
+  return updated;
+}
+
 function readState(uid) {
   try { return JSON.parse(fs.readFileSync(stateFile(uid), 'utf8')); } catch { return null; }
 }
@@ -522,6 +639,7 @@ const routes = {
     if (!user) return json(res, 401, { error: 'not signed in' });
     const age = user.profile?.dateOfBirth ? calculateAge(user.profile.dateOfBirth) : null;
     const profile = user.profile ? { ...user.profile, age } : null;
+    const settings = await getUserSettings(user.id);
     json(res, 200, {
       user: {
         id: user.id,
@@ -530,6 +648,7 @@ const routes = {
         picture: user.picture || null,
         googleSub: user.googleSub || null,
         profile,
+        settings,
         isNewUser: !user.profile || !user.profile.completed,
         admin: isAdmin(user)
       }
@@ -650,6 +769,7 @@ const routes = {
         if (mongo) {
           try {
             await mongo.collection('users').insertOne(user);
+            await mongo.collection('user_settings').insertOne(defaultUserSettings(user.id)).catch(() => {});
             // Create fresh isolated state with ZERO data for the new account
             await mongo.collection('states').insertOne({
               userId: user.id,
@@ -971,6 +1091,8 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
     let state = null;
+    const settings = await getUserSettings(user.id);
+
     if (process.env.MONGODB_URI) {
       try {
         const mongo = await getMongoDb();
@@ -980,8 +1102,8 @@ const routes = {
             state = doc.state;
           }
 
-          // Hydrate workoutTemplates from scoped collections if missing or empty in state
-          if (state && (!state.workoutTemplates || !state.workoutTemplates.length)) {
+          // Hydrate workoutTemplates from scoped collections only if NOT reset
+          if (state && !state.isReset && (!state.workoutTemplates || !state.workoutTemplates.length)) {
             const tplDoc = await mongo.collection('workout_templates').findOne({ userId: user.id });
             if (tplDoc?.templates && tplDoc.templates.length) {
               state.workoutTemplates = tplDoc.templates;
@@ -993,16 +1115,16 @@ const routes = {
             }
           }
 
-          // Hydrate weeklySchedule if missing or empty
-          if (state && (!state.weeklySchedule || !Object.keys(state.weeklySchedule).length)) {
+          // Hydrate weeklySchedule if missing or empty and not reset
+          if (state && !state.isReset && (!state.weeklySchedule || !Object.keys(state.weeklySchedule).length)) {
             const schedDoc = await mongo.collection('weekly_schedules').findOne({ userId: user.id });
             if (schedDoc?.schedule) {
               state.weeklySchedule = schedDoc.schedule;
             }
           }
 
-          // Hydrate meals if missing or empty
-          if (state && (!state.meals || !state.meals.length)) {
+          // Hydrate meals if missing or empty and not reset
+          if (state && !state.isReset && (!state.meals || !state.meals.length)) {
             const mList = await mongo.collection('meal_logs').find({ user_id: user.id }).toArray();
             if (mList && mList.length) {
               state.meals = mList.map(m => ({
@@ -1031,8 +1153,8 @@ const routes = {
             }
           }
 
-          // Hydrate cardioLogs if missing or empty
-          if (state && (!state.cardioLogs || !state.cardioLogs.length)) {
+          // Hydrate cardioLogs if missing or empty and not reset
+          if (state && !state.isReset && (!state.cardioLogs || !state.cardioLogs.length)) {
             const cList = await mongo.collection('cardio_logs').find({ $or: [{ userId: user.id }, { user_id: user.id }] }).toArray();
             if (cList && cList.length) {
               state.cardioLogs = cList.map(c => ({
@@ -1052,15 +1174,25 @@ const routes = {
             }
           }
 
-          // Hydrate workouts if missing or empty
-          if (state && (!state.workouts || !state.workouts.length)) {
+          // Hydrate workouts if missing or empty and not reset
+          if (state && !state.isReset && (!state.workouts || !state.workouts.length)) {
             const wList = await mongo.collection('workout_sessions').find({ userId: user.id }).toArray();
             if (wList && wList.length) {
               state.workouts = wList;
             }
           }
 
-          if (state) return json(res, 200, { state });
+          if (state) {
+            // Apply account-isolated settings
+            state.themePreset = settings.themePreset || state.themePreset || 'warm-gold';
+            state.bgTheme = settings.themePreset || state.bgTheme || 'warm-gold';
+            state.accent = settings.accentColor || state.accent || '#E8B477';
+            state.goldShade = settings.accentColor || state.goldShade || '#E8B477';
+            state.ambientGlowIntensity = settings.ambientGlowIntensity != null ? settings.ambientGlowIntensity : 1.0;
+            state.upperGlowIntensity = settings.upperGlowIntensity != null ? settings.upperGlowIntensity : 1.0;
+            state.userSettings = settings;
+            return json(res, 200, { state });
+          }
         }
       } catch (err) {
         console.error('Mongo read state error:', err.message);
@@ -1068,6 +1200,15 @@ const routes = {
     }
     try {
       state = JSON.parse(fs.readFileSync(stateFile(user.id), 'utf8'));
+      if (state) {
+        state.themePreset = settings.themePreset || state.themePreset || 'warm-gold';
+        state.bgTheme = settings.themePreset || state.bgTheme || 'warm-gold';
+        state.accent = settings.accentColor || state.accent || '#E8B477';
+        state.goldShade = settings.accentColor || state.goldShade || '#E8B477';
+        state.ambientGlowIntensity = settings.ambientGlowIntensity != null ? settings.ambientGlowIntensity : 1.0;
+        state.upperGlowIntensity = settings.upperGlowIntensity != null ? settings.upperGlowIntensity : 1.0;
+        state.userSettings = settings;
+      }
       json(res, 200, { state });
     } catch { json(res, 200, { state: null }); }
   },
@@ -1078,6 +1219,34 @@ const routes = {
     const body = await readBody(req);
     if (!body.state || typeof body.state !== 'object') return json(res, 400, { error: 'state required' });
     delete body.state.active;              // in-progress workouts stay device-local
+
+    // Sync appearance/settings updates into user_settings
+    const settingsUpdates = {};
+    if (body.state.themePreset || body.state.bgTheme) {
+      settingsUpdates.themePreset = body.state.themePreset || body.state.bgTheme;
+    }
+    if (body.state.accent || body.state.goldShade) {
+      settingsUpdates.accentColor = body.state.accent || body.state.goldShade;
+    }
+    if (body.state.ambientGlowIntensity != null || body.state.glowIntensity != null) {
+      settingsUpdates.ambientGlowIntensity = body.state.ambientGlowIntensity != null ? body.state.ambientGlowIntensity : body.state.glowIntensity;
+    }
+    if (body.state.upperGlowIntensity != null) {
+      settingsUpdates.upperGlowIntensity = body.state.upperGlowIntensity;
+    }
+    if (body.state.bgDarkness || body.state.glassOpacity != null || body.state.blurIntensity != null || body.state.bgAnimation != null) {
+      settingsUpdates.backgroundSettings = {
+        bgDarkness: body.state.bgDarkness || '#090909',
+        bgAnimation: body.state.bgAnimation !== false,
+        glassOpacity: body.state.glassOpacity !== undefined ? body.state.glassOpacity : 0.80,
+        blurIntensity: body.state.blurIntensity !== undefined ? body.state.blurIntensity : 1.0
+      };
+    }
+    if (body.state.unit) settingsUpdates.measurementUnit = body.state.unit;
+    if (Object.keys(settingsUpdates).length > 0) {
+      saveUserSettings(user.id, settingsUpdates).catch(() => {});
+    }
+
     try { atomicWrite(stateFile(user.id), JSON.stringify(body.state)); } catch {}
     if (process.env.MONGODB_URI) {
       try {
@@ -1090,7 +1259,7 @@ const routes = {
           );
 
           // Scoped MongoDB collections for workout templates, sessions, and cardio logs
-          if (body.state.workoutTemplates) {
+          if (body.state.workoutTemplates !== undefined) {
             await mongo.collection('workout_templates').updateOne(
               { userId: user.id },
               { $set: { userId: user.id, templates: body.state.workoutTemplates, updatedAt: new Date().toISOString() } },
@@ -1111,10 +1280,12 @@ const routes = {
                 }
               }));
               await mongo.collection('user_templates').bulkWrite(tplOps, { ordered: false }).catch(() => {});
+            } else {
+              await mongo.collection('user_templates').deleteMany({ userId: user.id }).catch(() => {});
             }
           }
 
-          if (body.state.weeklySchedule) {
+          if (body.state.weeklySchedule !== undefined) {
             await mongo.collection('weekly_schedules').updateOne(
               { userId: user.id },
               { $set: { userId: user.id, schedule: body.state.weeklySchedule, updatedAt: new Date().toISOString() } },
@@ -1122,73 +1293,89 @@ const routes = {
             ).catch(() => {});
           }
 
-          if (Array.isArray(body.state.customEx) && body.state.customEx.length > 0) {
-            const customOps = body.state.customEx.map(ex => ({
-              updateOne: {
-                filter: { userId: user.id, id: ex.id },
-                update: { $set: { ...ex, userId: user.id, updatedAt: new Date().toISOString() } },
-                upsert: true
-              }
-            }));
-            await mongo.collection('custom_exercises').bulkWrite(customOps, { ordered: false }).catch(() => {});
-          }
-
-          if (Array.isArray(body.state.cardioLogs) && body.state.cardioLogs.length > 0) {
-            const cardioOps = body.state.cardioLogs.map(c => ({
-              updateOne: {
-                filter: { userId: user.id, id: c.id },
-                update: { $set: { ...c, userId: user.id, updatedAt: new Date().toISOString() } },
-                upsert: true
-              }
-            }));
-            if (cardioOps.length > 0) {
-              await mongo.collection('cardio_logs').bulkWrite(cardioOps, { ordered: false }).catch(() => {});
-            }
-          }
-
-          if (Array.isArray(body.state.workouts) && body.state.workouts.length > 0) {
-            const workoutOps = body.state.workouts.map(w => ({
-              updateOne: {
-                filter: { userId: user.id, id: w.id },
-                update: { $set: { ...w, userId: user.id, updatedAt: new Date().toISOString() } },
-                upsert: true
-              }
-            }));
-            if (workoutOps.length > 0) {
-              await mongo.collection('workout_sessions').bulkWrite(workoutOps, { ordered: false }).catch(() => {});
-            }
-          }
-
-          if (Array.isArray(body.state.meals) && body.state.meals.length > 0) {
-            const mealOps = body.state.meals.map(m => {
-              const entry = {
-                id: m.id,
-                user_id: user.id,
-                date: m.date || m.d,
-                meal_type: String(m.meal_type || m.type || 'lunch').toLowerCase(),
-                food_id: m.food_id || m.foodId || null,
-                food_name: m.food_name || m.name || 'Food item',
-                serving_quantity: Number(m.serving_quantity || m.qty) || 1,
-                serving_unit: m.serving_unit || m.unit || 'g',
-                serving_grams: Number(m.serving_grams || m.grams) || 0,
-                energy_kcal: Number(m.energy_kcal != null ? m.energy_kcal : (m.calories != null ? m.calories : m.calorie)) || 0,
-                protein_g: Number(m.protein_g != null ? m.protein_g : m.protein) || 0,
-                carb_g: Number(m.carb_g != null ? m.carb_g : (m.carb != null ? m.carb : m.carbs)) || 0,
-                fat_g: Number(m.fat_g != null ? m.fat_g : m.fat) || 0,
-                fibre_g: Number(m.fibre_g != null ? m.fibre_g : m.fibre) || 0,
-                notes: m.notes || null,
-                created_at: m.created_at || m.createdAt || new Date().toISOString()
-              };
-              return {
+          if (body.state.customEx !== undefined) {
+            if (Array.isArray(body.state.customEx) && body.state.customEx.length > 0) {
+              const customOps = body.state.customEx.map(ex => ({
                 updateOne: {
-                  filter: { user_id: user.id, id: entry.id },
-                  update: { $set: { ...entry, user_id: user.id, updatedAt: new Date().toISOString() } },
+                  filter: { userId: user.id, id: ex.id },
+                  update: { $set: { ...ex, userId: user.id, updatedAt: new Date().toISOString() } },
                   upsert: true
                 }
-              };
-            });
-            if (mealOps.length > 0) {
-              await mongo.collection('meal_logs').bulkWrite(mealOps, { ordered: false }).catch(() => {});
+              }));
+              await mongo.collection('custom_exercises').bulkWrite(customOps, { ordered: false }).catch(() => {});
+            } else {
+              await mongo.collection('custom_exercises').deleteMany({ userId: user.id }).catch(() => {});
+            }
+          }
+
+          if (body.state.cardioLogs !== undefined) {
+            if (Array.isArray(body.state.cardioLogs) && body.state.cardioLogs.length > 0) {
+              const cardioOps = body.state.cardioLogs.map(c => ({
+                updateOne: {
+                  filter: { userId: user.id, id: c.id },
+                  update: { $set: { ...c, userId: user.id, updatedAt: new Date().toISOString() } },
+                  upsert: true
+                }
+              }));
+              if (cardioOps.length > 0) {
+                await mongo.collection('cardio_logs').bulkWrite(cardioOps, { ordered: false }).catch(() => {});
+              }
+            } else {
+              await mongo.collection('cardio_logs').deleteMany({ $or: [{ userId: user.id }, { user_id: user.id }] }).catch(() => {});
+            }
+          }
+
+          if (body.state.workouts !== undefined) {
+            if (Array.isArray(body.state.workouts) && body.state.workouts.length > 0) {
+              const workoutOps = body.state.workouts.map(w => ({
+                updateOne: {
+                  filter: { userId: user.id, id: w.id },
+                  update: { $set: { ...w, userId: user.id, updatedAt: new Date().toISOString() } },
+                  upsert: true
+                }
+              }));
+              if (workoutOps.length > 0) {
+                await mongo.collection('workout_sessions').bulkWrite(workoutOps, { ordered: false }).catch(() => {});
+              }
+            } else {
+              await mongo.collection('workout_sessions').deleteMany({ userId: user.id }).catch(() => {});
+            }
+          }
+
+          if (body.state.meals !== undefined) {
+            if (Array.isArray(body.state.meals) && body.state.meals.length > 0) {
+              const mealOps = body.state.meals.map(m => {
+                const entry = {
+                  id: m.id,
+                  user_id: user.id,
+                  date: m.date || m.d,
+                  meal_type: String(m.meal_type || m.type || 'lunch').toLowerCase(),
+                  food_id: m.food_id || m.foodId || null,
+                  food_name: m.food_name || m.name || 'Food item',
+                  serving_quantity: Number(m.serving_quantity || m.qty) || 1,
+                  serving_unit: m.serving_unit || m.unit || 'g',
+                  serving_grams: Number(m.serving_grams || m.grams) || 0,
+                  energy_kcal: Number(m.energy_kcal != null ? m.energy_kcal : (m.calories != null ? m.calories : m.calorie)) || 0,
+                  protein_g: Number(m.protein_g != null ? m.protein_g : m.protein) || 0,
+                  carb_g: Number(m.carb_g != null ? m.carb_g : (m.carb != null ? m.carb : m.carbs)) || 0,
+                  fat_g: Number(m.fat_g != null ? m.fat_g : m.fat) || 0,
+                  fibre_g: Number(m.fibre_g != null ? m.fibre_g : m.fibre) || 0,
+                  notes: m.notes || null,
+                  created_at: m.created_at || m.createdAt || new Date().toISOString()
+                };
+                return {
+                  updateOne: {
+                    filter: { user_id: user.id, id: entry.id },
+                    update: { $set: { ...entry, user_id: user.id, updatedAt: new Date().toISOString() } },
+                    upsert: true
+                  }
+                };
+              });
+              if (mealOps.length > 0) {
+                await mongo.collection('meal_logs').bulkWrite(mealOps, { ordered: false }).catch(() => {});
+              }
+            } else {
+              await mongo.collection('meal_logs').deleteMany({ user_id: user.id }).catch(() => {});
             }
           }
         }
@@ -1197,6 +1384,117 @@ const routes = {
       }
     }
     json(res, 200, { ok: true, ts: body.state._ts || null });
+  },
+
+  /* ---------- User Settings & Account Isolation ---------- */
+  'GET /api/settings': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const settings = await getUserSettings(user.id);
+    json(res, 200, { ok: true, settings });
+  },
+
+  'PUT /api/settings': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const updates = body?.settings || body || {};
+    const settings = await saveUserSettings(user.id, updates);
+    json(res, 200, { ok: true, settings });
+  },
+
+  /* ---------- Complete Account & Fitness Reset System ---------- */
+  'POST /api/user/reset': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const scope = body.scope === 'everything' ? 'everything' : 'fitness_only';
+
+    // 1. Wipe SQLite nutrition data
+    try {
+      clearAllNutritionDataForUser(user.id);
+    } catch (e) {
+      console.error('Error clearing SQLite nutrition data for user:', e.message);
+    }
+
+    // 2. Settings handling
+    let newSettings = null;
+    if (scope === 'everything') {
+      newSettings = defaultUserSettings(user.id);
+      await saveUserSettings(user.id, newSettings);
+    } else {
+      newSettings = await getUserSettings(user.id);
+    }
+
+    // 3. Clear file-based state
+    const cleanState = {
+      isReset: true,
+      workoutTemplates: [],
+      weeklySchedule: {},
+      workouts: [],
+      cardioLogs: [],
+      meals: [],
+      customEx: [],
+      weightLogs: [],
+      bodyweight: [],
+      dayPlan: {},
+      routines: [],
+      week: {},
+      _ts: Date.now()
+    };
+    if (scope === 'fitness_only') {
+      cleanState.themePreset = newSettings.themePreset || 'warm-gold';
+      cleanState.bgTheme = newSettings.themePreset || 'warm-gold';
+      cleanState.accent = newSettings.accentColor || '#E8B477';
+      cleanState.goldShade = newSettings.accentColor || '#E8B477';
+      cleanState.ambientGlowIntensity = newSettings.ambientGlowIntensity != null ? newSettings.ambientGlowIntensity : 1.0;
+      cleanState.upperGlowIntensity = newSettings.upperGlowIntensity != null ? newSettings.upperGlowIntensity : 1.0;
+    } else {
+      cleanState.themePreset = 'warm-gold';
+      cleanState.bgTheme = 'warm-gold';
+      cleanState.accent = '#E8B477';
+      cleanState.goldShade = '#E8B477';
+      cleanState.ambientGlowIntensity = 1.0;
+      cleanState.upperGlowIntensity = 1.0;
+    }
+
+    try {
+      atomicWrite(stateFile(user.id), JSON.stringify(cleanState, null, 2));
+    } catch {}
+
+    // 4. Clear MongoDB collections for this user
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          await Promise.all([
+            mongo.collection('states').updateOne(
+              { userId: user.id },
+              { $set: { userId: user.id, state: cleanState, updatedAt: new Date().toISOString() } },
+              { upsert: true }
+            ),
+            mongo.collection('workout_templates').deleteMany({ userId: user.id }),
+            mongo.collection('user_templates').deleteMany({ userId: user.id }),
+            mongo.collection('weekly_schedules').deleteMany({ userId: user.id }),
+            mongo.collection('workout_sessions').deleteMany({ userId: user.id }),
+            mongo.collection('meal_logs').deleteMany({ user_id: user.id }),
+            mongo.collection('cardio_logs').deleteMany({ $or: [{ userId: user.id }, { user_id: user.id }] }),
+            mongo.collection('custom_exercises').deleteMany({ userId: user.id }),
+            mongo.collection('weight_logs').deleteMany({ userId: user.id })
+          ]);
+        }
+      } catch (e) {
+        console.error('Mongo reset error:', e.message);
+      }
+    }
+
+    json(res, 200, {
+      ok: true,
+      message: scope === 'everything' ? 'All data and settings have been reset.' : 'Fitness data has been reset.',
+      scope,
+      settings: newSettings,
+      state: cleanState
+    });
   },
 
   'GET /api/templates': async (req, res) => {

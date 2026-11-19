@@ -162,6 +162,7 @@ export function applyThemeToDocument(S = {}) {
   const highlightAccent = preset.highlight
   const bgDarkness = S?.bgDarkness || preset.bg || '#090909'
   const glowInt = S?.ambientGlow === false ? 0 : (S?.glowIntensity !== undefined ? Number(S.glowIntensity) : 1.0)
+  const upperGlowInt = S?.upperGlowIntensity !== undefined ? Number(S.upperGlowIntensity) : 1.0
   const blurInt = S?.blurIntensity !== undefined ? Number(S.blurIntensity) : 1.0
   const animOn = S?.bgAnimation !== false
   const glassOpacity = S?.glassOpacity !== undefined ? Number(S.glassOpacity) : 0.80
@@ -269,6 +270,7 @@ export function applyThemeToDocument(S = {}) {
   de.style.setProperty('--glow-color-3', preset.glow3)
   de.style.setProperty('--glow-color-4', preset.glow4)
   de.style.setProperty('--glow-intensity', String(glowInt))
+  de.style.setProperty('--upper-glow-intensity', String(upperGlowInt))
   de.style.setProperty('--blur-intensity', `${Math.round(26 * blurInt)}px`)
   de.style.setProperty('--bg-anim-state', animOn ? 'running' : 'paused')
 }

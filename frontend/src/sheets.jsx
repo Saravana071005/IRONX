@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useStore } from './store/useStore.js'
+import { useStore, getHealthStorageKey } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { EXDB, EXIDX, BODYPARTS, isCardio, allExercises, equipmentOf } from './lib/exercises.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS } from './lib/format.js'
@@ -1159,7 +1159,12 @@ function doFinishWorkout() {
 
   // Sync to daily health log storage so Daily Health Log and PDF export capture completed workouts
   try {
-    const healthKey = `opengym_health_${w.d}`
+    let currentUserId = null
+    try {
+      const u = JSON.parse(localStorage.getItem('gym_user'))
+      if (u?.id) currentUserId = u.id
+    } catch {}
+    const healthKey = getHealthStorageKey(currentUserId, w.d)
     const rawHealth = typeof localStorage !== 'undefined' ? localStorage.getItem(healthKey) : null
     const healthData = rawHealth ? JSON.parse(rawHealth) : { foods: [], water: [], cardio: [], strength: [] }
     const durMin = Math.max(1, Math.round((w.end - w.start) / 60000))

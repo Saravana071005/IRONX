@@ -4,14 +4,16 @@ import { localTZ, uid, todayISO } from '../lib/format.js'
 import { registerCustom } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { MOBILE, nativeLoad, nativeSave, syncReminder } from '../lib/mobile.js'
-import { THEME_ALIASES, THEME_PRESETS } from '../lib/themes.js'
+import { THEME_ALIASES, THEME_PRESETS, applyThemeToDocument } from '../lib/themes.js'
 
 export const getStorageKey = userId => userId ? `gym_state_user_${userId}` : 'gym_state_guest'
+export const getHealthStorageKey = (userId, date) => userId ? `opengym_health_${userId}_${date}` : `opengym_health_guest_${date}`
+export const getHealthSettingsKey = (userId) => userId ? `opengym_health_settings_${userId}` : 'opengym_health_settings_guest'
 const KEY = 'gym_state_v1'
 
 export const DEF = {
   unit: 'kg', restSec: 90, sound: true, keepAwake: true, lang: 'en',
-  theme: 'dark', accent: 'mint', body: 'male', targetW: null,
+  theme: 'dark', accent: 'warm-gold', body: 'male', targetW: null,
   bodyweight: [], routines: [], week: {}, dayPlan: {},
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
   // effort: which per-set effort scale is logged — 'none' | 'rir' | 'rpe'. null, not 'none', so
@@ -36,6 +38,7 @@ export const DEF = {
   bgDarkness: '#090909',
   ambientGlow: true,
   glowIntensity: 1.0,
+  upperGlowIntensity: 1.0,
   blurIntensity: 1.0,
   glassOpacity: 0.80,
   bgAnimation: true
@@ -145,14 +148,27 @@ export const useStore = create((set, get) => {
     const user = get().user
     if (user?.id) {
       try { localStorage.removeItem(getStorageKey(user.id)) } catch {}
+      try { localStorage.removeItem(`gym_settings_${user.id}`) } catch {}
     }
+    try {
+      const keysToRemove = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)
+        if (k && (k.startsWith('opengym_health_') || (user?.id && k.includes(user.id)))) {
+          keysToRemove.push(k)
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k))
+    } catch {}
     localStorage.removeItem('gym_auth_token')
     localStorage.removeItem('gym_guest')
     localStorage.removeItem('gym_dirty')
     localStorage.removeItem('gym_user')
     localStorage.removeItem('gym_state_v1')
     get().setUser(null)
-    set({ user: null, S: clone(DEF) })
+    const resetS = clone(DEF)
+    applyThemeToDocument(resetS)
+    set({ user: null, S: resetS })
   }
 
   return {
@@ -243,9 +259,17 @@ export const useStore = create((set, get) => {
       if (u) {
         localStorage.setItem('gym_user', JSON.stringify(u))
         localStorage.removeItem('gym_guest')
+        if (u.settings) {
+          try { localStorage.setItem(`gym_settings_${u.id}`, JSON.stringify(u.settings)) } catch {}
+        }
         if (!prevUser || prevUser.id !== u.id) {
           const userState = loadState(u.id)
+          if (u.settings?.themePreset) {
+            userState.bgTheme = u.settings.themePreset
+            userState.goldShade = u.settings.accentColor || userState.goldShade
+          }
           registerCustom(userState.customEx)
+          applyThemeToDocument(userState)
           set({ user: u, S: userState })
         } else {
           set({ user: u })
@@ -254,6 +278,7 @@ export const useStore = create((set, get) => {
         localStorage.removeItem('gym_user')
         const guestState = loadState(null)
         registerCustom(guestState.customEx)
+        applyThemeToDocument(guestState)
         set({ user: null, S: guestState })
       }
     },
@@ -273,11 +298,83 @@ export const useStore = create((set, get) => {
           const next = Object.assign(clone(DEF), state)
           if (active) next.active = active
           persist(next, false)
+          applyThemeToDocument(next)
           localStorage.removeItem('gym_dirty')
         } else if (state && !hasData(get().S)) {
-          persist(Object.assign(clone(DEF), state), false)
+          const next = Object.assign(clone(DEF), state)
+          persist(next, false)
+          applyThemeToDocument(next)
         }
       } catch (e) { /* offline — keep local */ }
+    },
+
+    async resetAccount(scope = 'fitness_only') {
+      const user = get().user
+      if (user?.id) {
+        try {
+          await api('/api/user/reset', {
+            method: 'POST',
+            body: JSON.stringify({ scope })
+          })
+        } catch (e) {
+          console.error('Reset account failed on server:', e)
+        }
+      }
+      try {
+        const keysToRemove = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (k && (k.startsWith('opengym_health_') || (user?.id && k === getStorageKey(user.id)))) {
+            keysToRemove.push(k)
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k))
+      } catch {}
+
+      const currentS = get().S
+      let nextS = clone(DEF)
+      if (scope === 'fitness_only') {
+        nextS.bgTheme = currentS.bgTheme || 'warm-gold'
+        nextS.goldShade = currentS.goldShade || '#E8B477'
+        nextS.bronzeShade = currentS.bronzeShade || '#C58A53'
+        nextS.bgDarkness = currentS.bgDarkness || '#090909'
+        nextS.ambientGlow = currentS.ambientGlow !== false
+        nextS.glowIntensity = currentS.glowIntensity !== undefined ? currentS.glowIntensity : 1.0
+        nextS.upperGlowIntensity = currentS.upperGlowIntensity !== undefined ? currentS.upperGlowIntensity : 1.0
+        nextS.blurIntensity = currentS.blurIntensity !== undefined ? currentS.blurIntensity : 1.0
+        nextS.glassOpacity = currentS.glassOpacity !== undefined ? currentS.glassOpacity : 0.80
+        nextS.theme = currentS.theme || 'dark'
+        nextS.accent = currentS.accent || 'warm-gold'
+        nextS.lang = currentS.lang || 'en'
+        nextS.unit = currentS.unit || 'kg'
+        nextS.body = currentS.body || 'male'
+        nextS.targetW = currentS.targetW || null
+      } else {
+        nextS.bgTheme = 'warm-gold'
+        nextS.goldShade = '#E8B477'
+        nextS.bronzeShade = '#C58A53'
+        nextS.bgDarkness = '#090909'
+        nextS.ambientGlow = true
+        nextS.glowIntensity = 1.0
+        nextS.upperGlowIntensity = 1.0
+        nextS.blurIntensity = 1.0
+        nextS.glassOpacity = 0.80
+      }
+      nextS.isReset = true
+      nextS.workouts = []
+      nextS.workoutTemplates = []
+      nextS.cardioLogs = []
+      nextS.meals = []
+      nextS.customEx = []
+      nextS.weeklySchedule = {}
+      nextS.bodyweight = []
+      nextS.routines = []
+      nextS.dayPlan = {}
+      nextS._ts = Date.now()
+
+      persist(nextS, true)
+      set({ S: nextS })
+      applyThemeToDocument(nextS)
     },
 
     async signOut() {

@@ -31,11 +31,24 @@ export default function Settings() {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const config = useStore(s => s.config)
-  const { update, replaceState, setUser, pullState, pushState, signOut, signOutAll, resetDemo } = useStore()
+  const { update, replaceState, setUser, pullState, pushState, signOut, signOutAll, resetDemo, resetAccount } = useStore()
   const toast = useUI(s => s.toast)
   const fileRef = useRef(null)
   const importRef = useRef(null)
   const wakeOK = wakeLockSupported()
+  const [resetModalOpen, setResetModalOpen] = useState(false)
+
+  const syncSettingToServer = async (patch) => {
+    if (!user) return
+    try {
+      await api('/api/settings', {
+        method: 'PUT',
+        body: JSON.stringify({ settings: patch })
+      })
+    } catch (e) {
+      console.error('Failed to sync setting to server:', e)
+    }
+  }
 
   const doExport = async () => {
     const json = JSON.stringify(S, null, 2)
@@ -403,12 +416,19 @@ export default function Settings() {
             return (
               <div
                 key={preset.id}
-                onClick={() => update(s => {
-                  s.bgTheme = preset.id
-                  s.goldShade = preset.primary
-                  s.bronzeShade = preset.secondary
-                  s.bgDarkness = preset.bg
-                })}
+                onClick={() => {
+                  update(s => {
+                    s.bgTheme = preset.id
+                    s.goldShade = preset.primary
+                    s.bronzeShade = preset.secondary
+                    s.bgDarkness = preset.bg
+                  })
+                  syncSettingToServer({
+                    themePreset: preset.id,
+                    accentColor: preset.primary,
+                    backgroundSettings: { bgDarkness: preset.bg }
+                  })
+                }}
                 style={{
                   padding: '12px 10px',
                   borderRadius: 14,
@@ -465,12 +485,19 @@ export default function Settings() {
             return (
               <button
                 key={preset.id}
-                onClick={() => update(s => {
-                  s.bgTheme = preset.id
-                  s.goldShade = preset.primary
-                  s.bronzeShade = preset.secondary
-                  s.bgDarkness = preset.bg
-                })}
+                onClick={() => {
+                  update(s => {
+                    s.bgTheme = preset.id
+                    s.goldShade = preset.primary
+                    s.bronzeShade = preset.secondary
+                    s.bgDarkness = preset.bg
+                  })
+                  syncSettingToServer({
+                    themePreset: preset.id,
+                    accentColor: preset.primary,
+                    backgroundSettings: { bgDarkness: preset.bg }
+                  })
+                }}
                 title={preset.name}
                 style={{
                   width: 38,
@@ -536,9 +563,40 @@ export default function Settings() {
               max="1.8"
               step="0.1"
               value={S.glowIntensity !== undefined ? S.glowIntensity : 1.0}
-              onChange={e => update(s => { s.glowIntensity = parseFloat(e.target.value) })}
+              onChange={e => {
+                const val = parseFloat(e.target.value)
+                update(s => { s.glowIntensity = val })
+                syncSettingToServer({ ambientGlowIntensity: val })
+              }}
               style={{ flex: 1, accentColor: 'var(--theme-accent, #E8B477)', cursor: 'pointer' }}
               aria-label={t('Glow Intensity')}
+            />
+          </div>
+        </Row>
+      )}
+
+      {/* Upper Glow Intensity Slider */}
+      {S.ambientGlow !== false && (
+        <Row
+          icon="sparkles"
+          iconTint="var(--theme-accent, #E8B477)"
+          title={t('Upper Glow Intensity')}
+          subtitle={`${Math.round((S.upperGlowIntensity !== undefined ? S.upperGlowIntensity : 1.0) * 100)}%`}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', maxWidth: 180 }}>
+            <input
+              type="range"
+              min="0.2"
+              max="2.0"
+              step="0.1"
+              value={S.upperGlowIntensity !== undefined ? S.upperGlowIntensity : 1.0}
+              onChange={e => {
+                const val = parseFloat(e.target.value)
+                update(s => { s.upperGlowIntensity = val })
+                syncSettingToServer({ upperGlowIntensity: val })
+              }}
+              style={{ flex: 1, accentColor: 'var(--theme-accent, #E8B477)', cursor: 'pointer' }}
+              aria-label={t('Upper Glow Intensity')}
             />
           </div>
         </Row>
@@ -620,7 +678,7 @@ export default function Settings() {
       <Row icon="download" iconTint="var(--theme-accent, #E8B477)" title={t('Export backup (JSON)')} accessory="chevron" onClick={doExport} />
       {/* Also drops anything the Coach is holding server-side: a wipe that leaves a pending
           proposal on the server behind would be a wipe in name only. */}
-      <Row icon="trash" iconTint="var(--red)" title={t('Reset everything')} danger onClick={() => confirmSheet({ title: t('Reset everything?'), message: t('Deletes your plan, workouts and body weight on this device. This cannot be undone.'), confirmText: t('Delete everything'), danger: true, onConfirm: () => { if (user) forgetCoach().catch(() => {}); replaceState(JSON.parse(JSON.stringify(DEF)), true); nav('/home'); toast(t('All data reset')) } })} />
+      <Row icon="trash" iconTint="var(--red)" title={t('Reset everything')} danger onClick={() => setResetModalOpen(true)} />
     </Section>
     <input ref={fileRef} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={doImport} />
     {/* Reset after reading so picking the same file twice still fires onChange. */}
@@ -638,6 +696,156 @@ export default function Settings() {
       openGym · {t('free & open source (AGPL v3)')}<br />
       <a href="https://github.com/DuarteSantos8/openGym" target="_blank" rel="noopener">source code</a> · exercise data: hasaneyldrm/exercises-dataset (CC)
     </div>
+
+    {/* Complete Reset Modal */}
+    {resetModalOpen && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          background: 'rgba(0, 0, 0, 0.78)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 16
+        }}
+        onClick={() => setResetModalOpen(false)}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            width: '100%',
+            maxWidth: 440,
+            borderRadius: 24,
+            background: 'var(--surface)',
+            backgroundImage: 'var(--grad-glass-surface)',
+            border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.3))',
+            boxShadow: 'var(--card-shadow), 0 0 30px rgba(0, 0, 0, 0.8)',
+            padding: 24,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                color: '#EF4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <Icon name="trash" size={22} />
+            </div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--label)' }}>
+                {t('Reset Account Data')}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--label-2)' }}>
+                {t('Choose how much data you want to clear')}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ fontSize: 13, color: 'var(--label-2)', lineHeight: 1.5 }}>
+            {t('This permanently clears saved data from your account and this device. This action cannot be undone.')}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Option 1: Fitness Data Only */}
+            <button
+              type="button"
+              onClick={async () => {
+                setResetModalOpen(false)
+                if (user) forgetCoach().catch(() => {})
+                await resetAccount('fitness_only')
+                nav('/home')
+                toast(t('Fitness data reset successfully'))
+              }}
+              style={{
+                padding: '14px 16px',
+                borderRadius: 16,
+                background: 'var(--surface-2)',
+                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.25))',
+                textAlign: 'left',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                transition: 'background 0.15s ease'
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--theme-accent, #E8B477)' }}>
+                {t('Reset Fitness Data Only')}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--label-2)', lineHeight: 1.4 }}>
+                {t('Clears templates, weekly schedule, workout sessions, cardio logs, meals, and weight history. Preserves your user profile and theme settings.')}
+              </div>
+            </button>
+
+            {/* Option 2: Reset Everything */}
+            <button
+              type="button"
+              onClick={async () => {
+                setResetModalOpen(false)
+                if (user) forgetCoach().catch(() => {})
+                await resetAccount('everything')
+                nav('/home')
+                toast(t('All data and settings reset successfully'))
+              }}
+              style={{
+                padding: '14px 16px',
+                borderRadius: 16,
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                textAlign: 'left',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                transition: 'background 0.15s ease'
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#EF4444' }}>
+                {t('Reset Everything (Including Settings)')}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--label-2)', lineHeight: 1.4 }}>
+                {t('Completely wipes all fitness data, workout logs, schedules, and resets theme and appearance preferences back to default Warm Gold.')}
+              </div>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setResetModalOpen(false)}
+            style={{
+              marginTop: 4,
+              padding: '11px',
+              borderRadius: 12,
+              background: 'transparent',
+              border: '1px solid var(--sep)',
+              color: 'var(--label-2)',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            {t('Cancel')}
+          </button>
+        </div>
+      </div>
+    )}
   </div>
 }
 

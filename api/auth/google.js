@@ -378,6 +378,9 @@ export async function ensureMongoAuthIndexes(mongoDb) {
     const states = mongoDb.collection('states');
     await states.createIndex({ userId: 1 }, { unique: true });
 
+    const userSettings = mongoDb.collection('user_settings');
+    await userSettings.createIndex({ userId: 1 }, { unique: true });
+
     const workoutTemplates = mongoDb.collection('workout_templates');
     await workoutTemplates.createIndex({ userId: 1 });
 
@@ -386,6 +389,21 @@ export async function ensureMongoAuthIndexes(mongoDb) {
 
     const weeklySchedules = mongoDb.collection('weekly_schedules');
     await weeklySchedules.createIndex({ userId: 1 });
+
+    const workoutSessions = mongoDb.collection('workout_sessions');
+    await workoutSessions.createIndex({ userId: 1 });
+
+    const mealLogs = mongoDb.collection('meal_logs');
+    await mealLogs.createIndex({ user_id: 1, date: 1 });
+
+    const cardioLogs = mongoDb.collection('cardio_logs');
+    await cardioLogs.createIndex({ userId: 1 });
+
+    const weightLogs = mongoDb.collection('weight_logs');
+    await weightLogs.createIndex({ userId: 1 });
+
+    const customExercises = mongoDb.collection('custom_exercises');
+    await customExercises.createIndex({ userId: 1 });
   } catch (err) {
     console.error('Failed to create MongoDB auth indexes:', err.message);
   }

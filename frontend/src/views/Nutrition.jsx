@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useStore } from '../store/useStore.js'
+import { useStore, getHealthStorageKey, getHealthSettingsKey } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { api } from '../lib/api.js'
 import { todayISO, fmtDate, fmtDur, fmtVol } from '../lib/format.js'
@@ -186,7 +186,7 @@ export default function Nutrition() {
 
   const loadFromLocalStorage = (d) => {
     try {
-      const stored = localStorage.getItem(`opengym_health_${d}`)
+      const stored = localStorage.getItem(getHealthStorageKey(user?.id, d))
       if (stored) {
         const parsed = JSON.parse(stored)
         setFoods(parsed.foods || [])
@@ -217,7 +217,7 @@ export default function Nutrition() {
         setStrength([])
       }
 
-      const savedSettings = localStorage.getItem('opengym_health_settings')
+      const savedSettings = localStorage.getItem(getHealthSettingsKey(user?.id))
       if (savedSettings) {
         const s = JSON.parse(savedSettings)
         if (s.water_goal_litres != null) {
@@ -235,7 +235,7 @@ export default function Nutrition() {
 
   const saveToLocalStorage = (d, newFoods, newWater, newCardio, newStrength) => {
     try {
-      localStorage.setItem(`opengym_health_${d}`, JSON.stringify({
+      localStorage.setItem(getHealthStorageKey(user?.id, d), JSON.stringify({
         foods: newFoods,
         water: newWater,
         cardio: newCardio,
@@ -252,7 +252,7 @@ export default function Nutrition() {
     setEditingWaterGoal(false)
 
     try {
-      localStorage.setItem('opengym_health_settings', JSON.stringify({ water_goal_litres: num, calorie_target: userCalorieTarget }))
+      localStorage.setItem(getHealthSettingsKey(user?.id), JSON.stringify({ water_goal_litres: num, calorie_target: userCalorieTarget }))
     } catch (e) {}
 
     if (user) {

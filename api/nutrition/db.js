@@ -246,6 +246,7 @@ export function getMealLogs(userId, date) {
 
 export function addMealLog(entry) {
   const d = getDb();
+  const id = entry.id || ('meal_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
   d.prepare(`
     INSERT OR REPLACE INTO meal_logs (
       id, user_id, date, meal_type, food_id, food_name, serving_quantity,
@@ -253,7 +254,7 @@ export function addMealLog(entry) {
       notes, assumptions, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    entry.id,
+    id,
     entry.user_id,
     entry.date,
     entry.meal_type,
@@ -273,10 +274,10 @@ export function addMealLog(entry) {
   );
   if (process.env.MONGODB_URI) {
     getMongoDb().then(mongo => {
-      if (mongo) mongo.collection('meal_logs').updateOne({ id: entry.id, user_id: entry.user_id }, { $set: entry }, { upsert: true }).catch(() => {});
+      if (mongo) mongo.collection('meal_logs').updateOne({ id, user_id: entry.user_id }, { $set: { ...entry, id } }, { upsert: true }).catch(() => {});
     }).catch(() => {});
   }
-  return entry;
+  return { ...entry, id };
 }
 
 export function updateMealLog(id, userId, updates) {
@@ -338,12 +339,13 @@ export function getWaterLogs(userId, date) {
 
 export function addWaterLog(entry) {
   const d = getDb();
+  const id = entry.id || ('water_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
   d.prepare(`
     INSERT OR REPLACE INTO water_logs (
       id, user_id, date, amount_ml, unit, notes, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(
-    entry.id,
+    id,
     entry.user_id,
     entry.date,
     entry.amount_ml,
@@ -353,10 +355,10 @@ export function addWaterLog(entry) {
   );
   if (process.env.MONGODB_URI) {
     getMongoDb().then(mongo => {
-      if (mongo) mongo.collection('water_logs').updateOne({ id: entry.id, user_id: entry.user_id }, { $set: entry }, { upsert: true }).catch(() => {});
+      if (mongo) mongo.collection('water_logs').updateOne({ id, user_id: entry.user_id }, { $set: { ...entry, id } }, { upsert: true }).catch(() => {});
     }).catch(() => {});
   }
-  return entry;
+  return { ...entry, id };
 }
 
 export function deleteWaterLog(id, userId) {
@@ -383,12 +385,13 @@ export function getCardioLogs(userId, date) {
 
 export function addCardioLog(entry) {
   const d = getDb();
+  const id = entry.id || ('cardio_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
   d.prepare(`
     INSERT OR REPLACE INTO cardio_logs (
       id, user_id, date, activity_type, duration_min, distance_km, steps, calories_burned, notes, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    entry.id,
+    id,
     entry.user_id,
     entry.date,
     entry.activity_type,
@@ -401,10 +404,10 @@ export function addCardioLog(entry) {
   );
   if (process.env.MONGODB_URI) {
     getMongoDb().then(mongo => {
-      if (mongo) mongo.collection('cardio_logs').updateOne({ id: entry.id, user_id: entry.user_id }, { $set: entry }, { upsert: true }).catch(() => {});
+      if (mongo) mongo.collection('cardio_logs').updateOne({ id, user_id: entry.user_id }, { $set: { ...entry, id } }, { upsert: true }).catch(() => {});
     }).catch(() => {});
   }
-  return entry;
+  return { ...entry, id };
 }
 
 export function updateCardioLog(id, userId, updates) {
@@ -458,15 +461,16 @@ export function getStrengthLogs(userId, date) {
 
 export function addStrengthLog(entry) {
   const d = getDb();
+  const id = entry.id || ('str_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
   d.prepare(`
     INSERT OR REPLACE INTO strength_logs (
       id, user_id, date, exercise_name, muscle_group, sets, reps, weight_kg, duration_min, calories_burned, notes, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    entry.id,
+    id,
     entry.user_id,
     entry.date,
-    entry.exercise_name,
+    entry.exercise_name || entry.workout_name || 'Workout',
     entry.muscle_group || null,
     entry.sets != null ? entry.sets : null,
     entry.reps != null ? entry.reps : null,
@@ -478,10 +482,10 @@ export function addStrengthLog(entry) {
   );
   if (process.env.MONGODB_URI) {
     getMongoDb().then(mongo => {
-      if (mongo) mongo.collection('strength_logs').updateOne({ id: entry.id, user_id: entry.user_id }, { $set: entry }, { upsert: true }).catch(() => {});
+      if (mongo) mongo.collection('strength_logs').updateOne({ id, user_id: entry.user_id }, { $set: { ...entry, id } }, { upsert: true }).catch(() => {});
     }).catch(() => {});
   }
-  return entry;
+  return { ...entry, id };
 }
 
 export function updateStrengthLog(id, userId, updates) {
@@ -690,3 +694,20 @@ export async function syncHealthLogsFromMongo(userId, date) {
     console.error('Mongo health log sync error:', err.message);
   }
 }
+
+export function clearAllNutritionDataForUser(userId) {
+  if (!userId) return;
+  const d = getDb();
+  if (!d) return;
+  try {
+    try { d.prepare("DELETE FROM meal_logs WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM water_logs WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM cardio_logs WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM strength_logs WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM user_nutrition_targets WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM daily_health_settings WHERE user_id = ?").run(userId); } catch {}
+  } catch (err) {
+    console.error('Error clearing SQLite nutrition data for user:', err.message);
+  }
+}
+

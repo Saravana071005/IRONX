@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
+import { getMongoDb } from '../db/mongo.js';
 
 let db = null;
 
@@ -245,6 +246,7 @@ export function getMealLogs(userId, date) {
 
 export function addMealLog(entry) {
   const d = getDb();
+  const id = entry.id || ('meal_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
   d.prepare(`
     INSERT OR REPLACE INTO meal_logs (
       id, user_id, date, meal_type, food_id, food_name, serving_quantity,
@@ -252,7 +254,7 @@ export function addMealLog(entry) {
       notes, assumptions, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    entry.id,
+    id,
     entry.user_id,
     entry.date,
     entry.meal_type,
@@ -270,7 +272,12 @@ export function addMealLog(entry) {
     typeof entry.assumptions === 'string' ? entry.assumptions : JSON.stringify(entry.assumptions || []),
     entry.created_at || new Date().toISOString()
   );
-  return entry;
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('meal_logs').updateOne({ id, user_id: entry.user_id }, { $set: { ...entry, id } }, { upsert: true }).catch(() => {});
+    }).catch(() => {});
+  }
+  return { ...entry, id };
 }
 
 export function updateMealLog(id, userId, updates) {
@@ -300,12 +307,22 @@ export function updateMealLog(id, userId, updates) {
     id,
     userId
   );
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('meal_logs').updateOne({ id, user_id: userId }, { $set: merged }).catch(() => {});
+    }).catch(() => {});
+  }
   return d.prepare("SELECT * FROM meal_logs WHERE id = ?").get(id);
 }
 
 export function deleteMealLog(id, userId) {
   const d = getDb();
   const res = d.prepare("DELETE FROM meal_logs WHERE id = ? AND user_id = ?").run(id, userId);
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('meal_logs').deleteOne({ id, user_id: userId }).catch(() => {});
+    }).catch(() => {});
+  }
   return res.changes > 0;
 }
 
@@ -322,12 +339,13 @@ export function getWaterLogs(userId, date) {
 
 export function addWaterLog(entry) {
   const d = getDb();
+  const id = entry.id || ('water_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
   d.prepare(`
     INSERT OR REPLACE INTO water_logs (
       id, user_id, date, amount_ml, unit, notes, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(
-    entry.id,
+    id,
     entry.user_id,
     entry.date,
     entry.amount_ml,
@@ -335,12 +353,22 @@ export function addWaterLog(entry) {
     entry.notes || null,
     entry.created_at || new Date().toISOString()
   );
-  return entry;
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('water_logs').updateOne({ id, user_id: entry.user_id }, { $set: { ...entry, id } }, { upsert: true }).catch(() => {});
+    }).catch(() => {});
+  }
+  return { ...entry, id };
 }
 
 export function deleteWaterLog(id, userId) {
   const d = getDb();
   const res = d.prepare("DELETE FROM water_logs WHERE id = ? AND user_id = ?").run(id, userId);
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('water_logs').deleteOne({ id, user_id: userId }).catch(() => {});
+    }).catch(() => {});
+  }
   return res.changes > 0;
 }
 
@@ -357,12 +385,13 @@ export function getCardioLogs(userId, date) {
 
 export function addCardioLog(entry) {
   const d = getDb();
+  const id = entry.id || ('cardio_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
   d.prepare(`
     INSERT OR REPLACE INTO cardio_logs (
       id, user_id, date, activity_type, duration_min, distance_km, steps, calories_burned, notes, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    entry.id,
+    id,
     entry.user_id,
     entry.date,
     entry.activity_type,
@@ -373,7 +402,12 @@ export function addCardioLog(entry) {
     entry.notes || null,
     entry.created_at || new Date().toISOString()
   );
-  return entry;
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('cardio_logs').updateOne({ id, user_id: entry.user_id }, { $set: { ...entry, id } }, { upsert: true }).catch(() => {});
+    }).catch(() => {});
+  }
+  return { ...entry, id };
 }
 
 export function updateCardioLog(id, userId, updates) {
@@ -395,12 +429,22 @@ export function updateCardioLog(id, userId, updates) {
     id,
     userId
   );
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('cardio_logs').updateOne({ id, user_id: userId }, { $set: merged }).catch(() => {});
+    }).catch(() => {});
+  }
   return d.prepare("SELECT * FROM cardio_logs WHERE id = ?").get(id);
 }
 
 export function deleteCardioLog(id, userId) {
   const d = getDb();
   const res = d.prepare("DELETE FROM cardio_logs WHERE id = ? AND user_id = ?").run(id, userId);
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('cardio_logs').deleteOne({ id, user_id: userId }).catch(() => {});
+    }).catch(() => {});
+  }
   return res.changes > 0;
 }
 
@@ -417,15 +461,16 @@ export function getStrengthLogs(userId, date) {
 
 export function addStrengthLog(entry) {
   const d = getDb();
+  const id = entry.id || ('str_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
   d.prepare(`
     INSERT OR REPLACE INTO strength_logs (
       id, user_id, date, exercise_name, muscle_group, sets, reps, weight_kg, duration_min, calories_burned, notes, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    entry.id,
+    id,
     entry.user_id,
     entry.date,
-    entry.exercise_name,
+    entry.exercise_name || entry.workout_name || 'Workout',
     entry.muscle_group || null,
     entry.sets != null ? entry.sets : null,
     entry.reps != null ? entry.reps : null,
@@ -435,7 +480,12 @@ export function addStrengthLog(entry) {
     entry.notes || null,
     entry.created_at || new Date().toISOString()
   );
-  return entry;
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('strength_logs').updateOne({ id, user_id: entry.user_id }, { $set: { ...entry, id } }, { upsert: true }).catch(() => {});
+    }).catch(() => {});
+  }
+  return { ...entry, id };
 }
 
 export function updateStrengthLog(id, userId, updates) {
@@ -459,12 +509,22 @@ export function updateStrengthLog(id, userId, updates) {
     id,
     userId
   );
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('strength_logs').updateOne({ id, user_id: userId }, { $set: merged }).catch(() => {});
+    }).catch(() => {});
+  }
   return d.prepare("SELECT * FROM strength_logs WHERE id = ?").get(id);
 }
 
 export function deleteStrengthLog(id, userId) {
   const d = getDb();
   const res = d.prepare("DELETE FROM strength_logs WHERE id = ? AND user_id = ?").run(id, userId);
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('strength_logs').deleteOne({ id, user_id: userId }).catch(() => {});
+    }).catch(() => {});
+  }
   return res.changes > 0;
 }
 
@@ -493,5 +553,161 @@ export function setDailyHealthSettings(userId, settings) {
     settings.water_goal_litres != null ? settings.water_goal_litres : 2.5,
     now
   );
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('daily_health_settings').updateOne({ user_id: userId }, { $set: { user_id: userId, ...settings, updated_at: now } }, { upsert: true }).catch(() => {});
+    }).catch(() => {});
+  }
   return getDailyHealthSettings(userId);
 }
+
+/* ==================== Serverless MongoDB Sync Helper ==================== */
+export async function syncHealthLogsFromMongo(userId, date) {
+  if (!process.env.MONGODB_URI) return;
+  try {
+    const mongo = await getMongoDb();
+    if (!mongo) return;
+    const d = getDb();
+
+    // Sync meals if local SQLite cache is empty for date
+    const existingMeals = d.prepare("SELECT COUNT(*) as count FROM meal_logs WHERE user_id = ? AND date = ?").get(userId, date);
+    if (!existingMeals || existingMeals.count === 0) {
+      let mFoods = await mongo.collection('meal_logs').find({ user_id: userId, date }).toArray();
+      if (!mFoods || mFoods.length === 0) {
+        const stateDoc = await mongo.collection('states').findOne({ userId });
+        if (stateDoc?.state?.meals && Array.isArray(stateDoc.state.meals)) {
+          mFoods = stateDoc.state.meals.filter(m => (m && (m.date === date || m.d === date)));
+        }
+      }
+      for (const f of (mFoods || [])) {
+        addMealLog({
+          id: f.id || 'food_' + Math.random().toString(36).slice(2, 9),
+          user_id: userId,
+          date: f.date || f.d || date,
+          meal_type: String(f.meal_type || f.type || 'lunch').toLowerCase(),
+          food_id: f.food_id || f.foodId || null,
+          food_name: f.food_name || f.name || 'Food item',
+          serving_quantity: Number(f.serving_quantity || f.qty) || 1,
+          serving_unit: f.serving_unit || f.unit || 'g',
+          serving_grams: Number(f.serving_grams || f.grams) || 0,
+          energy_kcal: Number(f.energy_kcal != null ? f.energy_kcal : (f.calories != null ? f.calories : 0)),
+          protein_g: Number(f.protein_g != null ? f.protein_g : (f.protein != null ? f.protein : 0)),
+          carb_g: Number(f.carb_g != null ? f.carb_g : (f.carb != null ? f.carb : 0)),
+          fat_g: Number(f.fat_g != null ? f.fat_g : (f.fat != null ? f.fat : 0)),
+          fibre_g: Number(f.fibre_g != null ? f.fibre_g : (f.fibre != null ? f.fibre : 0)),
+          notes: f.notes || null,
+          created_at: f.created_at || f.createdAt || new Date().toISOString()
+        });
+      }
+    }
+
+    // Sync water if local SQLite cache is empty for date
+    const existingWater = d.prepare("SELECT COUNT(*) as count FROM water_logs WHERE user_id = ? AND date = ?").get(userId, date);
+    if (!existingWater || existingWater.count === 0) {
+      const mWater = await mongo.collection('water_logs').find({ user_id: userId, date }).toArray();
+      for (const w of mWater) {
+        addWaterLog(w);
+      }
+    }
+
+    // Sync cardio if local SQLite cache is empty for date
+    const existingCardio = d.prepare("SELECT COUNT(*) as count FROM cardio_logs WHERE user_id = ? AND date = ?").get(userId, date);
+    if (!existingCardio || existingCardio.count === 0) {
+      let mCardio = await mongo.collection('cardio_logs').find({ $or: [{ userId, d: date }, { user_id: userId, date }] }).toArray();
+      if (!mCardio || mCardio.length === 0) {
+        const stateDoc = await mongo.collection('states').findOne({ userId });
+        if (stateDoc?.state?.cardioLogs && Array.isArray(stateDoc.state.cardioLogs)) {
+          mCardio = stateDoc.state.cardioLogs.filter(c => (c && (c.d === date || c.date === date)));
+        }
+      }
+      for (const c of (mCardio || [])) {
+        addCardioLog({
+          id: c.id,
+          user_id: userId,
+          date: c.date || c.d || date,
+          activity_type: c.activity_type || c.activity || 'Walking',
+          duration_min: Number(c.duration_min != null ? c.duration_min : (c.totalDurationMinutes || c.durationMinutes || 0)),
+          distance_km: c.distance_km != null ? Number(c.distance_km) : (c.distanceKm != null ? Number(c.distanceKm) : null),
+          steps: c.steps != null ? Number(c.steps) : null,
+          calories_burned: c.calories_burned != null ? Number(c.calories_burned) : null,
+          notes: c.notes || null,
+          created_at: c.created_at || c.createdAt || new Date().toISOString()
+        });
+      }
+    }
+
+    // Sync strength from completed workout sessions if local SQLite strength cache is empty for date
+    const existingStrength = d.prepare("SELECT COUNT(*) as count FROM strength_logs WHERE user_id = ? AND date = ?").get(userId, date);
+    if (!existingStrength || existingStrength.count === 0) {
+      let mStrength = await mongo.collection('strength_logs').find({ user_id: userId, date }).toArray();
+      if (mStrength && mStrength.length > 0) {
+        for (const s of mStrength) {
+          addStrengthLog(s);
+        }
+      } else {
+        // Look up completed workout sessions for this date
+        let mWorkouts = await mongo.collection('workout_sessions').find({ userId, d: date }).toArray();
+        if (!mWorkouts || mWorkouts.length === 0) {
+          const stateDoc = await mongo.collection('states').findOne({ userId });
+          if (stateDoc?.state?.workouts && Array.isArray(stateDoc.state.workouts)) {
+            mWorkouts = stateDoc.state.workouts.filter(w => (w && w.d === date));
+          }
+        }
+        if (mWorkouts && mWorkouts.length > 0) {
+          for (const w of mWorkouts) {
+            const durMin = Math.max(1, Math.round((w.dur || 0) / 60000));
+            const entries = w.entries || [];
+            for (let i = 0; i < entries.length; i++) {
+              const e = entries[i];
+              const doneSets = (e.sets || []).filter(s => s.done);
+              const topWeight = Math.max(0, ...doneSets.map(s => s.w || 0), e.topW || 0);
+              const repsStr = doneSets.map(s => s.r).filter(Boolean).join(', ');
+              addStrengthLog({
+                id: `w_${w.id}_${e.id || i}`,
+                user_id: userId,
+                date: w.d || date,
+                exercise_name: e.name || e.id || 'Exercise',
+                muscle_group: w.name || 'Strength',
+                sets: doneSets.length || (e.sets || []).length || 1,
+                reps: doneSets.length ? (doneSets[0]?.r || null) : null,
+                weight_kg: topWeight || null,
+                duration_min: i === 0 ? durMin : null,
+                calories_burned: null,
+                notes: `${w.name || 'Strength Workout'} · ${doneSets.length} sets${repsStr ? ` (${repsStr} reps)` : ''}`,
+                created_at: w.createdAt || new Date(w.start || Date.now()).toISOString()
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Sync settings if local SQLite cache is empty
+    const existingSettings = d.prepare("SELECT * FROM daily_health_settings WHERE user_id = ?").get(userId);
+    if (!existingSettings) {
+      const mSettings = await mongo.collection('daily_health_settings').findOne({ user_id: userId });
+      if (mSettings) {
+        setDailyHealthSettings(userId, mSettings);
+      }
+    }
+  } catch (err) {
+    console.error('Mongo health log sync error:', err.message);
+  }
+}
+
+export function clearAllNutritionDataForUser(userId) {
+  if (!userId) return;
+  const d = getDb();
+  if (!d) return;
+  try {
+    try { d.prepare("DELETE FROM meal_logs WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM water_logs WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM cardio_logs WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM strength_logs WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM user_nutrition_targets WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM daily_health_settings WHERE user_id = ?").run(userId); } catch {}
+  } catch (err) {
+    console.error('Error clearing SQLite nutrition data for user:', err.message);
+  }
+}
+

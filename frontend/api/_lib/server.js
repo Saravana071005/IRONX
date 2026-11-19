@@ -15,7 +15,19 @@ import * as coachJobs from './coach/jobs.js';
 import { coachRoutes } from './coach/routes.js';
 import { startCadence } from './coach/cadence.js';
 import { nutritionRoutes } from './nutrition/routes.js';
+import { clearAllNutritionDataForUser } from './nutrition/db.js';
 import { getMongoDb, pingMongo } from './db/mongo.js';
+import {
+  calculateAge,
+  validateProfileData,
+  signOAuthState,
+  verifyOAuthState,
+  getGoogleAuthUrl,
+  exchangeCodeForTokens,
+  verifyGoogleIdToken,
+  mergeGuestState,
+  ensureMongoAuthIndexes
+} from './auth/google.js';
 
 // Load server environment variables from .env if present
 const envCandidates = [path.resolve(process.cwd(), '.env'), path.resolve(process.cwd(), '../.env')];
@@ -45,9 +57,26 @@ const isVercel = !!(process.env.VERCEL || process.env.NOW_REGION);
 const defaultDataDir = isVercel ? path.join(os.tmpdir(), 'opengym-data') : (fs.existsSync('/data') ? '/data' : path.resolve(process.cwd(), 'data'));
 const DATA = process.env.DATA_DIR || defaultDataDir;
 const RP_NAME = process.env.RP_NAME || 'openGym';
-const ORIGIN = process.env.ORIGIN || 'http://localhost:8080';
+const ORIGIN = (process.env.ORIGIN || 'http://localhost:8080').trim();
+const FRONTEND_ORIGIN = (process.env.FRONTEND_ORIGIN || process.env.ORIGIN || 'https://opengym-frontend-229c.onrender.com').trim();
+const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
+const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
+
+function getGoogleCallbackUrl(req) {
+  if (process.env.GOOGLE_CALLBACK_URL) return process.env.GOOGLE_CALLBACK_URL.trim();
+  const host = (req?.headers?.['x-forwarded-host'] || req?.headers?.host || '').trim();
+  const proto = (req?.headers?.['x-forwarded-proto'] || (req?.socket?.encrypted ? 'https' : 'http')).trim();
+  if (host && host !== 'localhost' && !host.startsWith('127.0.0.1')) {
+    return `${proto}://${host}/api/auth/google/callback`;
+  }
+  return 'https://opengym-backend-ikdi.onrender.com/api/auth/google/callback';
+}
+
 const ORIGINS = Array.from(new Set([
   ORIGIN,
+  FRONTEND_ORIGIN,
+  'https://opengym-frontend-229c.onrender.com',
+  'https://opengym-backend-ikdi.onrender.com',
   'http://localhost:8080',
   'http://localhost:5173',
   'http://localhost:3000',
@@ -58,9 +87,17 @@ const ORIGINS = Array.from(new Set([
 ]));
 
 function getRpId(req) {
-  const host = (req?.headers?.['x-forwarded-host'] || req?.headers?.host || '').split(':')[0];
+  const envRpId = (process.env.RP_ID || '').trim();
+  if (envRpId && envRpId !== 'localhost') return envRpId;
+  if (req?.headers?.origin) {
+    try {
+      const h = new URL(req.headers.origin).hostname;
+      if (h && h !== 'localhost' && h !== '127.0.0.1') return h;
+    } catch {}
+  }
+  if (envRpId) return envRpId;
+  const host = (req?.headers?.['x-forwarded-host'] || req?.headers?.host || '').split(':')[0].trim();
   if (host && host !== 'localhost' && host !== '127.0.0.1') return host;
-  if (process.env.RP_ID) return process.env.RP_ID;
   return host || 'localhost';
 }
 
@@ -101,6 +138,8 @@ const SECRET = process.env.SECRET || (fs.existsSync(secretFile) ? fs.readFileSyn
 const dbFile = path.join(DATA, 'db.json');
 let db = { users: [], creds: [], subs: [], invites: [] };
 try { db = JSON.parse(fs.readFileSync(dbFile, 'utf8')); } catch {}
+db.users = db.users || [];
+db.creds = db.creds || [];
 db.subs = db.subs || [];
 db.invites = db.invites || [];
 
@@ -109,25 +148,30 @@ async function syncFromMongo() {
   try {
     const mongo = await getMongoDb();
     if (!mongo) return;
+    await ensureMongoAuthIndexes(mongo);
     const users = await mongo.collection('users').find({}).toArray();
     const creds = await mongo.collection('credentials').find({}).toArray();
     const invites = await mongo.collection('invites').find({}).toArray();
-    if (users?.length) db.users = users;
-    if (creds?.length) db.creds = creds;
-    if (invites?.length) db.invites = invites;
+    if (users && Array.isArray(users)) db.users = users;
+    if (creds && Array.isArray(creds)) db.creds = creds;
+    if (invites && Array.isArray(invites)) db.invites = invites;
   } catch (err) {
     console.error('Mongo sync error:', err.message);
+    throw err;
   }
 }
 let syncPromise = null;
 async function ensureMongoSync() {
   if (!process.env.MONGODB_URI) return;
   if (!syncPromise) {
-    syncPromise = syncFromMongo();
+    syncPromise = syncFromMongo().catch(err => {
+      console.error('ensureMongoSync error:', err.message);
+      syncPromise = null; // Reset so future requests can retry connecting
+    });
   }
   return syncPromise;
 }
-syncFromMongo();
+syncFromMongo().catch(() => {});
 
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
 function saveDb() {
@@ -153,6 +197,122 @@ function atomicWrite(file, content) {
   fs.renameSync(tmp, file);
 }
 const stateFile = uid => path.join(DATA, 'state-' + uid.replace(/[^a-zA-Z0-9_-]/g, '') + '.json');
+const settingsFile = uid => path.join(DATA, 'settings-' + uid.replace(/[^a-zA-Z0-9_-]/g, '') + '.json');
+
+function defaultUserSettings(userId = null) {
+  return {
+    userId: userId || 'guest',
+    themeMode: 'dark',
+    themePreset: 'warm-gold',
+    accentColor: '#E8B477',
+    ambientGlowIntensity: 1.0,
+    upperGlowIntensity: 1.0,
+    backgroundSettings: {
+      bgDarkness: '#090909',
+      bgAnimation: true,
+      glassOpacity: 0.80,
+      blurIntensity: 1.0
+    },
+    language: 'en',
+    measurementUnit: 'kg',
+    notificationPreferences: {
+      restAlertEnabled: true,
+      restAlertTone: 'alarm',
+      restAlertVolume: 1.0,
+      restVibrationEnabled: true,
+      restNotifications: false
+    },
+    calorieTarget: 1900,
+    waterGoalLitres: 2.5,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+async function getUserSettings(userId) {
+  if (!userId) return defaultUserSettings('guest');
+  if (process.env.MONGODB_URI) {
+    try {
+      const mongo = await getMongoDb();
+      if (mongo) {
+        const doc = await mongo.collection('user_settings').findOne({ userId });
+        if (doc) {
+          const { _id, ...clean } = doc;
+          return {
+            ...defaultUserSettings(userId),
+            ...clean,
+            backgroundSettings: {
+              ...(defaultUserSettings(userId).backgroundSettings),
+              ...(clean.backgroundSettings || {})
+            },
+            notificationPreferences: {
+              ...(defaultUserSettings(userId).notificationPreferences),
+              ...(clean.notificationPreferences || {})
+            }
+          };
+        }
+      }
+    } catch (e) {
+      console.error('Mongo read user_settings error:', e.message);
+    }
+  }
+  try {
+    const sFile = settingsFile(userId);
+    if (fs.existsSync(sFile)) {
+      const parsed = JSON.parse(fs.readFileSync(sFile, 'utf8'));
+      return {
+        ...defaultUserSettings(userId),
+        ...parsed,
+        backgroundSettings: {
+          ...(defaultUserSettings(userId).backgroundSettings),
+          ...(parsed.backgroundSettings || {})
+        },
+        notificationPreferences: {
+          ...(defaultUserSettings(userId).notificationPreferences),
+          ...(parsed.notificationPreferences || {})
+        }
+      };
+    }
+  } catch {}
+  return defaultUserSettings(userId);
+}
+
+async function saveUserSettings(userId, updates = {}) {
+  if (!userId) return null;
+  const current = await getUserSettings(userId);
+  const updated = {
+    ...current,
+    ...updates,
+    backgroundSettings: {
+      ...(current.backgroundSettings || {}),
+      ...(updates.backgroundSettings || {})
+    },
+    notificationPreferences: {
+      ...(current.notificationPreferences || {}),
+      ...(updates.notificationPreferences || {})
+    },
+    userId,
+    updatedAt: new Date().toISOString()
+  };
+
+  try { atomicWrite(settingsFile(userId), JSON.stringify(updated, null, 2)); } catch {}
+
+  if (process.env.MONGODB_URI) {
+    try {
+      const mongo = await getMongoDb();
+      if (mongo) {
+        await mongo.collection('user_settings').updateOne(
+          { userId },
+          { $set: updated },
+          { upsert: true }
+        );
+      }
+    } catch (e) {
+      console.error('Mongo write user_settings error:', e.message);
+    }
+  }
+  return updated;
+}
+
 function readState(uid) {
   try { return JSON.parse(fs.readFileSync(stateFile(uid), 'utf8')); } catch { return null; }
 }
@@ -278,10 +438,16 @@ function makeSession(user) {
   return sign(user.id + ':' + exp + ':' + sessionVersion(user));
 }
 function readSession(req) {
-  const cookies = Object.fromEntries((req.headers.cookie || '').split(';').map(c => {
-    const i = c.indexOf('='); return i < 0 ? ['', ''] : [c.slice(0, i).trim(), c.slice(i + 1).trim()];
-  }));
-  const tok = cookies.gymsid;
+  let tok = null;
+  if (req?.headers?.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    tok = req.headers.authorization.slice(7).trim();
+  }
+  if (!tok && req?.headers?.cookie) {
+    const cookies = Object.fromEntries((req.headers.cookie || '').split(';').map(c => {
+      const i = c.indexOf('='); return i < 0 ? ['', ''] : [c.slice(0, i).trim(), c.slice(i + 1).trim()];
+    }));
+    tok = cookies.gymsid;
+  }
   if (!tok) return null;
   const payload = verifySig(tok);
   if (!payload) return null;
@@ -304,9 +470,14 @@ function requireAdmin(req, res) {
   return user;
 }
 function sessionCookie(user, req) {
-  const isHttps = (req?.headers?.['x-forwarded-proto'] === 'https') || (req?.socket?.encrypted) || /^https:/i.test(ORIGIN);
-  const secureFlag = isHttps ? ' Secure;' : '';
-  return `gymsid=${makeSession(user)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly;${secureFlag} SameSite=Lax`;
+  const isHttps = (req?.headers?.['x-forwarded-proto'] === 'https') || (req?.socket?.encrypted) || /^https:/i.test(ORIGIN) || !!process.env.RENDER;
+  const sameSite = isHttps ? 'SameSite=None; Secure; Partitioned' : 'SameSite=Lax';
+  return `gymsid=${makeSession(user)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly; ${sameSite}`;
+}
+function getClearCookie(req) {
+  const isHttps = (req?.headers?.['x-forwarded-proto'] === 'https') || (req?.socket?.encrypted) || /^https:/i.test(ORIGIN) || !!process.env.RENDER;
+  const sameSite = isHttps ? 'SameSite=None; Secure; Partitioned' : 'SameSite=Lax';
+  return `gymsid=; Path=/; Max-Age=0; HttpOnly; ${sameSite}`;
 }
 const clearCookie = `gymsid=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Lax`;
 
@@ -399,23 +570,37 @@ setInterval(() => { for (const [k, v] of presence) if (Date.now() - v.updatedAt 
 
 /* ---------- routes ---------- */
 const routes = {
+  'GET /': async (req, res) => {
+    json(res, 200, {
+      status: 'ok',
+      service: 'OpenGym API',
+      message: 'Backend server is running'
+    });
+  },
   'GET /api/health': async (req, res) => {
     let mongoStatus = { connected: false, configured: false };
     if (process.env.MONGODB_URI) {
-      mongoStatus = await pingMongo();
+      try {
+        mongoStatus = await pingMongo();
+      } catch (e) {
+        mongoStatus = { connected: false, configured: true, error: e.message };
+      }
     }
     const isDbConnected = process.env.MONGODB_URI ? mongoStatus.connected : true;
     if (req.url && (req.url.includes('format=simple') || req.url.endsWith('/db'))) {
       return json(res, isDbConnected ? 200 : 503, { database: isDbConnected ? 'connected' : 'unavailable' });
     }
-    json(res, isDbConnected ? 200 : 503, {
-      ok: isDbConnected,
+    // Process health check (liveness probe) always returns 200 to indicate process is up and listening
+    json(res, 200, {
+      ok: true,
+      status: 'healthy',
       database: isDbConnected ? 'connected' : 'unavailable',
-      users: db.users.length,
+      users: (db.users || []).length,
       details: {
         type: process.env.MONGODB_URI ? 'mongodb' : 'sqlite_file',
         connected: isDbConnected,
-        configured: !!process.env.MONGODB_URI
+        configured: !!process.env.MONGODB_URI,
+        ...(mongoStatus.error ? { error: mongoStatus.error } : {})
       }
     });
   },
@@ -423,7 +608,11 @@ const routes = {
   'GET /api/health/db': async (req, res) => {
     let mongoStatus = { connected: false, configured: false };
     if (process.env.MONGODB_URI) {
-      mongoStatus = await pingMongo();
+      try {
+        mongoStatus = await pingMongo();
+      } catch (e) {
+        mongoStatus = { connected: false, configured: true, error: e.message };
+      }
     }
     const isDbConnected = process.env.MONGODB_URI ? mongoStatus.connected : true;
     json(res, isDbConnected ? 200 : 503, {
@@ -437,13 +626,321 @@ const routes = {
   // the app it was before the feature existed.
   'GET /api/config': async (req, res) => {
     const coach = coachConfig.publicConfig();
-    json(res, 200, { invite_only: INVITE_ONLY, ...(coach ? { coach } : {}) });
+    json(res, 200, {
+      auth_provider: 'google',
+      google_client_id: GOOGLE_CLIENT_ID || null,
+      invite_only: INVITE_ONLY,
+      ...(coach ? { coach } : {})
+    });
   },
 
   'GET /api/me': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } });
+    const age = user.profile?.dateOfBirth ? calculateAge(user.profile.dateOfBirth) : null;
+    const profile = user.profile ? { ...user.profile, age } : null;
+    const settings = await getUserSettings(user.id);
+    json(res, 200, {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email || null,
+        picture: user.picture || null,
+        googleSub: user.googleSub || null,
+        profile,
+        settings,
+        isNewUser: !user.profile || !user.profile.completed,
+        admin: isAdmin(user)
+      }
+    });
+  },
+
+  /* ---------- Google OAuth 2.0 ---------- */
+  'GET /api/auth/google': async (req, res) => {
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      return json(res, 500, {
+        error: 'google_not_configured',
+        message: 'Google OAuth is not configured on this server. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in environment variables.'
+      });
+    }
+    const parsedUrl = new URL(req.url, 'http://localhost');
+    const returnUrl = parsedUrl.searchParams.get('returnUrl') || '/home';
+    const intent = parsedUrl.searchParams.get('intent') || 'login';
+    const state = signOAuthState({ returnUrl, intent }, SECRET);
+    const callbackUrl = getGoogleCallbackUrl(req);
+    const authUrl = getGoogleAuthUrl({ clientId: GOOGLE_CLIENT_ID, callbackUrl, state });
+
+    if (parsedUrl.searchParams.get('format') === 'json' || req.headers.accept?.includes('application/json')) {
+      return json(res, 200, { url: authUrl });
+    }
+    res.writeHead(302, { Location: authUrl });
+    res.end();
+  },
+
+  'GET /api/auth/google/callback': async (req, res) => {
+    const parsedUrl = new URL(req.url, 'http://localhost');
+    const code = parsedUrl.searchParams.get('code');
+    const state = parsedUrl.searchParams.get('state');
+    const oauthError = parsedUrl.searchParams.get('error');
+    const frontendBase = FRONTEND_ORIGIN;
+
+    if (oauthError) {
+      res.writeHead(302, { Location: `${frontendBase}/#/login?error=${encodeURIComponent(oauthError)}` });
+      res.end();
+      return;
+    }
+    if (!code || !state) {
+      res.writeHead(302, { Location: `${frontendBase}/#/login?error=missing_code_or_state` });
+      res.end();
+      return;
+    }
+    const stateData = verifyOAuthState(state, SECRET);
+    if (!stateData) {
+      res.writeHead(302, { Location: `${frontendBase}/#/login?error=invalid_or_expired_state` });
+      res.end();
+      return;
+    }
+
+    try {
+      const callbackUrl = getGoogleCallbackUrl(req);
+      const tokenResponse = await exchangeCodeForTokens({
+        code,
+        clientId: GOOGLE_CLIENT_ID,
+        clientSecret: GOOGLE_CLIENT_SECRET,
+        callbackUrl
+      });
+      const googleUser = await verifyGoogleIdToken({
+        idToken: tokenResponse.id_token,
+        clientId: GOOGLE_CLIENT_ID
+      });
+
+      let mongo = null;
+      if (process.env.MONGODB_URI) {
+        try { mongo = await getMongoDb(); } catch {}
+      }
+
+      // Check existing user by googleSub
+      let user = db.users.find(u => u.googleSub === googleUser.sub);
+      if (!user && mongo) {
+        user = await mongo.collection('users').findOne({ googleSub: googleUser.sub });
+        if (user) db.users.push(user);
+      }
+
+      // Safe linking: match by verified email if account exists
+      if (!user) {
+        let existingByEmail = db.users.find(u => u.email && u.email.toLowerCase() === googleUser.email.toLowerCase());
+        if (!existingByEmail && mongo) {
+          existingByEmail = await mongo.collection('users').findOne({ email: googleUser.email.toLowerCase() });
+          if (existingByEmail) db.users.push(existingByEmail);
+        }
+        if (existingByEmail) {
+          user = existingByEmail;
+          user.googleSub = googleUser.sub;
+          user.emailVerified = true;
+          user.picture = user.picture || googleUser.picture;
+          user.updatedAt = new Date().toISOString();
+          if (mongo) {
+            await mongo.collection('users').updateOne(
+              { id: user.id },
+              { $set: { googleSub: user.googleSub, emailVerified: true, picture: user.picture, updatedAt: user.updatedAt } }
+            );
+          }
+        }
+      }
+
+      let isNewUser = false;
+      if (!user) {
+        isNewUser = true;
+        const uid = crypto.randomBytes(12).toString('base64url');
+        user = {
+          id: uid,
+          googleSub: googleUser.sub,
+          email: googleUser.email,
+          emailVerified: true,
+          name: googleUser.name,
+          picture: googleUser.picture,
+          profile: null,
+          created: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          sv: 0
+        };
+        db.users.push(user);
+        if (mongo) {
+          try {
+            await mongo.collection('users').insertOne(user);
+            await mongo.collection('user_settings').insertOne(defaultUserSettings(user.id)).catch(() => {});
+            // Create fresh isolated state with ZERO data for the new account
+            await mongo.collection('states').insertOne({
+              userId: user.id,
+              state: {
+                unit: 'kg', restSec: 90, sound: true, keepAwake: true, lang: 'en',
+                theme: 'dark', accent: 'mint', body: 'male', targetW: null,
+                bodyweight: [], routines: [], week: {}, dayPlan: {},
+                exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
+                reminder: { on: false, time: '08:00', tz: null }, effort: null,
+                coach: null, favorites: [], restAlertEnabled: true, restAlertTone: 'alarm',
+                restAlertVolume: 1.0, restVibrationEnabled: true, restNotifications: false,
+                nutritionTargets: { calorie: 1900, calories: 1900, protein: 140, carb: 220, carbs: 220, fat: 65, fibre: 30, diet: 'all', waterGoal: 2.5 },
+                meals: [], workoutTemplates: [], cardioLogs: [],
+                bgTheme: 'warm-gold', goldShade: '#E8B477', bronzeShade: '#C58A53',
+                bgDarkness: '#090909', ambientGlow: true, glowIntensity: 1.0, blurIntensity: 1.0,
+                glassOpacity: 0.80, bgAnimation: true, _ts: Date.now()
+              },
+              updatedAt: new Date().toISOString()
+            });
+          } catch (err) {
+            console.error('Mongo insert user error:', err.message);
+          }
+        }
+      } else {
+        user.picture = googleUser.picture || user.picture;
+        user.name = user.name || googleUser.name;
+        user.updatedAt = new Date().toISOString();
+        if (mongo) {
+          try {
+            await mongo.collection('users').updateOne(
+              { id: user.id },
+              { $set: { picture: user.picture, updatedAt: user.updatedAt } }
+            );
+          } catch {}
+        }
+      }
+      saveDb();
+
+      const session = makeSession(user);
+      const cookie = sessionCookie(user, req);
+      const needsProfile = !user.profile || !user.profile.completed;
+      const targetPath = needsProfile ? '/profile-setup' : (stateData.returnUrl || '/home');
+      const redirectUrl = `${frontendBase}/#/auth-callback?token=${encodeURIComponent(session)}&target=${encodeURIComponent(targetPath)}&isNew=${needsProfile ? '1' : '0'}`;
+
+      res.writeHead(302, {
+        'Location': redirectUrl,
+        'Set-Cookie': cookie
+      });
+      res.end();
+    } catch (err) {
+      console.error('Google OAuth callback error:', err.message);
+      res.writeHead(302, { Location: `${frontendBase}/#/login?error=${encodeURIComponent(err.message)}` });
+      res.end();
+    }
+  },
+
+  /* ---------- Personal Fitness Profile ---------- */
+  'PUT /api/profile': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const { valid, profile, calculatedAge, error } = validateProfileData(body);
+    if (!valid) return json(res, 400, { error });
+
+    user.profile = profile;
+    user.name = profile.fullName;
+    user.updatedAt = new Date().toISOString();
+    saveDb();
+
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          await mongo.collection('users').updateOne(
+            { id: user.id },
+            { $set: { profile: user.profile, name: user.name, updatedAt: user.updatedAt } }
+          );
+
+          // Update initial bodyweight & target weight in user's state
+          if (profile.currentWeightKg) {
+            const today = new Date().toISOString().slice(0, 10);
+            const stateDoc = await mongo.collection('states').findOne({ userId: user.id });
+            const existingState = stateDoc?.state || {
+              unit: 'kg', restSec: 90, sound: true, keepAwake: true, lang: 'en',
+              theme: 'dark', accent: 'mint', body: 'male', targetW: null,
+              bodyweight: [], routines: [], week: {}, dayPlan: {},
+              exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
+              reminder: { on: false, time: '08:00', tz: null }, effort: null,
+              coach: null, favorites: [], restAlertEnabled: true, restAlertTone: 'alarm',
+              restAlertVolume: 1.0, restVibrationEnabled: true, restNotifications: false,
+              nutritionTargets: { calorie: 1900, calories: 1900, protein: 140, carb: 220, carbs: 220, fat: 65, fibre: 30, diet: 'all', waterGoal: 2.5 },
+              meals: [], workoutTemplates: [], cardioLogs: []
+            };
+            existingState.bodyweight = existingState.bodyweight || [];
+            if (profile.targetWeightKg) {
+              existingState.targetW = profile.targetWeightKg;
+            }
+            existingState._ts = Date.now();
+            await mongo.collection('states').updateOne(
+              { userId: user.id },
+              { $set: { userId: user.id, state: existingState, updatedAt: new Date().toISOString() } },
+              { upsert: true }
+            );
+          }
+        }
+      } catch (err) {
+        console.error('Mongo profile update error:', err.message);
+      }
+    }
+
+    json(res, 200, {
+      ok: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email || null,
+        picture: user.picture || null,
+        googleSub: user.googleSub || null,
+        profile: { ...profile, age: calculatedAge },
+        isNewUser: false,
+        admin: isAdmin(user)
+      }
+    });
+  },
+
+  /* ---------- Guest Progress Import ---------- */
+  'POST /api/auth/import-guest': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    if (!body.guestState || typeof body.guestState !== 'object') {
+      return json(res, 400, { error: 'guestState required' });
+    }
+
+    let cloudState = null;
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          const doc = await mongo.collection('states').findOne({ userId: user.id });
+          cloudState = doc?.state || null;
+        }
+      } catch {}
+    }
+    if (!cloudState) {
+      try {
+        cloudState = JSON.parse(fs.readFileSync(stateFile(user.id), 'utf8'));
+      } catch {
+        cloudState = {};
+      }
+    }
+
+    const { mergedState, counts } = mergeGuestState(cloudState, body.guestState);
+    try { atomicWrite(stateFile(user.id), JSON.stringify(mergedState)); } catch {}
+
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          await mongo.collection('states').updateOne(
+            { userId: user.id },
+            { $set: { userId: user.id, state: mergedState, updatedAt: new Date().toISOString() } },
+            { upsert: true }
+          );
+        }
+      } catch (err) {
+        console.error('Mongo guest import write error:', err.message);
+      }
+    }
+
+    json(res, 200, { ok: true, state: mergedState, counts });
   },
 
   'POST /api/register/options': async (req, res) => {
@@ -576,7 +1073,7 @@ const routes = {
     json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user, req) });
   },
 
-  'POST /api/logout': async (req, res) => json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie }),
+  'POST /api/logout': async (req, res) => json(res, 200, { ok: true }, { 'Set-Cookie': getClearCookie(req) }),
 
   // "Sign out everywhere" — bumps this user's session version, which invalidates every cookie
   // ever issued for the account, on every device, including a copy someone else walked off with.
@@ -587,25 +1084,131 @@ const routes = {
     if (!user) return json(res, 401, { error: 'not signed in' });
     user.sv = sessionVersion(user) + 1;
     saveDb();
-    json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie });
+    json(res, 200, { ok: true }, { 'Set-Cookie': getClearCookie(req) });
   },
 
   'GET /api/data': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
+    let state = null;
+    const settings = await getUserSettings(user.id);
+
     if (process.env.MONGODB_URI) {
       try {
         const mongo = await getMongoDb();
         if (mongo) {
           const doc = await mongo.collection('states').findOne({ userId: user.id });
-          if (doc?.state) return json(res, 200, { state: doc.state });
+          if (doc?.state) {
+            state = doc.state;
+          }
+
+          // Hydrate workoutTemplates from scoped collections only if NOT reset
+          if (state && !state.isReset && (!state.workoutTemplates || !state.workoutTemplates.length)) {
+            const tplDoc = await mongo.collection('workout_templates').findOne({ userId: user.id });
+            if (tplDoc?.templates && tplDoc.templates.length) {
+              state.workoutTemplates = tplDoc.templates;
+            } else {
+              const userTpls = await mongo.collection('user_templates').find({ userId: user.id }).toArray();
+              if (userTpls && userTpls.length) {
+                state.workoutTemplates = userTpls;
+              }
+            }
+          }
+
+          // Hydrate weeklySchedule if missing or empty and not reset
+          if (state && !state.isReset && (!state.weeklySchedule || !Object.keys(state.weeklySchedule).length)) {
+            const schedDoc = await mongo.collection('weekly_schedules').findOne({ userId: user.id });
+            if (schedDoc?.schedule) {
+              state.weeklySchedule = schedDoc.schedule;
+            }
+          }
+
+          // Hydrate meals if missing or empty and not reset
+          if (state && !state.isReset && (!state.meals || !state.meals.length)) {
+            const mList = await mongo.collection('meal_logs').find({ user_id: user.id }).toArray();
+            if (mList && mList.length) {
+              state.meals = mList.map(m => ({
+                id: m.id || m._id?.toString(),
+                d: m.date || m.d,
+                date: m.date || m.d,
+                type: m.meal_type || m.type || 'lunch',
+                meal_type: m.meal_type || m.type || 'lunch',
+                name: m.food_name || m.name,
+                food_name: m.food_name || m.name,
+                qty: m.serving_quantity || m.qty || 1,
+                serving_quantity: m.serving_quantity || m.qty || 1,
+                unit: m.serving_unit || m.unit || 'g',
+                serving_unit: m.serving_unit || m.unit || 'g',
+                energy_kcal: m.energy_kcal != null ? m.energy_kcal : (m.calories != null ? m.calories : 0),
+                calories: m.energy_kcal != null ? m.energy_kcal : (m.calories != null ? m.calories : 0),
+                protein_g: m.protein_g != null ? m.protein_g : (m.protein != null ? m.protein : 0),
+                protein: m.protein_g != null ? m.protein_g : (m.protein != null ? m.protein : 0),
+                carb_g: m.carb_g != null ? m.carb_g : (m.carb != null ? m.carb : (m.carbs != null ? m.carbs : 0)),
+                carb: m.carb_g != null ? m.carb_g : (m.carb != null ? m.carb : (m.carbs != null ? m.carbs : 0)),
+                fat_g: m.fat_g != null ? m.fat_g : (m.fat != null ? m.fat : 0),
+                fat: m.fat_g != null ? m.fat_g : (m.fat != null ? m.fat : 0),
+                notes: m.notes || null,
+                created_at: m.created_at || m.createdAt
+              }));
+            }
+          }
+
+          // Hydrate cardioLogs if missing or empty and not reset
+          if (state && !state.isReset && (!state.cardioLogs || !state.cardioLogs.length)) {
+            const cList = await mongo.collection('cardio_logs').find({ $or: [{ userId: user.id }, { user_id: user.id }] }).toArray();
+            if (cList && cList.length) {
+              state.cardioLogs = cList.map(c => ({
+                id: c.id || c._id?.toString(),
+                d: c.d || c.date,
+                date: c.d || c.date,
+                activity: c.activity || c.activity_type || 'Walking',
+                activity_type: c.activity || c.activity_type || 'Walking',
+                durationMinutes: c.durationMinutes != null ? c.durationMinutes : (c.duration_min != null ? c.duration_min : 0),
+                totalDurationMinutes: c.totalDurationMinutes != null ? c.totalDurationMinutes : (c.duration_min != null ? c.duration_min : 0),
+                distanceKm: c.distanceKm != null ? c.distanceKm : (c.distance_km != null ? c.distance_km : null),
+                distance_km: c.distance_km != null ? c.distance_km : (c.distanceKm != null ? c.distanceKm : null),
+                steps: c.steps != null ? c.steps : null,
+                calories_burned: c.calories_burned != null ? c.calories_burned : null,
+                createdAt: c.createdAt || c.created_at
+              }));
+            }
+          }
+
+          // Hydrate workouts if missing or empty and not reset
+          if (state && !state.isReset && (!state.workouts || !state.workouts.length)) {
+            const wList = await mongo.collection('workout_sessions').find({ userId: user.id }).toArray();
+            if (wList && wList.length) {
+              state.workouts = wList;
+            }
+          }
+
+          if (state) {
+            // Apply account-isolated settings
+            state.themePreset = settings.themePreset || state.themePreset || 'warm-gold';
+            state.bgTheme = settings.themePreset || state.bgTheme || 'warm-gold';
+            state.accent = settings.accentColor || state.accent || '#E8B477';
+            state.goldShade = settings.accentColor || state.goldShade || '#E8B477';
+            state.ambientGlowIntensity = settings.ambientGlowIntensity != null ? settings.ambientGlowIntensity : 1.0;
+            state.upperGlowIntensity = settings.upperGlowIntensity != null ? settings.upperGlowIntensity : 1.0;
+            state.userSettings = settings;
+            return json(res, 200, { state });
+          }
         }
       } catch (err) {
         console.error('Mongo read state error:', err.message);
       }
     }
     try {
-      const state = JSON.parse(fs.readFileSync(stateFile(user.id), 'utf8'));
+      state = JSON.parse(fs.readFileSync(stateFile(user.id), 'utf8'));
+      if (state) {
+        state.themePreset = settings.themePreset || state.themePreset || 'warm-gold';
+        state.bgTheme = settings.themePreset || state.bgTheme || 'warm-gold';
+        state.accent = settings.accentColor || state.accent || '#E8B477';
+        state.goldShade = settings.accentColor || state.goldShade || '#E8B477';
+        state.ambientGlowIntensity = settings.ambientGlowIntensity != null ? settings.ambientGlowIntensity : 1.0;
+        state.upperGlowIntensity = settings.upperGlowIntensity != null ? settings.upperGlowIntensity : 1.0;
+        state.userSettings = settings;
+      }
       json(res, 200, { state });
     } catch { json(res, 200, { state: null }); }
   },
@@ -616,6 +1219,34 @@ const routes = {
     const body = await readBody(req);
     if (!body.state || typeof body.state !== 'object') return json(res, 400, { error: 'state required' });
     delete body.state.active;              // in-progress workouts stay device-local
+
+    // Sync appearance/settings updates into user_settings
+    const settingsUpdates = {};
+    if (body.state.themePreset || body.state.bgTheme) {
+      settingsUpdates.themePreset = body.state.themePreset || body.state.bgTheme;
+    }
+    if (body.state.accent || body.state.goldShade) {
+      settingsUpdates.accentColor = body.state.accent || body.state.goldShade;
+    }
+    if (body.state.ambientGlowIntensity != null || body.state.glowIntensity != null) {
+      settingsUpdates.ambientGlowIntensity = body.state.ambientGlowIntensity != null ? body.state.ambientGlowIntensity : body.state.glowIntensity;
+    }
+    if (body.state.upperGlowIntensity != null) {
+      settingsUpdates.upperGlowIntensity = body.state.upperGlowIntensity;
+    }
+    if (body.state.bgDarkness || body.state.glassOpacity != null || body.state.blurIntensity != null || body.state.bgAnimation != null) {
+      settingsUpdates.backgroundSettings = {
+        bgDarkness: body.state.bgDarkness || '#090909',
+        bgAnimation: body.state.bgAnimation !== false,
+        glassOpacity: body.state.glassOpacity !== undefined ? body.state.glassOpacity : 0.80,
+        blurIntensity: body.state.blurIntensity !== undefined ? body.state.blurIntensity : 1.0
+      };
+    }
+    if (body.state.unit) settingsUpdates.measurementUnit = body.state.unit;
+    if (Object.keys(settingsUpdates).length > 0) {
+      saveUserSettings(user.id, settingsUpdates).catch(() => {});
+    }
+
     try { atomicWrite(stateFile(user.id), JSON.stringify(body.state)); } catch {}
     if (process.env.MONGODB_URI) {
       try {
@@ -626,12 +1257,320 @@ const routes = {
             { $set: { userId: user.id, state: body.state, updatedAt: new Date().toISOString() } },
             { upsert: true }
           );
+
+          // Scoped MongoDB collections for workout templates, sessions, and cardio logs
+          if (body.state.workoutTemplates !== undefined) {
+            await mongo.collection('workout_templates').updateOne(
+              { userId: user.id },
+              { $set: { userId: user.id, templates: body.state.workoutTemplates, updatedAt: new Date().toISOString() } },
+              { upsert: true }
+            ).catch(() => {});
+
+            const tpls = Array.isArray(body.state.workoutTemplates)
+              ? body.state.workoutTemplates
+              : (body.state.workoutTemplates && typeof body.state.workoutTemplates === 'object'
+                  ? Object.values(body.state.workoutTemplates)
+                  : []);
+            if (tpls.length > 0) {
+              const tplOps = tpls.map(t => ({
+                updateOne: {
+                  filter: { userId: user.id, id: t.id },
+                  update: { $set: { ...t, userId: user.id, updatedAt: new Date().toISOString() } },
+                  upsert: true
+                }
+              }));
+              await mongo.collection('user_templates').bulkWrite(tplOps, { ordered: false }).catch(() => {});
+            } else {
+              await mongo.collection('user_templates').deleteMany({ userId: user.id }).catch(() => {});
+            }
+          }
+
+          if (body.state.weeklySchedule !== undefined) {
+            await mongo.collection('weekly_schedules').updateOne(
+              { userId: user.id },
+              { $set: { userId: user.id, schedule: body.state.weeklySchedule, updatedAt: new Date().toISOString() } },
+              { upsert: true }
+            ).catch(() => {});
+          }
+
+          if (body.state.customEx !== undefined) {
+            if (Array.isArray(body.state.customEx) && body.state.customEx.length > 0) {
+              const customOps = body.state.customEx.map(ex => ({
+                updateOne: {
+                  filter: { userId: user.id, id: ex.id },
+                  update: { $set: { ...ex, userId: user.id, updatedAt: new Date().toISOString() } },
+                  upsert: true
+                }
+              }));
+              await mongo.collection('custom_exercises').bulkWrite(customOps, { ordered: false }).catch(() => {});
+            } else {
+              await mongo.collection('custom_exercises').deleteMany({ userId: user.id }).catch(() => {});
+            }
+          }
+
+          if (body.state.cardioLogs !== undefined) {
+            if (Array.isArray(body.state.cardioLogs) && body.state.cardioLogs.length > 0) {
+              const cardioOps = body.state.cardioLogs.map(c => ({
+                updateOne: {
+                  filter: { userId: user.id, id: c.id },
+                  update: { $set: { ...c, userId: user.id, updatedAt: new Date().toISOString() } },
+                  upsert: true
+                }
+              }));
+              if (cardioOps.length > 0) {
+                await mongo.collection('cardio_logs').bulkWrite(cardioOps, { ordered: false }).catch(() => {});
+              }
+            } else {
+              await mongo.collection('cardio_logs').deleteMany({ $or: [{ userId: user.id }, { user_id: user.id }] }).catch(() => {});
+            }
+          }
+
+          if (body.state.workouts !== undefined) {
+            if (Array.isArray(body.state.workouts) && body.state.workouts.length > 0) {
+              const workoutOps = body.state.workouts.map(w => ({
+                updateOne: {
+                  filter: { userId: user.id, id: w.id },
+                  update: { $set: { ...w, userId: user.id, updatedAt: new Date().toISOString() } },
+                  upsert: true
+                }
+              }));
+              if (workoutOps.length > 0) {
+                await mongo.collection('workout_sessions').bulkWrite(workoutOps, { ordered: false }).catch(() => {});
+              }
+            } else {
+              await mongo.collection('workout_sessions').deleteMany({ userId: user.id }).catch(() => {});
+            }
+          }
+
+          if (body.state.meals !== undefined) {
+            if (Array.isArray(body.state.meals) && body.state.meals.length > 0) {
+              const mealOps = body.state.meals.map(m => {
+                const entry = {
+                  id: m.id,
+                  user_id: user.id,
+                  date: m.date || m.d,
+                  meal_type: String(m.meal_type || m.type || 'lunch').toLowerCase(),
+                  food_id: m.food_id || m.foodId || null,
+                  food_name: m.food_name || m.name || 'Food item',
+                  serving_quantity: Number(m.serving_quantity || m.qty) || 1,
+                  serving_unit: m.serving_unit || m.unit || 'g',
+                  serving_grams: Number(m.serving_grams || m.grams) || 0,
+                  energy_kcal: Number(m.energy_kcal != null ? m.energy_kcal : (m.calories != null ? m.calories : m.calorie)) || 0,
+                  protein_g: Number(m.protein_g != null ? m.protein_g : m.protein) || 0,
+                  carb_g: Number(m.carb_g != null ? m.carb_g : (m.carb != null ? m.carb : m.carbs)) || 0,
+                  fat_g: Number(m.fat_g != null ? m.fat_g : m.fat) || 0,
+                  fibre_g: Number(m.fibre_g != null ? m.fibre_g : m.fibre) || 0,
+                  notes: m.notes || null,
+                  created_at: m.created_at || m.createdAt || new Date().toISOString()
+                };
+                return {
+                  updateOne: {
+                    filter: { user_id: user.id, id: entry.id },
+                    update: { $set: { ...entry, user_id: user.id, updatedAt: new Date().toISOString() } },
+                    upsert: true
+                  }
+                };
+              });
+              if (mealOps.length > 0) {
+                await mongo.collection('meal_logs').bulkWrite(mealOps, { ordered: false }).catch(() => {});
+              }
+            } else {
+              await mongo.collection('meal_logs').deleteMany({ user_id: user.id }).catch(() => {});
+            }
+          }
         }
       } catch (err) {
         console.error('Mongo write state error:', err.message);
       }
     }
     json(res, 200, { ok: true, ts: body.state._ts || null });
+  },
+
+  /* ---------- User Settings & Account Isolation ---------- */
+  'GET /api/settings': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const settings = await getUserSettings(user.id);
+    json(res, 200, { ok: true, settings });
+  },
+
+  'PUT /api/settings': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const updates = body?.settings || body || {};
+    const settings = await saveUserSettings(user.id, updates);
+    json(res, 200, { ok: true, settings });
+  },
+
+  /* ---------- Complete Account & Fitness Reset System ---------- */
+  'POST /api/user/reset': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const scope = body.scope === 'everything' ? 'everything' : 'fitness_only';
+
+    // 1. Wipe SQLite nutrition data
+    try {
+      clearAllNutritionDataForUser(user.id);
+    } catch (e) {
+      console.error('Error clearing SQLite nutrition data for user:', e.message);
+    }
+
+    // 2. Settings handling
+    let newSettings = null;
+    if (scope === 'everything') {
+      newSettings = defaultUserSettings(user.id);
+      await saveUserSettings(user.id, newSettings);
+    } else {
+      newSettings = await getUserSettings(user.id);
+    }
+
+    // 3. Clear file-based state
+    const cleanState = {
+      isReset: true,
+      workoutTemplates: [],
+      weeklySchedule: {},
+      workouts: [],
+      cardioLogs: [],
+      meals: [],
+      customEx: [],
+      weightLogs: [],
+      bodyweight: [],
+      dayPlan: {},
+      routines: [],
+      week: {},
+      _ts: Date.now()
+    };
+    if (scope === 'fitness_only') {
+      cleanState.themePreset = newSettings.themePreset || 'warm-gold';
+      cleanState.bgTheme = newSettings.themePreset || 'warm-gold';
+      cleanState.accent = newSettings.accentColor || '#E8B477';
+      cleanState.goldShade = newSettings.accentColor || '#E8B477';
+      cleanState.ambientGlowIntensity = newSettings.ambientGlowIntensity != null ? newSettings.ambientGlowIntensity : 1.0;
+      cleanState.upperGlowIntensity = newSettings.upperGlowIntensity != null ? newSettings.upperGlowIntensity : 1.0;
+    } else {
+      cleanState.themePreset = 'warm-gold';
+      cleanState.bgTheme = 'warm-gold';
+      cleanState.accent = '#E8B477';
+      cleanState.goldShade = '#E8B477';
+      cleanState.ambientGlowIntensity = 1.0;
+      cleanState.upperGlowIntensity = 1.0;
+    }
+
+    try {
+      atomicWrite(stateFile(user.id), JSON.stringify(cleanState, null, 2));
+    } catch {}
+
+    // 4. Clear MongoDB collections for this user
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          await Promise.all([
+            mongo.collection('states').updateOne(
+              { userId: user.id },
+              { $set: { userId: user.id, state: cleanState, updatedAt: new Date().toISOString() } },
+              { upsert: true }
+            ),
+            mongo.collection('workout_templates').deleteMany({ userId: user.id }),
+            mongo.collection('user_templates').deleteMany({ userId: user.id }),
+            mongo.collection('weekly_schedules').deleteMany({ userId: user.id }),
+            mongo.collection('workout_sessions').deleteMany({ userId: user.id }),
+            mongo.collection('meal_logs').deleteMany({ user_id: user.id }),
+            mongo.collection('cardio_logs').deleteMany({ $or: [{ userId: user.id }, { user_id: user.id }] }),
+            mongo.collection('custom_exercises').deleteMany({ userId: user.id }),
+            mongo.collection('weight_logs').deleteMany({ userId: user.id })
+          ]);
+        }
+      } catch (e) {
+        console.error('Mongo reset error:', e.message);
+      }
+    }
+
+    json(res, 200, {
+      ok: true,
+      message: scope === 'everything' ? 'All data and settings have been reset.' : 'Fitness data has been reset.',
+      scope,
+      settings: newSettings,
+      state: cleanState
+    });
+  },
+
+  'GET /api/templates': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          const doc = await mongo.collection('workout_templates').findOne({ userId: user.id });
+          if (doc?.templates && doc.templates.length) {
+            return json(res, 200, { ok: true, templates: doc.templates });
+          }
+          const userTpls = await mongo.collection('user_templates').find({ userId: user.id }).toArray();
+          if (userTpls && userTpls.length) {
+            return json(res, 200, { ok: true, templates: userTpls });
+          }
+          const stateDoc = await mongo.collection('states').findOne({ userId: user.id });
+          if (stateDoc?.state?.workoutTemplates && stateDoc.state.workoutTemplates.length) {
+            return json(res, 200, { ok: true, templates: stateDoc.state.workoutTemplates });
+          }
+        }
+      } catch (err) {
+        console.error('Mongo get templates error:', err.message);
+      }
+    }
+    try {
+      const state = JSON.parse(fs.readFileSync(stateFile(user.id), 'utf8'));
+      if (state?.workoutTemplates) {
+        return json(res, 200, { ok: true, templates: state.workoutTemplates });
+      }
+    } catch {}
+    json(res, 200, { ok: true, templates: [] });
+  },
+
+  'PUT /api/templates': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const templates = Array.isArray(body.templates) ? body.templates : [];
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          await mongo.collection('workout_templates').updateOne(
+            { userId: user.id },
+            { $set: { userId: user.id, templates, updatedAt: new Date().toISOString() } },
+            { upsert: true }
+          );
+          await mongo.collection('states').updateOne(
+            { userId: user.id },
+            { $set: { 'state.workoutTemplates': templates, updatedAt: new Date().toISOString() } }
+          );
+        }
+      } catch (err) {
+        console.error('Mongo put templates error:', err.message);
+      }
+    }
+    json(res, 200, { ok: true, templates });
+  },
+
+  'GET /api/schedule': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          const doc = await mongo.collection('weekly_schedules').findOne({ userId: user.id });
+          return json(res, 200, { schedule: doc?.schedule || {} });
+        }
+      } catch (err) {
+        console.error('Mongo get schedule error:', err.message);
+      }
+    }
+    json(res, 200, { schedule: {} });
   },
 
   'GET /api/push/public-key': async (req, res) => json(res, 200, { key: vapid.publicKey }),
@@ -813,13 +1752,18 @@ if (!isVercel) {
 }
 
 export async function handleRequest(req, res) {
-  await ensureMongoSync();
   // Handle CORS
-  const reqOrigin = req.headers.origin || '*';
-  res.setHeader('Access-Control-Allow-Origin', reqOrigin);
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  const reqOrigin = req.headers.origin;
+  if (reqOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', reqOrigin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie');
+  res.setHeader('Access-Control-Max-Age', '86400');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -832,6 +1776,17 @@ export async function handleRequest(req, res) {
   if (!pathname.startsWith('/api') && routes[req.method + ' /api' + pathname]) {
     pathname = '/api' + pathname;
   }
+
+  // Health check probes, root informational endpoint, and OAuth routes must never be blocked by or fail from background database sync
+  const isHealthCheck = pathname === '/' || pathname === '/api/health' || pathname === '/api/health/db' || pathname.startsWith('/api/auth/google');
+  if (!isHealthCheck) {
+    try {
+      await ensureMongoSync();
+    } catch (err) {
+      console.error('ensureMongoSync non-blocking error:', err.message);
+    }
+  }
+
   const key = req.method + ' ' + pathname;
   const handler = routes[key];
   if (!handler) return json(res, 404, { error: 'not found' });
@@ -844,7 +1799,11 @@ export async function handleRequest(req, res) {
 
 export default handleRequest;
 
+const isRender = !!process.env.RENDER;
 const isDirectRun = process.argv[1] && (process.argv[1].endsWith('server.js') || process.argv[1].includes('server.js'));
-if (!isVercel && isDirectRun) {
-  http.createServer(handleRequest).listen(PORT, () => console.log(`gym-api on :${PORT} (rpID=${process.env.RP_ID || 'localhost'}, origin=${ORIGIN})`));
+if ((!isVercel || isRender) && (isDirectRun || isRender)) {
+  const server = http.createServer(handleRequest);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`gym-api listening on 0.0.0.0:${PORT} (rpID=${process.env.RP_ID || 'localhost'}, origin=${ORIGIN})`);
+  });
 }

@@ -56,7 +56,7 @@ function Shell() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
 
   useEffect(() => { setNav(navigate) }, [navigate])
-  useEffect(() => { applyPrefs(S) }, [S.theme, S.accent, S.bgTheme, S.glowIntensity, S.blurIntensity, S.bgAnimation, S.customGlow1, S.customGlow2, S.customGlow3, S.customGlow4])
+  useEffect(() => { applyPrefs(S) }, [S.theme, S.accent, S.bgTheme, S.glowIntensity, S.upperGlowIntensity, S.blurIntensity, S.bgAnimation, S.customGlow1, S.customGlow2, S.customGlow3, S.customGlow4])
   useEffect(() => { setLang(S.lang || 'en') }, [S.lang])
   useEffect(() => { document.documentElement.lang = S.lang || 'en' }, [langV, S.lang])
   // every tab/route change starts at the top of the page and closes mobile drawer

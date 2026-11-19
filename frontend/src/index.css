@@ -198,6 +198,7 @@ button,.chip,.tile,.item,.wday,.cal-d,.swatch,.hm-c,.lrow,.seg button,.stp butto
   width: 580px;
   height: 580px;
   background: radial-gradient(circle, var(--glow-color-1, #E8B477) 0%, var(--glow-color-2, #C58A53) 55%, transparent 75%);
+  opacity: calc(0.32 * var(--upper-glow-intensity, 1) * var(--glow-intensity, 1));
   animation: auroraDrift1 28s ease-in-out infinite alternate;
   animation-play-state: var(--bg-anim-state, running);
 }

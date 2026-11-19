@@ -1,6 +1,6 @@
 import { Component, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useStore } from '../store/useStore.js'
+import { useStore, getHealthStorageKey } from '../store/useStore.js'
 import { effectiveRoutine, effectiveRoutineId, streakWeeks, lastBW } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
@@ -191,11 +191,12 @@ export default function Home() {
   // Read today's health log (food, water, cardio)
   const todayHealth = useMemo(() => {
     try {
-      const stored = localStorage.getItem(`opengym_health_${todayStr}`)
+      const key = getHealthStorageKey(user?.id, todayStr)
+      const stored = localStorage.getItem(key)
       if (stored) return JSON.parse(stored)
     } catch (e) {}
     return null
-  }, [todayStr, S?.meals])
+  }, [user?.id, todayStr, S?.meals])
 
   const foodsToday = todayHealth?.foods || (S?.meals || []).filter(m => m && (m.d === todayStr || m.date === todayStr))
   const foodCount = foodsToday.length
