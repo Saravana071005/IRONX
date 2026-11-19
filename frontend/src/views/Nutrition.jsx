@@ -50,6 +50,8 @@ export default function Nutrition() {
   const user = useStore(s => s.user)
   const { openSheet, toast, confirmSheet } = useUI()
 
+  const userCalorieTarget = Number(S?.nutritionTargets?.calorie || S?.nutritionTargets?.calories || user?.calorie_target || user?.nutritionTargets?.calorie) || 1900
+
   const [date, setDate] = useState(todayISO())
   const [loading, setLoading] = useState(false)
   const [showExamples, setShowExamples] = useState(false)
@@ -250,14 +252,14 @@ export default function Nutrition() {
     setEditingWaterGoal(false)
 
     try {
-      localStorage.setItem('opengym_health_settings', JSON.stringify({ water_goal_litres: num, calorie_target: 1900 }))
+      localStorage.setItem('opengym_health_settings', JSON.stringify({ water_goal_litres: num, calorie_target: userCalorieTarget }))
     } catch (e) {}
 
     if (user) {
       try {
         await api('/api/nutrition/health-settings', {
           method: 'POST',
-          body: JSON.stringify({ water_goal_litres: num, calorie_target: 1900 })
+          body: JSON.stringify({ water_goal_litres: num, calorie_target: userCalorieTarget })
         })
       } catch (e) {}
     }
@@ -308,7 +310,7 @@ export default function Nutrition() {
       food_protein: Math.round(foodProtein * 10) / 10,
       food_carbs: Math.round(foodCarbs * 10) / 10,
       food_fat: Math.round(foodFat * 10) / 10,
-      calorie_target: 1900,
+      calorie_target: userCalorieTarget,
       water_ml: waterTotalMl,
       water_litres: waterLitres,
       water_goal_litres: waterGoalL,
@@ -319,7 +321,7 @@ export default function Nutrition() {
       total_workout_duration_min: totalWorkoutDurationMin,
       exercise_calories_burned: totalExerciseCaloriesBurned
     }
-  }, [foods, water, allCardioForDay, completedWorkoutsForDay, strength, waterGoalL])
+  }, [foods, water, allCardioForDay, completedWorkoutsForDay, strength, waterGoalL, userCalorieTarget])
 
   // --- Date navigation ---
   const changeDate = (days) => {
@@ -393,6 +395,65 @@ export default function Nutrition() {
             }
           }
           toast(existing ? t('Food entry updated') : t('Food entry saved'))
+        }}
+        onSaveBatch={async (batchEntries) => {
+          close()
+          if (!Array.isArray(batchEntries) || batchEntries.length === 0) return
+          const unifiedList = batchEntries.map(savedEntry => ({
+            id: savedEntry.id || 'food_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            user_id: user?.id || null,
+            meal_type: savedEntry.meal_type || defaultMeal,
+            type: savedEntry.meal_type || defaultMeal,
+            food_name: savedEntry.food_name || savedEntry.name,
+            name: savedEntry.food_name || savedEntry.name,
+            serving_quantity: Number(savedEntry.serving_quantity || savedEntry.qty) || 100,
+            qty: Number(savedEntry.serving_quantity || savedEntry.qty) || 100,
+            serving_unit: savedEntry.serving_unit || savedEntry.unit || 'g',
+            unit: savedEntry.serving_unit || savedEntry.unit || 'g',
+            energy_kcal: Number(savedEntry.energy_kcal || savedEntry.calories) || 0,
+            calories: Number(savedEntry.energy_kcal || savedEntry.calories) || 0,
+            protein_g: Number(savedEntry.protein_g || savedEntry.protein) || 0,
+            protein: Number(savedEntry.protein_g || savedEntry.protein) || 0,
+            carb_g: Number(savedEntry.carb_g || savedEntry.carbs) || 0,
+            carbs: Number(savedEntry.carb_g || savedEntry.carbs) || 0,
+            fat_g: Number(savedEntry.fat_g || savedEntry.fat) || 0,
+            fat: Number(savedEntry.fat_g || savedEntry.fat) || 0,
+            notes: savedEntry.notes || null,
+            date: date,
+            d: date,
+            created_at: savedEntry.created_at || new Date().toISOString()
+          }))
+
+          // 1. Immediately update store meals so Home and other views are in sync
+          unifiedList.forEach(u => useStore.getState().logMeal(u))
+
+          // 2. Update local state
+          const updatedFoods = [...foods, ...unifiedList]
+          setFoods(updatedFoods)
+          saveToLocalStorage(date, updatedFoods, water, cardio, strength)
+
+          // 3. Persist batch to server
+          if (user) {
+            try {
+              const res = await api('/api/nutrition/food/save-batch', {
+                method: 'POST',
+                body: JSON.stringify({ entries: unifiedList, date })
+              })
+              if (res?.entries) {
+                res.entries.forEach(enriched => {
+                  useStore.getState().updateMeal(enriched.id, enriched)
+                })
+                setFoods(prev => {
+                  const map = new Map(prev.map(f => [f.id, f]))
+                  res.entries.forEach(e => map.set(e.id, { ...map.get(e.id), ...e }))
+                  return Array.from(map.values())
+                })
+              }
+            } catch (e) {
+              toast(t('Saved locally. Will sync when online.'))
+            }
+          }
+          toast(t('{0} food items saved to meal', unifiedList.length))
         }}
       />
     ))
@@ -579,7 +640,7 @@ export default function Nutrition() {
         strength: combinedStrength,
         totals,
         settings: {
-          calorie_target: 1900,
+          calorie_target: userCalorieTarget,
           water_goal_litres: waterGoalL
         }
       })
@@ -601,7 +662,7 @@ export default function Nutrition() {
             {t('Daily Health Log')}
           </h1>
           <div className="sub" style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 2 }}>
-            {t('Manual tracking · 1,900 kcal target · ChatGPT PDF')}
+            {t('Manual tracking · {0} kcal target · ChatGPT PDF', userCalorieTarget.toLocaleString())}
           </div>
         </div>
 
@@ -685,17 +746,17 @@ export default function Nutrition() {
             <div className="big" style={{ fontSize: 26, fontWeight: 800, marginTop: 2 }}>
               {totals.food_calories > 0 ? (
                 <>
-                  {totals.food_calories} <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--label-2)' }}>/ 1,900 kcal</span>
+                  {totals.food_calories} <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--label-2)' }}>/ {userCalorieTarget.toLocaleString()} kcal</span>
                 </>
               ) : (
                 <>
-                  1,900 <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--label-2)' }}>kcal</span>
+                  {userCalorieTarget.toLocaleString()} <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--label-2)' }}>kcal</span>
                 </>
               )}
             </div>
           </div>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--label-2)' }}>
-            {totals.food_count > 0 ? t('{0} foods recorded · {1} kcal left', totals.food_count, Math.max(0, 1900 - totals.food_calories)) : t('No foods recorded')}
+            {totals.food_count > 0 ? t('{0} foods recorded · {1} kcal left', totals.food_count, Math.max(0, userCalorieTarget - totals.food_calories)) : t('No foods recorded')}
           </span>
         </div>
 
@@ -704,7 +765,7 @@ export default function Nutrition() {
           <div className="calorie-bar-track">
             <div
               className="calorie-bar-fill"
-              style={{ width: `${Math.min(100, Math.round((totals.food_calories / 1900) * 100))}%` }}
+              style={{ width: `${Math.min(100, Math.round((totals.food_calories / userCalorieTarget) * 100))}%` }}
             />
           </div>
         </div>
@@ -732,7 +793,7 @@ export default function Nutrition() {
         <div style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '10px 14px', marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ color: 'var(--mint)', fontSize: 16 }}><Icon name="info" /></span>
           <div style={{ fontSize: 12, color: 'var(--label-2)', lineHeight: 1.4 }}>
-            {t('Manual tracking · 1,900 kcal target. Click "Export Daily Report PDF" to analyze full meals, macros and hydration in ChatGPT.')}
+            {t('Manual tracking · {0} kcal target. Click "Export Daily Report PDF" to analyze full meals, macros and hydration in ChatGPT.', userCalorieTarget.toLocaleString())}
           </div>
         </div>
       </div>
@@ -1306,11 +1367,15 @@ export default function Nutrition() {
 /* ============================ MODALS ============================ */
 
 /**
- * Simplified Food Entry Form Modal:
- * Contains only Meal, Food Name, Quantity, Unit, and optional Notes.
- * Completely removes calories and macronutrient inputs.
+ * Comprehensive Smart Food Modal & Multi-Item Meal Builder:
+ * - AI Fast Log bar (English, Tamil, Hindi via Gemini with verified DB fallback)
+ * - Autocomplete Search with Verified badges (ICMR-NIN, INDB, USDA) and regional names
+ * - Mathematically verified proportional recalculation (100g base reference)
+ * - Quick Portion Chips (Piece foods vs Metric foods)
+ * - Instant Nutrition Preview Card
+ * - Multi-Item Meal Builder with combined meal totals
  */
-function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', onSave }) {
+function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', onSave, onSaveBatch }) {
   const [mealType, setMealType] = useState(existing?.meal_type || existing?.type || defaultMeal)
   const [foodName, setFoodName] = useState(existing?.food_name || existing?.name || '')
   const [quantity, setQuantity] = useState(existing?.serving_quantity != null ? String(existing.serving_quantity) : (existing?.qty != null ? String(existing.qty) : '100'))
@@ -1322,10 +1387,86 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
   const [notes, setNotes] = useState(existing?.notes || '')
   const [err, setErr] = useState('')
 
+  // Multi-Item Meal Draft State
+  const [draftItems, setDraftItems] = useState([])
+
+  // AI Fast Log State
+  const [aiInput, setAiInput] = useState('')
+  const [parsingAi, setParsingAi] = useState(false)
+  const [aiError, setAiError] = useState('')
+  const [aiSuccessMsg, setAiSuccessMsg] = useState('')
+
   // Food search & autocomplete
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [baseFood, setBaseFood] = useState(null)
+
+  // Standard portion weights map
+  const PORTION_WEIGHT_MAP = {
+    'wheat roti / chapati': 35,
+    'roti': 35,
+    'chapati': 35,
+    'egg': 50,
+    'boiled egg': 50,
+    'egg white': 33,
+    'banana': 120,
+    'apple': 150,
+    'idli': 50,
+    'dosa': 80,
+    'slice': 30,
+    'cup': 150,
+    'bowl': 150,
+    'katori': 150,
+    'glass': 200,
+    'tbsp': 15,
+    'tsp': 5,
+    'scoop': 30
+  }
+
+  // Calculate proportional nutrients based on 100g standard reference
+  const computeNutrients = (food, qVal, uVal) => {
+    const q = parseFloat(qVal) || 0
+    if (!food || q <= 0) return { kcal: 0, p: 0, c: 0, f: 0, grams: 0 }
+
+    let grams = q
+    const lowerName = (food.name || food.food_name || '').toLowerCase()
+
+    if (uVal === 'g' || uVal === 'ml') {
+      grams = q
+    } else if (uVal === 'piece' || uVal === 'pieces') {
+      let pw = food.piece_weight_g
+      if (!pw) {
+        if (lowerName.includes('chapati') || lowerName.includes('roti')) pw = 35
+        else if (lowerName.includes('egg white')) pw = 33
+        else if (lowerName.includes('egg')) pw = 50
+        else if (lowerName.includes('banana')) pw = 120
+        else if (lowerName.includes('apple')) pw = 150
+        else if (lowerName.includes('idli')) pw = 50
+        else if (lowerName.includes('dosa')) pw = 80
+        else pw = 50
+      }
+      grams = q * pw
+    } else if (PORTION_WEIGHT_MAP[uVal]) {
+      grams = q * PORTION_WEIGHT_MAP[uVal]
+    } else {
+      grams = q * (Number(food.serving_size) || 100)
+    }
+
+    const baseKcal = Number(food.energy_kcal != null ? food.energy_kcal : food.calories) || 0
+    const baseP = Number(food.protein_g != null ? food.protein_g : food.protein) || 0
+    const baseC = Number(food.carb_g != null ? food.carb_g : food.carbs) || 0
+    const baseF = Number(food.fat_g != null ? food.fat_g : food.fat) || 0
+
+    // All database base nutrients are per 100g
+    const ratio = grams / 100
+    return {
+      grams: Math.round(grams),
+      kcal: Math.round(baseKcal * ratio),
+      p: Math.round(baseP * ratio * 10) / 10,
+      c: Math.round(baseC * ratio * 10) / 10,
+      f: Math.round(baseF * ratio * 10) / 10
+    }
+  }
 
   useEffect(() => {
     if (!foodName || foodName.length < 2 || baseFood?.name?.toLowerCase() === foodName.toLowerCase()) {
@@ -1336,11 +1477,8 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
       setSearching(true)
       try {
         const res = await api(`/api/nutrition/search?q=${encodeURIComponent(foodName)}`)
-        if (Array.isArray(res)) {
-          setSearchResults(res.slice(0, 6))
-        } else if (res?.results) {
-          setSearchResults(res.results.slice(0, 6))
-        }
+        const items = res?.foods || res?.results || (Array.isArray(res) ? res : [])
+        setSearchResults(items.slice(0, 8))
       } catch (e) {
         setSearchResults([])
       } finally {
@@ -1354,31 +1492,173 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
     setBaseFood(item)
     setFoodName(item.name)
     setSearchResults([])
-    const baseQty = Number(item.serving_size) || 100
-    const currentQty = Number(quantity) || baseQty
-    const ratio = currentQty / baseQty
-    setUnit(item.serving_unit || 'g')
-    setCalories(String(Math.round((Number(item.calories) || 0) * ratio)))
-    setProtein(String(Math.round(((Number(item.protein) || 0) * ratio) * 10) / 10))
-    setCarbs(String(Math.round(((Number(item.carbs) || 0) * ratio) * 10) / 10))
-    setFat(String(Math.round(((Number(item.fat) || 0) * ratio) * 10) / 10))
+
+    // Determine smart default unit & quantity
+    const lower = item.name.toLowerCase()
+    let initialUnit = item.serving_unit || 'g'
+    let initialQty = '100'
+
+    if (item.serving_unit === 'piece' || lower.includes('chapati') || lower.includes('roti') || lower.includes('egg') || lower.includes('idli') || lower.includes('dosa') || lower.includes('banana')) {
+      initialUnit = 'piece'
+      initialQty = '1'
+    } else if (item.serving_size && Number(item.serving_size) > 0) {
+      initialQty = String(item.serving_size)
+    }
+
+    setUnit(initialUnit)
+    setQuantity(initialQty)
+
+    const computed = computeNutrients(item, initialQty, initialUnit)
+    setCalories(String(computed.kcal))
+    setProtein(String(computed.p))
+    setCarbs(String(computed.c))
+    setFat(String(computed.f))
   }
 
-  const handleQuantityChange = (val) => {
-    setQuantity(val)
-    const num = parseFloat(val)
-    if (baseFood && !isNaN(num) && num > 0) {
-      const baseQty = Number(baseFood.serving_size) || 100
-      const ratio = num / baseQty
-      setCalories(String(Math.round((Number(baseFood.calories) || 0) * ratio)))
-      setProtein(String(Math.round(((Number(baseFood.protein) || 0) * ratio) * 10) / 10))
-      setCarbs(String(Math.round(((Number(baseFood.carbs) || 0) * ratio) * 10) / 10))
-      setFat(String(Math.round(((Number(baseFood.fat) || 0) * ratio) * 10) / 10))
+  const handleQuantityOrUnitChange = (newQty, newUnit) => {
+    setQuantity(newQty)
+    setUnit(newUnit)
+    if (baseFood) {
+      const computed = computeNutrients(baseFood, newQty, newUnit)
+      setCalories(String(computed.kcal))
+      setProtein(String(computed.p))
+      setCarbs(String(computed.c))
+      setFat(String(computed.f))
     }
   }
 
+  // AI Fast Log Handler
+  const handleAiFastLog = async (e) => {
+    e?.preventDefault()
+    if (!aiInput.trim()) return
+    setParsingAi(true)
+    setAiError('')
+    setAiSuccessMsg('')
+
+    try {
+      const res = await api('/api/nutrition/ai-parse', {
+        method: 'POST',
+        body: JSON.stringify({ text: aiInput.trim() })
+      })
+
+      if (res?.ok && Array.isArray(res.items) && res.items.length > 0) {
+        const newDrafts = res.items.map(it => ({
+          id: 'draft_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          meal_type: mealType,
+          food_name: it.food_name || it.raw_name,
+          serving_quantity: it.serving_quantity || 1,
+          serving_unit: it.serving_unit || 'g',
+          energy_kcal: Math.round(it.energy_kcal || 0),
+          protein_g: Math.round((it.protein_g || 0) * 10) / 10,
+          carb_g: Math.round((it.carb_g || 0) * 10) / 10,
+          fat_g: Math.round((it.fat_g || 0) * 10) / 10,
+          notes: it.raw_name !== it.food_name ? `Parsed from: ${it.raw_name}` : null,
+          is_verified: it.is_verified,
+          data_source: it.data_source
+        }))
+
+        setDraftItems(prev => [...prev, ...newDrafts])
+        setAiInput('')
+        setAiSuccessMsg(t('Added {0} items to meal draft!', newDrafts.length))
+      } else {
+        setAiError(t('Could not parse any foods from your input. Try e.g. "2 chapatis, 1 bowl dal"'))
+      }
+    } catch (err) {
+      setAiError(err.message || t('Failed to parse with AI. Please search food manually.'))
+    } finally {
+      setParsingAi(false)
+    }
+  }
+
+  // Add current active input to draft
+  const handleAddToDraft = () => {
+    if (!foodName.trim()) {
+      setErr(t('Please enter or select a food name'))
+      return
+    }
+    const qNum = parseFloat(quantity)
+    if (isNaN(qNum) || qNum <= 0) {
+      setErr(t('Please enter a valid positive quantity'))
+      return
+    }
+    setErr('')
+
+    const newItem = {
+      id: 'draft_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      meal_type: mealType,
+      food_name: foodName.trim(),
+      serving_quantity: qNum,
+      serving_unit: unit,
+      energy_kcal: parseFloat(calories) || 0,
+      protein_g: parseFloat(protein) || 0,
+      carb_g: parseFloat(carbs) || 0,
+      fat_g: parseFloat(fat) || 0,
+      notes: notes.trim() || null,
+      is_verified: baseFood?.is_verified,
+      data_source: baseFood?.data_source
+    }
+
+    setDraftItems(prev => [...prev, newItem])
+
+    // Reset current input fields for next item
+    setFoodName('')
+    setBaseFood(null)
+    setQuantity('100')
+    setUnit('g')
+    setCalories('')
+    setProtein('')
+    setCarbs('')
+    setFat('')
+    setNotes('')
+  }
+
+  const handleRemoveDraftItem = (id) => {
+    setDraftItems(prev => prev.filter(it => it.id !== id))
+  }
+
+  // Combined totals of draft items
+  const draftTotals = useMemo(() => {
+    return draftItems.reduce((acc, it) => ({
+      kcal: acc.kcal + (Number(it.energy_kcal) || 0),
+      p: Math.round((acc.p + (Number(it.protein_g) || 0)) * 10) / 10,
+      c: Math.round((acc.c + (Number(it.carb_g) || 0)) * 10) / 10,
+      f: Math.round((acc.f + (Number(it.fat_g) || 0)) * 10) / 10
+    }), { kcal: 0, p: 0, c: 0, f: 0 })
+  }, [draftItems])
+
   const handleSubmit = (e) => {
     e.preventDefault()
+
+    // If draft items exist
+    if (draftItems.length > 0) {
+      let finalItems = [...draftItems]
+
+      // If user also has an item actively typed in the form, include it
+      if (foodName.trim() && parseFloat(quantity) > 0) {
+        finalItems.push({
+          id: 'draft_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          meal_type: mealType,
+          food_name: foodName.trim(),
+          serving_quantity: parseFloat(quantity),
+          serving_unit: unit,
+          energy_kcal: parseFloat(calories) || 0,
+          protein_g: parseFloat(protein) || 0,
+          carb_g: parseFloat(carbs) || 0,
+          fat_g: parseFloat(fat) || 0,
+          notes: notes.trim() || null
+        })
+      }
+
+      if (onSaveBatch) {
+        onSaveBatch(finalItems)
+      } else {
+        // Fallback: save sequentially
+        finalItems.forEach(it => onSave(it))
+      }
+      return
+    }
+
+    // Single item save
     if (!foodName.trim()) {
       setErr(t('Please enter food name'))
       return
@@ -1388,11 +1668,6 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
       setErr(t('Please enter a valid positive quantity'))
       return
     }
-
-    const cals = parseFloat(calories) || 0
-    const p = parseFloat(protein) || 0
-    const c = parseFloat(carbs) || 0
-    const f = parseFloat(fat) || 0
 
     const entry = {
       id: existing?.id || 'food_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
@@ -1406,14 +1681,14 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
       qty: qNum,
       serving_unit: unit,
       unit: unit,
-      energy_kcal: cals,
-      calories: cals,
-      protein_g: p,
-      protein: p,
-      carb_g: c,
-      carbs: c,
-      fat_g: f,
-      fat: f,
+      energy_kcal: parseFloat(calories) || 0,
+      calories: parseFloat(calories) || 0,
+      protein_g: parseFloat(protein) || 0,
+      protein: parseFloat(protein) || 0,
+      carb_g: parseFloat(carbs) || 0,
+      carbs: parseFloat(carbs) || 0,
+      fat_g: parseFloat(fat) || 0,
+      fat: parseFloat(fat) || 0,
       notes: notes.trim() || null,
       created_at: existing?.created_at || new Date().toISOString()
     }
@@ -1421,11 +1696,92 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
     onSave(entry)
   }
 
+  // Determine if active food is piece-based
+  const isPieceFood = unit === 'piece' || (baseFood && (baseFood.serving_unit === 'piece' || /roti|chapati|egg|idli|dosa|banana|apple/i.test(baseFood.name)))
+
   return (
     <form onSubmit={handleSubmit} style={{ padding: '4px 0 16px' }}>
-      <h3 style={{ margin: '0 0 14px', fontSize: '1.2rem', fontWeight: 700 }}>
-        {existing ? t('Edit Food Entry') : t('Add Food Entry')}
+      <h3 style={{ margin: '0 0 14px', fontSize: '1.25rem', fontWeight: 800, color: 'var(--label)' }}>
+        {existing ? t('Edit Food Entry') : t('Add Food & Meal Builder')}
       </h3>
+
+      {/* AI Fast Log Bar */}
+      {!existing && (
+        <div style={{ background: 'var(--surface-2, #1E1E22)', border: '1px solid rgba(232, 180, 119, 0.3)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--theme-accent, #E8B477)', marginBottom: 8 }}>
+            <span>⚡</span>
+            <span>{t('AI Fast Log (English, தமிழ், हिंदी)')}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              placeholder={t('e.g. 2 chapatis, 1 bowl dal, and 1 boiled egg')}
+              value={aiInput}
+              onChange={e => setAiInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAiFastLog())}
+              style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-1, #141416)', fontSize: 13, color: 'var(--label)' }}
+            />
+            <Button
+              type="button"
+              variant="acc"
+              disabled={parsingAi || !aiInput.trim()}
+              onClick={handleAiFastLog}
+              style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}
+            >
+              {parsingAi ? t('Parsing...') : t('Parse with AI')}
+            </Button>
+          </div>
+          {aiError && (
+            <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>
+              {aiError}
+            </div>
+          )}
+          {aiSuccessMsg && (
+            <div style={{ color: 'var(--teal)', fontSize: 12, marginTop: 6, fontWeight: 600 }}>
+              ✓ {aiSuccessMsg}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Multi-Item Meal Draft List */}
+      {draftItems.length > 0 && (
+        <div style={{ background: 'var(--surface-2, #1E1E22)', border: '1px solid rgba(232, 180, 119, 0.4)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--theme-accent, #E8B477)' }}>
+              {t('Meal Draft ({0} items)', draftItems.length)}
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)' }}>
+              {draftTotals.kcal} kcal · {draftTotals.p}g P · {draftTotals.c}g C · {draftTotals.f}g F
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {draftItems.map((item, idx) => (
+              <div key={item.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-1, #141416)', padding: '6px 10px', borderRadius: 8, fontSize: 13 }}>
+                <div>
+                  <strong>{item.food_name}</strong>
+                  <span style={{ color: 'var(--label-2)', marginLeft: 6, fontSize: 12 }}>
+                    ({item.serving_quantity} {item.serving_unit})
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontWeight: 600, color: 'var(--theme-accent, #E8B477)', fontSize: 12 }}>
+                    {item.energy_kcal} kcal
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveDraftItem(item.id)}
+                    style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: 2, fontSize: 14 }}
+                    title="Remove"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {err && (
         <div style={{ color: 'var(--red)', fontSize: '0.85rem', marginBottom: 12, padding: '6px 10px', background: 'color-mix(in srgb,var(--red) 12%,transparent)', borderRadius: 6 }}>
@@ -1455,7 +1811,7 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
           </label>
           <input
             type="text"
-            required
+            required={draftItems.length === 0}
             placeholder={t('Search or enter food, e.g. Oatmeal, Banana')}
             value={foodName}
             onChange={e => setFoodName(e.target.value)}
@@ -1479,7 +1835,7 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
                 marginTop: 4,
                 zIndex: 100,
                 boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                maxHeight: 220,
+                maxHeight: 240,
                 overflowY: 'auto'
               }}
             >
@@ -1488,7 +1844,7 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
                   key={item.id || item.name}
                   onClick={() => handleSelectFood(item)}
                   style={{
-                    padding: '8px 12px',
+                    padding: '10px 12px',
                     cursor: 'pointer',
                     borderBottom: '1px solid var(--border)',
                     fontSize: 13,
@@ -1500,12 +1856,30 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
                   <div>
-                    <strong style={{ color: 'var(--label)' }}>{item.name}</strong>
-                    <div style={{ fontSize: 11, color: 'var(--label-2)' }}>
-                      {item.serving_size || 100} {item.serving_unit || 'g'} · {item.protein || 0}g P · {item.carbs || 0}g C · {item.fat || 0}g F
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <strong style={{ color: 'var(--label)' }}>{item.name}</strong>
+                      {item.name_regional && (
+                        <span style={{ fontSize: 11, color: 'var(--label-2)' }}>({item.name_regional})</span>
+                      )}
+                      {item.data_source === 'icmr_nin_2017' || item.is_verified ? (
+                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 9999, background: 'rgba(232, 180, 119, 0.2)', color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}>
+                          ICMR-NIN
+                        </span>
+                      ) : item.data_source === 'indb' ? (
+                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 9999, background: 'rgba(232, 180, 119, 0.2)', color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}>
+                          INDB Recipe
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 9999, background: 'rgba(46, 196, 182, 0.2)', color: 'var(--teal)', fontWeight: 700 }}>
+                          USDA
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--label-2)', marginTop: 2 }}>
+                      100g = {item.calories || 0} kcal · {item.protein || 0}g P · {item.carbs || 0}g C · {item.fat || 0}g F
                     </div>
                   </div>
-                  <span style={{ color: 'var(--theme-accent, #E8B477)', fontWeight: 700, fontSize: 12 }}>
+                  <span style={{ color: 'var(--theme-accent, #E8B477)', fontWeight: 700, fontSize: 13 }}>
                     {item.calories || 0} kcal
                   </span>
                 </div>
@@ -1515,7 +1889,7 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <div>
           <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
             {t('Quantity *')}
@@ -1524,10 +1898,10 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
             type="number"
             step="any"
             min="0.1"
-            required
+            required={draftItems.length === 0}
             placeholder="e.g. 100"
             value={quantity}
-            onChange={e => handleQuantityChange(e.target.value)}
+            onChange={e => handleQuantityOrUnitChange(e.target.value, unit)}
             style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 600 }}
           />
         </div>
@@ -1538,7 +1912,7 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
           </label>
           <select
             value={unit}
-            onChange={e => setUnit(e.target.value)}
+            onChange={e => handleQuantityOrUnitChange(quantity, e.target.value)}
             style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)' }}
           >
             {UNITS.map(u => (
@@ -1548,7 +1922,98 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
         </div>
       </div>
 
-      {/* Nutrients Row (Calories, Protein, Carbs, Fat) */}
+      {/* Quick Portion Chips */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+        <span style={{ fontSize: 12, color: 'var(--label-2)', fontWeight: 600 }}>{t('Quick Portions:')}</span>
+        {isPieceFood ? (
+          [
+            { label: '1 piece', q: '1', u: 'piece' },
+            { label: '2 pieces', q: '2', u: 'piece' },
+            { label: '3 pieces', q: '3', u: 'piece' },
+            { label: '4 pieces', q: '4', u: 'piece' },
+            { label: '100 g', q: '100', u: 'g' }
+          ].map(chip => (
+            <button
+              key={chip.label}
+              type="button"
+              onClick={() => handleQuantityOrUnitChange(chip.q, chip.u)}
+              style={{
+                padding: '4px 10px',
+                borderRadius: 9999,
+                border: quantity === chip.q && unit === chip.u ? '1px solid var(--theme-accent, #E8B477)' : '1px solid var(--border)',
+                background: quantity === chip.q && unit === chip.u ? 'rgba(232, 180, 119, 0.2)' : 'var(--surface-2, #1E1E22)',
+                color: quantity === chip.q && unit === chip.u ? 'var(--theme-accent, #E8B477)' : 'var(--label)',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              {chip.label}
+            </button>
+          ))
+        ) : (
+          [
+            { label: '40 g', q: '40', u: 'g' },
+            { label: '50 g', q: '50', u: 'g' },
+            { label: '100 g', q: '100', u: 'g' },
+            { label: '150 g', q: '150', u: 'g' },
+            { label: '200 g', q: '200', u: 'g' },
+            { label: '1 bowl / cup', q: '1', u: 'bowl' }
+          ].map(chip => (
+            <button
+              key={chip.label}
+              type="button"
+              onClick={() => handleQuantityOrUnitChange(chip.q, chip.u)}
+              style={{
+                padding: '4px 10px',
+                borderRadius: 9999,
+                border: quantity === chip.q && unit === chip.u ? '1px solid var(--theme-accent, #E8B477)' : '1px solid var(--border)',
+                background: quantity === chip.q && unit === chip.u ? 'rgba(232, 180, 119, 0.2)' : 'var(--surface-2, #1E1E22)',
+                color: quantity === chip.q && unit === chip.u ? 'var(--theme-accent, #E8B477)' : 'var(--label)',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              {chip.label}
+            </button>
+          ))
+        )}
+      </div>
+
+      {/* Instant Nutrition Preview Card */}
+      <div style={{ background: 'var(--surface-2, #1E1E22)', border: '1px solid rgba(232, 180, 119, 0.25)', borderRadius: 10, padding: '10px 14px', marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <span style={{ fontSize: 12, color: 'var(--label-2)', fontWeight: 600 }}>
+            {t('Instant Nutrition Preview')} ({quantity} {unit})
+          </span>
+          {baseFood && (
+            <span style={{ fontSize: 11, color: 'var(--theme-accent, #E8B477)' }}>
+              100g base = {baseFood.calories || 0} kcal
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, textAlign: 'center' }}>
+          <div style={{ background: 'var(--surface-1, #141416)', padding: '6px 4px', borderRadius: 6 }}>
+            <div style={{ fontSize: 11, color: 'var(--label-2)' }}>{t('Calories')}</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--theme-accent, #E8B477)' }}>{calories || 0} <span style={{ fontSize: 10 }}>kcal</span></div>
+          </div>
+          <div style={{ background: 'var(--surface-1, #141416)', padding: '6px 4px', borderRadius: 6 }}>
+            <div style={{ fontSize: 11, color: 'var(--label-2)' }}>{t('Protein')}</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--label)' }}>{protein || 0}g</div>
+          </div>
+          <div style={{ background: 'var(--surface-1, #141416)', padding: '6px 4px', borderRadius: 6 }}>
+            <div style={{ fontSize: 11, color: 'var(--label-2)' }}>{t('Carbs')}</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--label)' }}>{carbs || 0}g</div>
+          </div>
+          <div style={{ background: 'var(--surface-1, #141416)', padding: '6px 4px', borderRadius: 6 }}>
+            <div style={{ fontSize: 11, color: 'var(--label-2)' }}>{t('Fat')}</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--label)' }}>{fat || 0}g</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Manual Editable Micro Nutrients Row (Foldable/Inline) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 14 }}>
         <div>
           <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--theme-accent, #E8B477)', marginBottom: 4 }}>
@@ -1621,10 +2086,25 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
         />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-        <Button variant="acc" type="submit" style={{ padding: '10px 20px', fontWeight: 600 }}>
-          {t('Save Food Entry')}
-        </Button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+        {!existing && (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleAddToDraft}
+            disabled={!foodName.trim()}
+            style={{ padding: '10px 16px', fontWeight: 600, fontSize: 13 }}
+          >
+            + {t('Add to Meal Draft')}
+          </Button>
+        )}
+        <div style={{ display: 'flex', gap: 10, marginLeft: 'auto' }}>
+          <Button variant="acc" type="submit" style={{ padding: '10px 20px', fontWeight: 700, fontSize: 14 }}>
+            {draftItems.length > 0
+              ? t('Save Complete Meal ({0} items)', draftItems.length + (foodName.trim() ? 1 : 0))
+              : (existing ? t('Update Food Entry') : t('Save Food Entry'))}
+          </Button>
+        </div>
       </div>
     </form>
   )

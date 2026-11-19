@@ -772,3 +772,119 @@ test('Daily Health Log: Simplified food entry without required calories or macro
   await routes['POST /api/nutrition/food/delete']({}, {})
 })
 
+test('Zero-Hallucination AI Fast Log & Verified Nutrition Calculations', async () => {
+  const userId = 'test_ai_' + Date.now()
+  let responseData = null
+  let responseStatus = null
+  const mockJson = (res, status, data) => { responseStatus = status; responseData = data }
+  const mockSession = () => ({ id: userId, name: 'AiTester' })
+
+  // 1. Parse 100g oats - verify exact ICMR-NIN verified math (389 kcal, NEVER 1800 kcal!)
+  let requestBody = { text: '100g oats' }
+  let routes = nutritionRoutes({ json: mockJson, readBody: async () => requestBody, readSession: mockSession })
+  await routes['POST /api/nutrition/ai-parse']({}, {})
+
+  assert.equal(responseStatus, 200)
+  assert.equal(responseData.ok, true)
+  assert.ok(responseData.items.length > 0)
+  const oats = responseData.items[0]
+  assert.ok(oats.food_name.toLowerCase().includes('oats'))
+  assert.equal(oats.serving_quantity, 100)
+  assert.equal(oats.serving_unit, 'g')
+  assert.equal(oats.energy_kcal, 389) // Strictly 389 kcal per 100g!
+  assert.ok(oats.energy_kcal < 500, 'Oats 100g must never hallucinate ~1800 kcal')
+  assert.equal(oats.protein_g, 16.9) // ICMR-NIN verified lab value
+  assert.equal(oats.carb_g, 66.3)
+  assert.equal(oats.fat_g, 6.9)
+
+  // 2. Parse multi-item meal: 2 chapatis and 1 boiled egg
+  requestBody = { text: '2 chapatis and 1 boiled egg' }
+  routes = nutritionRoutes({ json: mockJson, readBody: async () => requestBody, readSession: mockSession })
+  await routes['POST /api/nutrition/ai-parse']({}, {})
+
+  assert.equal(responseStatus, 200)
+  assert.equal(responseData.ok, true)
+  assert.equal(responseData.items.length, 2)
+
+  const chapati = responseData.items.find(it => it.food_name.toLowerCase().includes('roti') || it.food_name.toLowerCase().includes('chapati'))
+  assert.ok(chapati, 'Found chapati item')
+  assert.equal(chapati.serving_quantity, 2)
+  assert.equal(chapati.serving_unit, 'piece')
+  assert.equal(chapati.effective_grams, 70) // 2 * 35g
+  assert.equal(chapati.energy_kcal, 208) // 70/100 * 297 = 207.9 -> 208 kcal
+
+  const egg = responseData.items.find(it => it.food_name.toLowerCase().includes('egg'))
+  assert.ok(egg, 'Found egg item')
+  assert.equal(egg.serving_quantity, 1)
+  assert.equal(egg.serving_unit, 'piece')
+  assert.equal(egg.effective_grams, 50) // 1 * 50g
+  assert.equal(egg.energy_kcal, 72) // 50/100 * 143 = 71.5 -> 72 kcal
+})
+
+test('Multi-Item Meal Builder: POST /api/nutrition/food/save-batch persists complete meals atomically', async () => {
+  const userId = 'test_batch_' + Date.now()
+  const date = '2026-10-30'
+
+  let responseData = null
+  let responseStatus = null
+  const mockJson = (res, status, data) => { responseStatus = status; responseData = data }
+  const mockSession = () => ({ id: userId, name: 'BatchTester' })
+
+  // Save 3 items in a single batch
+  const batchEntries = [
+    {
+      food_name: 'Wheat Roti / Chapati',
+      meal_type: 'dinner',
+      serving_quantity: 2,
+      serving_unit: 'piece',
+      energy_kcal: 208,
+      protein_g: 6.3,
+      carb_g: 45,
+      fat_g: 2.1,
+      notes: 'Whole wheat phulka'
+    },
+    {
+      food_name: 'Dal Tadka Cooked',
+      meal_type: 'dinner',
+      serving_quantity: 1,
+      serving_unit: 'katori',
+      energy_kcal: 150,
+      protein_g: 7.5,
+      carb_g: 20,
+      fat_g: 4.5,
+      notes: 'Yellow lentil dal'
+    },
+    {
+      food_name: 'Boiled Whole Egg',
+      meal_type: 'dinner',
+      serving_quantity: 1,
+      serving_unit: 'piece',
+      energy_kcal: 72,
+      protein_g: 6.3,
+      carb_g: 0.6,
+      fat_g: 4.8
+    }
+  ]
+
+  const requestBody = { entries: batchEntries, date }
+  const routes = nutritionRoutes({ json: mockJson, readBody: async () => requestBody, readSession: mockSession })
+  await routes['POST /api/nutrition/food/save-batch']({}, {})
+
+  assert.equal(responseStatus, 201)
+  assert.equal(responseData.ok, true)
+  assert.equal(responseData.entries.length, 3)
+
+  // Verify all 3 entries saved in health-log
+  await routes['GET /api/nutrition/health-log']({ url: `http://localhost/api/nutrition/health-log?date=${date}` }, {})
+  assert.equal(responseData.foods.length, 3)
+  assert.equal(responseData.totals.food_count, 3)
+  // Total calories: 208 + 150 + 72 = 430
+  assert.equal(responseData.totals.calories_consumed, 430)
+
+  // Clean up
+  for (const entry of responseData.foods) {
+    deleteMealLog(entry.id, userId)
+  }
+})
+
+

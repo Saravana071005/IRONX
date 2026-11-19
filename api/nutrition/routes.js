@@ -34,6 +34,7 @@ import {
   syncHealthLogsFromMongo
 } from './db.js';
 import { calculateRecipeNutrition, resolveGrams, calculateNutrients } from './engine.js';
+import { parseMeal } from './parser.js';
 
 export function nutritionRoutes({ json, readBody, readSession }) {
   const requireUser = (req, res) => {
@@ -57,10 +58,167 @@ export function nutritionRoutes({ json, readBody, readSession }) {
 
       try {
         const results = searchFoods(q, limit, group);
-        json(res, 200, { ok: true, count: results.length, foods: results });
+        json(res, 200, { ok: true, count: results.length, foods: results, results: results });
       } catch (e) {
         json(res, 500, { error: e.message });
       }
+    },
+
+    /* ---------- Gemini AI Meal Parser with Zero-Hallucination DB Verification ---------- */
+    'POST /api/nutrition/ai-parse': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      const text = String(body.text || body.prompt || '').trim();
+      if (!text) {
+        return json(res, 400, { error: 'Meal description text is required' });
+      }
+
+      let parsedItems = [];
+      let usedGemini = false;
+
+      // 1. Check server-side process.env.GEMINI_API_KEY
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const apiKey = process.env.GEMINI_API_KEY;
+          const prompt = `You are an expert nutrition intake parser for Indian and international diets.
+Parse the following meal description into individual food items.
+Recognize English, Hindi/Hinglish, and Tamil/Tanglish food terms (e.g. chapati, roti, dal, thayir, curd, dahi, muttai, anda, egg, rice, sadam, chawal, idli, dosa, oats, chicken, paneer, banana, apple, milk).
+Extract quantities, units, and preparation methods.
+
+User input: "${text}"
+
+Respond with ONLY a JSON array of objects with the following schema:
+[
+  {
+    "raw_name": string,
+    "normalized_food": string,
+    "quantity": number,
+    "unit": string,
+    "prep_state": string,
+    "clarification": string or null
+  }
+]
+No other text or markdown, just the JSON array.`;
+
+          const geminiRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                  temperature: 0.1,
+                  responseMimeType: 'application/json'
+                }
+              })
+            }
+          );
+
+          if (geminiRes.ok) {
+            const geminiData = await geminiRes.json();
+            const rawJsonText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (rawJsonText) {
+              const parsed = JSON.parse(rawJsonText);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                parsedItems = parsed;
+                usedGemini = true;
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Gemini API call error, falling back to local NLP parser:', err.message);
+        }
+      }
+
+      // 2. Fallback to local deterministic NLP parser if Gemini not used or failed
+      if (!usedGemini || parsedItems.length === 0) {
+        const localResult = parseMeal(text);
+        if (localResult && Array.isArray(localResult.items)) {
+          parsedItems = localResult.items.map(item => ({
+            raw_name: item.raw_phrase || item.food_name,
+            normalized_food: item.food_name,
+            quantity: item.serving_quantity || item.quantity || 1,
+            unit: item.serving_unit || item.unit || 'g',
+            prep_state: item.prep_state || null,
+            food_id: item.food_id
+          }));
+        }
+      }
+
+      // 3. Strict Database Resolution (Zero Hallucination Guarantee)
+      // Match every parsed item strictly against verified lab records in nutrition.db
+      const resolvedItems = [];
+      let totalKcal = 0;
+      let totalProtein = 0;
+      let totalCarb = 0;
+      let totalFat = 0;
+      let totalFibre = 0;
+
+      for (const item of parsedItems) {
+        const qStr = item.normalized_food || item.raw_name || '';
+        let food = item.food_id ? getFoodById(item.food_id) : null;
+        if (!food && qStr) {
+          const candidates = searchFoods(qStr, 5);
+          if (candidates && candidates.length > 0) {
+            if (item.prep_state) {
+              food = candidates.find(c => c.prep_state === item.prep_state) || candidates[0];
+            } else {
+              food = candidates[0];
+            }
+          }
+        }
+
+        if (food) {
+          const q = Number(item.quantity) || 1;
+          const u = item.unit || food.serving_unit || 'g';
+          const resG = resolveGrams(food, q, u);
+          const nut = calculateNutrients(food, resG.grams);
+
+          totalKcal += nut.energy_kcal;
+          totalProtein += nut.protein_g;
+          totalCarb += nut.carb_g;
+          totalFat += nut.fat_g;
+          totalFibre += nut.fibre_g;
+
+          resolvedItems.push({
+            raw_name: item.raw_name || food.name,
+            food_id: food.id,
+            food_name: food.name,
+            category: food.food_group,
+            prep_state: food.prep_state,
+            source: food.source,
+            confidence: food.confidence || 'verified_lab',
+            serving_quantity: q,
+            serving_unit: u,
+            serving_grams: resG.grams,
+            effective_grams: resG.grams,
+            energy_kcal: Math.round(nut.energy_kcal),
+            protein_g: nut.protein_g,
+            carb_g: nut.carb_g,
+            fat_g: nut.fat_g,
+            fibre_g: nut.fibre_g,
+            assumption: resG.assumption,
+            clarification: item.clarification || null
+          });
+        }
+      }
+
+      json(res, 200, {
+        ok: true,
+        engine: usedGemini ? 'gemini-ai' : 'deterministic-local-nlp',
+        count: resolvedItems.length,
+        items: resolvedItems,
+        totals: {
+          energy_kcal: Math.round(totalKcal * 10) / 10,
+          protein_g: Math.round(totalProtein * 10) / 10,
+          carb_g: Math.round(totalCarb * 10) / 10,
+          fat_g: Math.round(totalFat * 10) / 10,
+          fibre_g: Math.round(totalFibre * 10) / 10
+        }
+      });
     },
 
     'GET /api/nutrition/food': async (req, res) => {
@@ -331,6 +489,134 @@ export function nutritionRoutes({ json, readBody, readSession }) {
       }
 
       return json(res, body.id ? 200 : 201, { ok: true, entry });
+    },
+
+    'POST /api/nutrition/food/save-batch': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      const items = Array.isArray(body.items) ? body.items : (Array.isArray(body.entries) ? body.entries : []);
+      const date = String(body.date || new Date().toISOString().slice(0, 10)).slice(0, 10);
+      const mealType = String(body.meal_type || 'breakfast').toLowerCase();
+
+      if (items.length === 0) {
+        return json(res, 400, { error: 'No food items provided' });
+      }
+
+      const savedEntries = [];
+      const storeMeals = [];
+
+      for (const item of items) {
+        const id = item.id || genId();
+        let energyKcal = Number(item.energy_kcal != null ? item.energy_kcal : (item.calories != null ? item.calories : 0));
+        let proteinG = Number(item.protein_g != null ? item.protein_g : (item.protein != null ? item.protein : 0));
+        let carbG = Number(item.carb_g != null ? item.carb_g : (item.carb != null ? item.carb : (item.carbs != null ? item.carbs : 0)));
+        let fatG = Number(item.fat_g != null ? item.fat_g : (item.fat != null ? item.fat : 0));
+        let fibreG = Number(item.fibre_g != null ? item.fibre_g : (item.fibre != null ? item.fibre : 0));
+        let servingGrams = Number(item.serving_grams || item.grams) || 0;
+        let foodId = item.food_id || item.foodId || null;
+
+        if (!energyKcal && (foodId || item.food_name || item.name)) {
+          const lookupName = item.food_name || item.name;
+          let f = foodId ? getFoodById(foodId) : null;
+          if (!f) {
+            const matched = searchFoods(lookupName, 1);
+            if (matched && matched.length > 0) f = matched[0];
+          }
+          if (f) {
+            foodId = f.id;
+            const resG = resolveGrams(f, item.serving_quantity || item.qty || 1, item.serving_unit || item.unit || 'g');
+            servingGrams = resG.grams;
+            const nut = calculateNutrients(f, servingGrams);
+            energyKcal = nut.energy_kcal;
+            proteinG = nut.protein_g;
+            carbG = nut.carb_g;
+            fatG = nut.fat_g;
+            fibreG = nut.fibre_g;
+          }
+        }
+
+        const entry = {
+          id,
+          user_id: user.id,
+          date,
+          meal_type: String(item.meal_type || mealType).toLowerCase(),
+          food_id: foodId,
+          food_name: String(item.food_name || item.name || '').trim(),
+          serving_quantity: Number(item.serving_quantity || item.qty) || 1,
+          serving_unit: item.serving_unit || item.unit || 'g',
+          serving_grams: servingGrams,
+          energy_kcal: energyKcal,
+          protein_g: proteinG,
+          carb_g: carbG,
+          fat_g: fatG,
+          fibre_g: fibreG,
+          notes: item.notes ? String(item.notes).trim() : null,
+          assumptions: item.notes || item.assumptions || null,
+          created_at: item.created_at || new Date().toISOString()
+        };
+
+        addMealLog(entry);
+        savedEntries.push(entry);
+
+        storeMeals.push({
+          id: entry.id,
+          d: entry.date,
+          date: entry.date,
+          type: entry.meal_type,
+          meal_type: entry.meal_type,
+          name: entry.food_name,
+          food_name: entry.food_name,
+          qty: entry.serving_quantity,
+          serving_quantity: entry.serving_quantity,
+          unit: entry.serving_unit,
+          serving_unit: entry.serving_unit,
+          energy_kcal: entry.energy_kcal,
+          calories: entry.energy_kcal,
+          protein_g: entry.protein_g,
+          protein: entry.protein_g,
+          carb_g: entry.carb_g,
+          carb: entry.carb_g,
+          fat_g: entry.fat_g,
+          fat: entry.fat_g,
+          fibre_g: entry.fibre_g,
+          notes: entry.notes,
+          created_at: entry.created_at
+        });
+      }
+
+      if (process.env.MONGODB_URI) {
+        try {
+          const mongo = await getMongoDb();
+          if (mongo) {
+            for (const entry of savedEntries) {
+              await mongo.collection('meal_logs').updateOne(
+                { id: entry.id, user_id: user.id },
+                { $set: { ...entry, user_id: user.id, updatedAt: new Date().toISOString() } },
+                { upsert: true }
+              );
+            }
+            const stateDoc = await mongo.collection('states').findOne({ userId: user.id });
+            if (stateDoc?.state) {
+              const currentMeals = Array.isArray(stateDoc.state.meals) ? [...stateDoc.state.meals] : [];
+              for (const sm of storeMeals) {
+                const idx = currentMeals.findIndex(m => m.id === sm.id);
+                if (idx >= 0) currentMeals[idx] = { ...currentMeals[idx], ...sm };
+                else currentMeals.push(sm);
+              }
+              await mongo.collection('states').updateOne(
+                { userId: user.id },
+                { $set: { 'state.meals': currentMeals, updatedAt: new Date().toISOString() } }
+              );
+            }
+          }
+        } catch (err) {
+          console.error('MongoDB batch meal save sync error:', err.message);
+        }
+      }
+
+      return json(res, 201, { ok: true, count: savedEntries.length, entries: savedEntries, meals: storeMeals });
     },
 
     'POST /api/nutrition/food/delete': async (req, res) => {

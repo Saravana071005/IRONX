@@ -9,68 +9,12 @@ import { bwSheet, goalSheet, calendarSheet, workoutDetailSheet, WorkoutRow, bwDe
 import LineChart from '../components/LineChart.jsx'
 import Heatmap from '../components/Heatmap.jsx'
 import Icon from '../components/Icon.jsx'
-import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
-import { loadOfWorkouts, rankOf, MUSCLE_NAME } from '../lib/muscles.js'
+import MuscleBalanceChart from '../components/MuscleBalanceChart.jsx'
 import { e1rmSeries, best1RM } from '../lib/onerm.js'
 import {
   hasEffort, displayScale, scaleName, toScale, avgRir, isHardSet
 } from '../lib/effort.js'
 import { Button, Segmented, SelectRow } from '../components/ui.jsx'
-
-// Muscle Balance
-function MuscleBalance({ S }) {
-  const [win, setWin] = useState(7)
-  const [hard, setHard] = useState(false)
-  const [sel, setSel] = useState(null)
-  const now = Date.now()
-  const inWin = (S.workouts || []).filter(w =>
-    win === 0 ? true
-      : win === 7 ? weekKey(w.d) === weekKey(todayISO())
-        : (w.start || new Date(w.d).getTime()) > now - win * 86400000)
-
-  const rated = inWin.some(w => (w.entries || []).some(e => (e.sets || []).some(s => s.done && isHardSet(s))))
-  const on = hard && rated
-  const load = loadOfWorkouts(inWin, on ? isHardSet : null)
-  const { worked } = rankOf(load)
-  const sets = m => Math.round((load[m] || 0) * 10) / 10
-
-  return (
-    <div className="card" style={{ marginBottom: 14 }}>
-      <div className="row between" style={{ marginBottom: 8 }}>
-        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--label)' }}>
-          {t('Muscle balance')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12 }}>· {on ? t('by hard sets') : t('by sets worked')}</span>
-        </h2>
-        {rated && (
-          <Button size="sm" icon="flame" style={on ? { color: 'var(--amber)' } : undefined} onClick={() => { setHard(h => !h); setSel(null) }}>
-            {on ? t('Hard') : t('All')}
-          </Button>
-        )}
-      </div>
-      <Segmented
-        className="seg-range"
-        value={win}
-        onChange={v => { setWin(v); setSel(null) }}
-        options={[{ value: 7, label: t('Week') }, { value: 30, label: '30d' }, { value: 90, label: '90d' }, { value: 0, label: t('All') }]}
-      />
-      {inWin.length ? (
-        <>
-          <BodyMap className="tappable" load={load} body={S.body} selected={sel} onMuscle={m => setSel(s => (s === m ? null : m))} />
-          <BodyMapLegend />
-          {sel && (
-            <div className="mrow" style={{ borderTop: 'var(--hair) solid var(--sep)', marginTop: 4, paddingTop: 10 }}>
-              <span className="nm"><b>{t(MUSCLE_NAME[sel])}</b></span>
-              <span className="v">{sets(sel) ? t('{0} sets', sets(sel)) : on ? t('no hard sets') : t('not trained')}</span>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="muted small" style={{ padding: '16px 0', textAlign: 'center' }}>
-          {t('No workouts recorded in this time range.')}
-        </div>
-      )}
-    </div>
-  )
-}
 
 export default function Stats() {
   const nav = useNavigate()
@@ -372,7 +316,7 @@ export default function Stats() {
         />
       </div>
 
-      {workouts.length > 0 && <MuscleBalance S={S} />}
+      {workouts.length > 0 && <MuscleBalanceChart S={S} />}
 
       <div className="cols">
         {/* Body weight card with time range */}

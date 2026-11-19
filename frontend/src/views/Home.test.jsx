@@ -23,6 +23,37 @@ describe('Home View Rendering & Defensive Edge Cases', () => {
     expect(html).toContain('Calories Overview')
     expect(html).toContain('Your Progress')
     expect(html).toContain('This Week Plan')
+    expect(html).toContain('Muscle Balance')
+  })
+
+  it('renders reorganized layout order with Quick Actions above Weekly Activity without duplicates', () => {
+    const html = renderToString(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+    // Layout sequence: Greeting -> Quick Actions -> Weekly Activity -> Your Progress -> Muscle Balance
+    const posGreeting = html.indexOf('Hi,')
+    const posQuickActions = html.indexOf('Quick Actions')
+    const posWeeklyActivity = html.indexOf('Weekly Activity')
+    const posProgress = html.indexOf('Your Progress')
+    const posMuscleBalance = html.indexOf('Muscle Balance')
+
+    expect(posGreeting).toBeGreaterThan(-1)
+    expect(posQuickActions).toBeGreaterThan(posGreeting)
+    expect(posWeeklyActivity).toBeGreaterThan(posQuickActions)
+    expect(posProgress).toBeGreaterThan(posWeeklyActivity)
+    expect(posMuscleBalance).toBeGreaterThan(posProgress)
+
+    // Quick Actions must not be duplicated
+    const quickActionsCount = (html.match(/Quick Actions/g) || []).length
+    expect(quickActionsCount).toBe(1)
+
+    // All 4 quick action buttons must be present
+    expect(html).toContain('Log Workout')
+    expect(html).toContain('Log Food')
+    expect(html).toContain('Log Cardio')
+    expect(html).toContain('Body Stats')
   })
 
   it('renders Home safely when bodyweight is completely empty or undefined', () => {
