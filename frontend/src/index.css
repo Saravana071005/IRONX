@@ -1682,22 +1682,88 @@ h4.sec{
    the body keeps the same contrast in both themes — pinned to --surface-2 it was all
    but invisible on a white card. */
 .bodymap{
-  display:flex;gap:6px;justify-content:center;align-items:flex-start;
-  --bm-base:color-mix(in srgb,var(--label) 11%,var(--surface));
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 540px;
+  margin: 0 auto;
+  --bm-base: #1c1c22;
+  --bm-stroke: #0b0b0e;
+  --bm-inert: #131317;
 }
-.bm-v{flex:1;min-width:0;height:auto;max-height:min(46vh,340px)}
-.bm-ph{height:200px}                       /* holds the space while the geometry loads */
-.bm-sil{fill:color-mix(in srgb,var(--label) 18%,var(--surface))}
-.bm-m{fill:var(--bm-base);transition:fill var(--med) var(--ease)}
-.bm-m.l1{fill:color-mix(in srgb,var(--acc) 32%,var(--bm-base))}
-.bm-m.l2{fill:color-mix(in srgb,var(--acc) 56%,var(--bm-base))}
-.bm-m.l3{fill:color-mix(in srgb,var(--acc) 78%,var(--bm-base))}
-.bm-m.l4{fill:var(--acc)}
-.bm-m.sel{stroke:var(--label);stroke-width:7}
-.bodymap.tappable .bm-m{cursor:pointer}
-/* A hairline in the surface colour separates neighbouring muscles; the artwork has no
-   outline path of its own, so without this the body reads as one flat blob. */
-.bm-v path{stroke:var(--surface);stroke-width:2.5;stroke-linejoin:round}
+.bm-col{
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.bm-label{
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--label-2);
+  margin-bottom: 10px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+.bm-v{
+  width: 100%;
+  height: auto;
+  max-height: min(48vh, 380px);
+  filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.75));
+}
+.bm-ph{
+  height: 280px;
+}
+.bm-v path{
+  stroke: var(--bm-stroke);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  transition: fill 0.25s ease, stroke 0.25s ease, filter 0.25s ease;
+}
+.bm-sil{
+  fill: var(--bm-inert);
+}
+.bm-m{
+  fill: var(--bm-base);
+  cursor: pointer;
+}
+.bm-m:hover{
+  filter: brightness(1.35);
+  stroke: var(--theme-accent, #E8B477);
+  stroke-width: 2.8;
+}
+.bm-m.l1{
+  fill: color-mix(in srgb, var(--theme-accent, #E8B477) 36%, var(--bm-base));
+  stroke: color-mix(in srgb, var(--theme-accent, #E8B477) 40%, var(--bm-stroke));
+}
+.bm-m.l2{
+  fill: color-mix(in srgb, var(--theme-accent, #E8B477) 58%, var(--bm-base));
+  stroke: color-mix(in srgb, var(--theme-accent, #E8B477) 65%, var(--bm-stroke));
+}
+.bm-m.l3{
+  fill: color-mix(in srgb, var(--theme-accent, #E8B477) 80%, var(--bm-base));
+  stroke: color-mix(in srgb, var(--theme-accent, #E8B477) 85%, var(--bm-stroke));
+  filter: drop-shadow(0 0 5px rgba(232, 180, 119, 0.4));
+}
+.bm-m.l4{
+  fill: var(--theme-accent, #E8B477);
+  stroke: var(--theme-accent, #E8B477);
+  filter: drop-shadow(0 0 8px var(--theme-accent-glow, rgba(232, 180, 119, 0.6)));
+}
+.bm-m.sel{
+  stroke: #FFFFFF !important;
+  stroke-width: 4 !important;
+  filter: drop-shadow(0 0 10px var(--theme-accent, #E8B477)) !important;
+}
+.bodymap.tappable .bm-m{cursor: pointer}
 
 .mrow{display:flex;align-items:center;gap:9px;padding:5px 0}
 .mrow .nm{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

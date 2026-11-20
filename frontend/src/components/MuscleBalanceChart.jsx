@@ -5,13 +5,13 @@ import {
   loadOfWorkouts,
   rankOf,
   MUSCLE_NAME,
+  ANATOMICAL_MAP,
   musclesOf,
   MUSCLES,
-  resolveExerciseMeta,
   getExerciseMuscleBreakdown
 } from '../lib/muscles.js'
 import { isHardSet } from '../lib/effort.js'
-import { todayISO, fmtNum } from '../lib/format.js'
+import { todayISO } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import { Button, Segmented } from './ui.jsx'
 import Icon from './Icon.jsx'
@@ -93,11 +93,14 @@ function getWeekBounds(offset = 0) {
   return { startStr, endStr, label }
 }
 
+const ANTERIOR_CHIPS = ['chest', 'deltoids', 'biceps', 'abs', 'obliques', 'quadriceps', 'adductors', 'calves']
+const POSTERIOR_CHIPS = ['trapezius', 'deltoids', 'upper-back', 'lower-back', 'triceps', 'gluteal', 'hamstring', 'calves']
+
 /**
  * MuscleBalanceChart
- * Visualizes targeted and loaded muscle groups from completed workouts.
- * Supports Day | Week | 30 Days | 90 Days | All filters with date selection and week navigation.
- * Interactive muscle inspection showing exercises, sets, volume, and primary vs secondary distinctions.
+ * Premium Interactive Anatomical Muscle Balance Map.
+ * Renders Front (Anterior) and Back (Posterior) human muscular anatomy diagrams with
+ * dynamic highlighting based on real completed workout records.
  */
 export default function MuscleBalanceChart({ S }) {
   const nav = useNavigate()
@@ -155,89 +158,22 @@ export default function MuscleBalanceChart({ S }) {
   }, [inWin, on, S?.customEx])
 
   const { worked } = useMemo(() => rankOf(load), [load])
-
   const setsOf = m => Math.round((load[m] || 0) * 10) / 10
-
-  // Detailed breakdown of each completed workout and exercise in the current window
-  const workoutDetailsList = useMemo(() => {
-    return inWin.map(w => {
-      const durM = w.dur ? Math.max(1, Math.round(w.dur / 60000)) : null
-      const exercises = (w.entries || [])
-        .filter(e => e.sets && e.sets.some(s => s && s.done))
-        .map(e => {
-          const breakdown = getExerciseMuscleBreakdown(e.id, e, S?.customEx)
-          const doneSets = (e.sets || []).filter(s => s && s.done && (!on || isHardSet(s)))
-          const setDescriptions = doneSets.map(s => {
-            const wVal = Number(s.w) || 0
-            const rVal = Number(s.r) || 0
-            return wVal > 0 ? `${wVal}kg × ${rVal}` : `${rVal} reps`
-          })
-          const volume = doneSets.reduce(
-            (sum, s) => sum + (Number(s.w) || 0) * (Number(s.r) || 0),
-            0
-          )
-          return {
-            id: e.id,
-            name: e.name || e.n || breakdown.meta?.n || e.id,
-            primaryMuscles: breakdown.primary,
-            secondaryMuscles: breakdown.secondary,
-            primaryNames: breakdown.primaryNames,
-            secondaryNames: breakdown.secondaryNames,
-            setsCount: doneSets.length,
-            setDescriptions,
-            volume
-          }
-        })
-
-      return {
-        id: w.id,
-        name: w.name || t('Strength Workout'),
-        date: normalizeDateStr(w.d || w.date || w.start),
-        durationMinutes: durM,
-        volume: w.vol || exercises.reduce((acc, ex) => acc + ex.volume, 0),
-        exercises
-      }
-    })
-  }, [inWin, S?.customEx, on])
-
-  // Aggregate trained primary vs secondary vs untrained muscle groups across the current window
-  const muscleClassification = useMemo(() => {
-    const primarySet = new Set()
-    const secondarySet = new Set()
-
-    workoutDetailsList.forEach(w => {
-      w.exercises.forEach(ex => {
-        ex.primaryMuscles.forEach(m => primarySet.add(m))
-        ex.secondaryMuscles.forEach(m => {
-          if (!primarySet.has(m)) secondarySet.add(m)
-        })
-      })
-    })
-
-    // If a muscle became primary, remove from secondary
-    primarySet.forEach(m => secondarySet.delete(m))
-
-    const trainedPrimary = Array.from(primarySet)
-    const trainedSecondary = Array.from(secondarySet)
-    const untrained = MUSCLES.filter(m => !primarySet.has(m) && !secondarySet.has(m))
-
-    return {
-      trainedPrimary,
-      trainedSecondary,
-      untrained
-    }
-  }, [workoutDetailsList])
 
   // Detailed breakdown of exercises that contributed to the selected muscle
   const selectedDetails = useMemo(() => {
     if (!sel) return null
     const muscleSlug = sel
-    const muscleLabel = t(MUSCLE_NAME[muscleSlug] || muscleSlug)
+    const info = ANATOMICAL_MAP[muscleSlug] || {}
+    const muscleLabel = t(info.name || MUSCLE_NAME[muscleSlug] || muscleSlug)
+    const anatomicalName = info.anatomical || muscleLabel
+    const viewLabel = t(info.viewLabel || (info.view === 'back' ? 'Posterior (Back)' : 'Anterior (Front)'))
     const effectiveSets = setsOf(muscleSlug)
 
     const exerciseMap = new Map()
 
     for (const w of inWin) {
+      const wDate = normalizeDateStr(w.d || w.date || w.start)
       for (const e of w.entries || []) {
         if (!e) continue
         const breakdown = getExerciseMuscleBreakdown(e.id, e, S?.customEx)
@@ -255,14 +191,18 @@ export default function MuscleBalanceChart({ S }) {
             (sum, s) => sum + (Number(s.w) || 0) * (Number(s.r) || 0),
             0
           )
-          const totalReps = completedSets.reduce((sum, s) => sum + (Number(s.r) || 0), 0)
+          const setStrings = completedSets.map(s => {
+            const wVal = Number(s.w) || 0
+            const rVal = Number(s.r) || 0
+            return wVal > 0 ? `${wVal}kg × ${rVal}` : `${rVal} reps`
+          })
 
           const key = e.id || e.name
           if (exerciseMap.has(key)) {
             const exData = exerciseMap.get(key)
             exData.sets += completedSets.length
             exData.volume += volumeKg
-            exData.reps += totalReps
+            exData.setDescriptions.push(...setStrings)
           } else {
             const isPrimary =
               breakdown.primary.includes(muscleSlug) ||
@@ -270,12 +210,13 @@ export default function MuscleBalanceChart({ S }) {
               weight >= 0.8
             exerciseMap.set(key, {
               id: key,
-              name: exMeta?.n || e.name || key,
+              name: e.name || exMeta?.n || key,
               isPrimary,
-              weight,
+              workoutName: w.name || t('Strength Workout'),
+              workoutDate: wDate,
               sets: completedSets.length,
               volume: volumeKg,
-              reps: totalReps
+              setDescriptions: setStrings
             })
           }
         }
@@ -289,7 +230,10 @@ export default function MuscleBalanceChart({ S }) {
     return {
       slug: muscleSlug,
       name: muscleLabel,
+      anatomicalName,
+      viewLabel,
       effectiveSets,
+      isTrained: effectiveSets > 0,
       exercises: contributingExercises
     }
   }, [sel, inWin, on, load, S?.customEx])
@@ -322,13 +266,13 @@ export default function MuscleBalanceChart({ S }) {
     <div
       className="card muscle-balance-card"
       style={{
-        padding: '24px',
+        padding: '24px 20px',
         borderRadius: 22,
-        background: 'var(--surface)',
+        background: 'var(--surface, #090909)',
         backgroundImage: 'var(--grad-glass-surface)',
         backdropFilter: 'var(--glass-blur)',
         WebkitBackdropFilter: 'var(--glass-blur)',
-        border: '1px solid var(--theme-accent-border, var(--border-gold))',
+        border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.25))',
         boxShadow: 'var(--card-shadow), var(--glass-highlight)',
         marginBottom: 18,
         position: 'relative'
@@ -348,7 +292,7 @@ export default function MuscleBalanceChart({ S }) {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ color: 'var(--theme-accent, #E8B477)', display: 'flex' }}>
-              <Icon name="dumbbell" size={18} />
+              <Icon name="dumbbell" size={20} />
             </span>
             <h2
               style={{
@@ -364,9 +308,7 @@ export default function MuscleBalanceChart({ S }) {
             </h2>
           </div>
           <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 3 }}>
-            {on
-              ? t('Tracking hard sets near failure')
-              : t('Targeted training load across muscle groups')}
+            {t('Interactive Anatomical Stimulation & Recovery Map')}
           </div>
         </div>
 
@@ -554,519 +496,356 @@ export default function MuscleBalanceChart({ S }) {
         </div>
       )}
 
-      {/* Main Content Area */}
-      {hasActivity ? (
-        <div>
-          {/* Anatomical Heatmap SVG */}
-          <div style={{ display: 'flex', justifyContent: 'center', margin: '12px 0 6px' }}>
-            <BodyMap
-              className="tappable"
-              load={load}
-              body={S?.body}
-              selected={sel}
-              onMuscle={m => setSel(s => (s === m ? null : m))}
-            />
-          </div>
+      {/* CORE HERO COMPONENT: Human Body Muscle Anatomy Map (ALWAYS RENDERED) */}
+      <div style={{ margin: '8px 0 16px', position: 'relative' }}>
+        <BodyMap
+          className="tappable"
+          load={load}
+          body={S?.body}
+          selected={sel}
+          onMuscle={m => setSel(s => (s === m ? null : m))}
+          showLabels={true}
+        />
+      </div>
 
-          <BodyMapLegend />
+      {/* Anatomical Heatmap Legend */}
+      <BodyMapLegend />
 
-          {/* Muscle Status Categorization Summary */}
-          <div
+      {/* Summary Status Readout */}
+      <div
+        style={{
+          marginTop: 14,
+          padding: '10px 14px',
+          borderRadius: 12,
+          background: 'rgba(255, 255, 255, 0.02)',
+          border: '1px solid rgba(255, 255, 255, 0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 8
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span
             style={{
-              marginTop: 18,
-              padding: '14px',
-              borderRadius: 14,
-              background: 'rgba(255, 255, 255, 0.02)',
-              border: '1px solid rgba(255, 255, 255, 0.06)'
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: hasActivity ? 'var(--theme-accent, #E8B477)' : '#555560',
+              boxShadow: hasActivity
+                ? '0 0 8px var(--theme-accent-glow, rgba(232, 180, 119, 0.6))'
+                : 'none'
+            }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
+            {hasActivity
+              ? `${worked.length} / ${MUSCLES.length} ${t('Muscle Groups Stimulated')}`
+              : win === 1
+                ? t('Rest & Recovery Day · All muscles resting')
+                : t('No muscle activity recorded in this period')}
+          </span>
+        </div>
+
+        {!hasActivity && (
+          <button
+            onClick={() => nav('/workout')}
+            style={{
+              padding: '5px 12px',
+              borderRadius: 9999,
+              background: 'rgba(232, 180, 119, 0.15)',
+              color: 'var(--theme-accent, #E8B477)',
+              border: '1px solid rgba(232, 180, 119, 0.3)',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4
             }}
           >
-            {/* Primary Muscles */}
-            <div style={{ marginBottom: 12 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  color: 'var(--theme-accent, #E8B477)',
-                  textTransform: 'uppercase',
-                  marginBottom: 8,
-                  letterSpacing: '0.04em',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6
-                }}
-              >
-                <span
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    background: 'var(--theme-accent, #E8B477)'
-                  }}
-                />
-                <span>{t('Primary Target Muscles')}</span>
-                <span style={{ opacity: 0.6 }}>({muscleClassification.trainedPrimary.length})</span>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {muscleClassification.trainedPrimary.map(m => {
-                  const isSelected = sel === m
-                  const sets = setsOf(m)
-                  return (
-                    <button
-                      key={m}
-                      onClick={() => setSel(s => (s === m ? null : m))}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: 9999,
-                        background: isSelected
-                          ? 'var(--theme-accent, #E8B477)'
-                          : 'rgba(232, 180, 119, 0.12)',
-                        color: isSelected ? '#12100E' : 'var(--theme-accent, #E8B477)',
-                        border: isSelected
-                          ? '1px solid var(--theme-accent, #E8B477)'
-                          : '1px solid rgba(232, 180, 119, 0.28)',
-                        fontSize: 12,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5
-                      }}
-                    >
-                      <span>{t(MUSCLE_NAME[m] || m)}</span>
-                      <span style={{ fontSize: 10, opacity: 0.8 }}>{sets}s</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+            <span>{t('Log Workout')}</span>
+            <Icon name="arrowRight" size={12} />
+          </button>
+        )}
+      </div>
 
-            {/* Secondary / Supporting Muscles */}
-            {muscleClassification.trainedSecondary.length > 0 && (
-              <div style={{ marginBottom: 10 }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: 'var(--label-2)',
-                    textTransform: 'uppercase',
-                    marginBottom: 8,
-                    letterSpacing: '0.04em',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      background: 'rgba(255, 255, 255, 0.35)'
-                    }}
-                  />
-                  <span>{t('Secondary / Supporting Muscles')}</span>
-                  <span style={{ opacity: 0.6 }}>({muscleClassification.trainedSecondary.length})</span>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {muscleClassification.trainedSecondary.map(m => {
-                    const isSelected = sel === m
-                    const sets = setsOf(m)
-                    return (
-                      <button
-                        key={m}
-                        onClick={() => setSel(s => (s === m ? null : m))}
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: 9999,
-                          background: isSelected
-                            ? 'rgba(255, 255, 255, 0.2)'
-                            : 'rgba(255, 255, 255, 0.04)',
-                          color: isSelected ? '#FFFFFF' : 'var(--label-2)',
-                          border: isSelected
-                            ? '1px solid rgba(255, 255, 255, 0.4)'
-                            : '1px solid rgba(255, 255, 255, 0.08)',
-                          fontSize: 11,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 5
-                        }}
-                      >
-                        <span>{t(MUSCLE_NAME[m] || m)}</span>
-                        <span style={{ fontSize: 10, opacity: 0.7 }}>{sets}s</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Interactive Inspection Card when a Muscle is Tapped */}
-          {selectedDetails && (
-            <div
-              style={{
-                marginTop: 16,
-                padding: '16px',
-                borderRadius: 16,
-                background: 'var(--surface-2)',
-                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.35))',
-                animation: 'fadeIn 0.2s ease'
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: 10
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: '50%',
-                      background: 'var(--theme-accent, #E8B477)',
-                      boxShadow: '0 0 8px var(--theme-accent-glow, rgba(232, 180, 119, 0.5))'
-                    }}
-                  />
-                  <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--label)' }}>
-                    {selectedDetails.name}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: 'var(--theme-accent, #E8B477)'
-                  }}
-                >
-                  {selectedDetails.effectiveSets} {t('effective sets')}
-                </div>
-              </div>
-
-              {selectedDetails.exercises.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                  {selectedDetails.exercises.map(ex => (
-                    <div
-                      key={ex.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '8px 12px',
-                        borderRadius: 10,
-                        background: 'rgba(255, 255, 255, 0.03)',
-                        border: '1px solid rgba(255, 255, 255, 0.06)'
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
-                          {ex.name}
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--label-2)', marginTop: 2 }}>
-                          {ex.isPrimary ? (
-                            <span
-                              style={{
-                                color: 'var(--theme-accent, #E8B477)',
-                                fontWeight: 600
-                              }}
-                            >
-                              {t('Primary Target')}
-                            </span>
-                          ) : (
-                            <span style={{ color: 'var(--label-3)' }}>
-                              {t('Secondary / Supporting')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
-                          {ex.sets} {t('sets')}
-                        </div>
-                        {ex.volume > 0 && (
-                          <div
-                            style={{
-                              fontSize: 11,
-                              color: 'var(--label-2)',
-                              marginTop: 2
-                            }}
-                          >
-                            {Math.round(ex.volume).toLocaleString()} kg vol
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: 'var(--label-3)',
-                    fontStyle: 'italic',
-                    marginTop: 6
-                  }}
-                >
-                  {t('Trained indirectly through compound movements.')}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Daily Muscle Training Details Breakdown */}
-          <div style={{ marginTop: 20 }}>
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 800,
-                color: 'var(--label)',
-                marginBottom: 10,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6
-              }}
-            >
-              <Icon name="clipboard" size={16} style={{ color: 'var(--theme-accent, #E8B477)' }} />
-              <span>
-                {win === 1
-                  ? t('Daily Workout & Muscle Training Details')
-                  : t('Completed Workout Details')}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {workoutDetailsList.map(w => (
-                <div
-                  key={w.id}
-                  style={{
-                    padding: '14px 16px',
-                    borderRadius: 14,
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.07)'
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: 10,
-                      flexWrap: 'wrap',
-                      gap: 8
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--label)' }}>
-                        {w.name}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--label-2)', marginTop: 2 }}>
-                        {w.date}
-                        {w.durationMinutes ? ` · ${w.durationMinutes} min` : ''}
-                        {w.volume > 0 ? ` · ${Math.round(w.volume).toLocaleString()} kg vol` : ''}
-                      </div>
-                    </div>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        padding: '3px 8px',
-                        borderRadius: 6,
-                        background: 'rgba(232, 180, 119, 0.15)',
-                        color: 'var(--theme-accent, #E8B477)',
-                        border: '1px solid rgba(232, 180, 119, 0.3)'
-                      }}
-                    >
-                      {w.exercises.length} {t('exercises')}
-                    </span>
-                  </div>
-
-                  {/* Exercises Performed */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {w.exercises.map((ex, idx) => (
-                      <div
-                        key={ex.id + '_' + idx}
-                        style={{
-                          padding: '10px 12px',
-                          borderRadius: 10,
-                          background: 'rgba(0, 0, 0, 0.3)',
-                          border: '1px solid rgba(255, 255, 255, 0.04)'
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            marginBottom: 4
-                          }}
-                        >
-                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
-                            {ex.name}
-                          </span>
-                          <span
-                            style={{
-                              fontSize: 12,
-                              fontWeight: 700,
-                              color: 'var(--theme-accent, #E8B477)'
-                            }}
-                          >
-                            {ex.setsCount} {t('sets')}
-                          </span>
-                        </div>
-
-                        {/* Sets & Reps detail */}
-                        {ex.setDescriptions && ex.setDescriptions.length > 0 && (
-                          <div
-                            style={{
-                              fontSize: 11,
-                              color: 'var(--label-2)',
-                              marginBottom: 6,
-                              fontFamily: 'monospace'
-                            }}
-                          >
-                            {ex.setDescriptions.join(', ')}
-                          </div>
-                        )}
-
-                        {/* Muscle Badges */}
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          {ex.primaryNames.map(pn => (
-                            <span
-                              key={pn}
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 700,
-                                padding: '2px 7px',
-                                borderRadius: 4,
-                                background: 'rgba(232, 180, 119, 0.16)',
-                                color: 'var(--theme-accent, #E8B477)',
-                                border: '1px solid rgba(232, 180, 119, 0.3)'
-                              }}
-                            >
-                              {t('Primary')}: {t(pn)}
-                            </span>
-                          ))}
-                          {ex.secondaryNames.map(sn => (
-                            <span
-                              key={sn}
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 600,
-                                padding: '2px 7px',
-                                borderRadius: 4,
-                                background: 'rgba(255, 255, 255, 0.05)',
-                                color: 'var(--label-3)',
-                                border: '1px solid rgba(255, 255, 255, 0.08)'
-                              }}
-                            >
-                              {t('Secondary')}: {t(sn)}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* Empty State */
+      {/* Interactive Muscle Inspection Card (when a muscle is selected) */}
+      {selectedDetails && (
         <div
           style={{
-            padding: '36px 16px',
-            textAlign: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 10
+            marginTop: 16,
+            padding: '16px',
+            borderRadius: 16,
+            background: 'var(--surface-2, #141418)',
+            border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.35))',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+            animation: 'fadeIn 0.2s ease'
           }}
         >
           <div
             style={{
-              width: 52,
-              height: 52,
-              borderRadius: '50%',
-              background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.12))',
-              border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.25))',
-              color: 'var(--theme-accent, #E8B477)',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 4
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              marginBottom: 10
             }}
           >
-            <Icon name="dumbbell" size={24} />
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    background: selectedDetails.isTrained
+                      ? 'var(--theme-accent, #E8B477)'
+                      : '#555560',
+                    boxShadow: selectedDetails.isTrained
+                      ? '0 0 10px var(--theme-accent-glow, rgba(232, 180, 119, 0.7))'
+                      : 'none'
+                  }}
+                />
+                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--label)' }}>
+                  {selectedDetails.name}
+                </span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: '2px 7px',
+                    borderRadius: 4,
+                    background: selectedDetails.isTrained
+                      ? 'rgba(232, 180, 119, 0.18)'
+                      : 'rgba(255, 255, 255, 0.05)',
+                    color: selectedDetails.isTrained
+                      ? 'var(--theme-accent, #E8B477)'
+                      : 'var(--label-3)',
+                    border: selectedDetails.isTrained
+                      ? '1px solid rgba(232, 180, 119, 0.35)'
+                      : '1px solid rgba(255, 255, 255, 0.08)'
+                  }}
+                >
+                  {selectedDetails.isTrained ? t('Trained') : t('Resting')}
+                </span>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--label-2)', marginTop: 3 }}>
+                <em>{selectedDetails.anatomicalName}</em> · {selectedDetails.viewLabel}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setSel(null)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--label-2)',
+                cursor: 'pointer',
+                padding: '4px'
+              }}
+              title={t('Close')}
+            >
+              <Icon name="xmark" size={16} />
+            </button>
           </div>
 
-          <div
-            style={{
-              fontSize: 16,
-              fontWeight: 800,
-              color: 'var(--label)',
-              fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif"
-            }}
-          >
-            {win === 1
-              ? selectedDate === todayStr
-                ? t('No muscle activity recorded today.')
-                : t('No muscle activity recorded on this date.')
-              : t('No muscle activity recorded yet.')}
-          </div>
+          {selectedDetails.isTrained ? (
+            <div>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: 'var(--theme-accent, #E8B477)',
+                  marginBottom: 8
+                }}
+              >
+                {selectedDetails.effectiveSets} {t('effective sets completed')}
+              </div>
 
-          <div
-            style={{
-              fontSize: 13,
-              color: 'var(--label-2)',
-              maxWidth: 360,
-              lineHeight: 1.45,
-              margin: '0 auto 10px'
-            }}
-          >
-            {win === 1
-              ? selectedDate === todayStr
-                ? t(
-                    'Complete your daily workout to visualize which muscle groups were stimulated today.'
-                  )
-                : t(
-                    'No completed workouts were found for this selected day. Choose another date or log a workout.'
-                  )
-              : t(
-                  'Complete strength workouts to see your anatomical muscle balance and recovery load.'
-                )}
-          </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {selectedDetails.exercises.map(ex => (
+                  <div
+                    key={ex.id}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 10,
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
+                        {ex.name}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--label-2)', marginTop: 2 }}>
+                        {ex.isPrimary ? (
+                          <span style={{ color: 'var(--theme-accent, #E8B477)', fontWeight: 600 }}>
+                            {t('Primary Target')}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--label-3)' }}>
+                            {t('Supporting / Secondary')}
+                          </span>
+                        )}
+                        {ex.workoutDate ? ` · ${ex.workoutDate}` : ''}
+                      </div>
+                    </div>
 
-          <button
-            onClick={() => nav('/workout')}
-            style={{
-              padding: '9px 20px',
-              borderRadius: 9999,
-              background:
-                'var(--theme-accent-gradient, linear-gradient(135deg, #FFD09A 0%, #E8B477 100%))',
-              color: '#12100E',
-              fontWeight: 800,
-              fontSize: 13,
-              border: 'none',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              boxShadow: '0 4px 14px var(--theme-accent-glow, rgba(232, 180, 119, 0.35))'
-            }}
-          >
-            <Icon name="arrowRight" size={14} />
-            <span>{t('Go to Workouts')}</span>
-          </button>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
+                        {ex.sets} {t('sets')}
+                      </div>
+                      {ex.volume > 0 && (
+                        <div style={{ fontSize: 11, color: 'var(--label-2)', marginTop: 2 }}>
+                          {Math.round(ex.volume).toLocaleString()} kg vol
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--label-2)', fontStyle: 'italic', marginTop: 4 }}>
+              {t('This muscle group was not stimulated during this period. It is fully recovered.')}
+            </div>
+          )}
         </div>
       )}
+
+      {/* Quick Anatomical Muscle Selectors */}
+      <div style={{ marginTop: 18 }}>
+        <div style={{ marginBottom: 10 }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              color: 'var(--label-2)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              marginBottom: 6
+            }}
+          >
+            {t('Anterior / Front Muscles')}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {ANTERIOR_CHIPS.map(m => {
+              const isSelected = sel === m
+              const sets = setsOf(m)
+              const isTrained = sets > 0
+              return (
+                <button
+                  key={'ant_' + m}
+                  onClick={() => setSel(s => (s === m ? null : m))}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 9999,
+                    background: isSelected
+                      ? 'var(--theme-accent, #E8B477)'
+                      : isTrained
+                        ? 'rgba(232, 180, 119, 0.12)'
+                        : 'rgba(255, 255, 255, 0.03)',
+                    color: isSelected
+                      ? '#12100E'
+                      : isTrained
+                        ? 'var(--theme-accent, #E8B477)'
+                        : 'var(--label-2)',
+                    border: isSelected
+                      ? '1px solid var(--theme-accent, #E8B477)'
+                      : isTrained
+                        ? '1px solid rgba(232, 180, 119, 0.35)'
+                        : '1px solid rgba(255, 255, 255, 0.07)',
+                    fontSize: 11,
+                    fontWeight: isSelected || isTrained ? 700 : 500,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      background: isTrained ? 'var(--theme-accent, #E8B477)' : 'rgba(255, 255, 255, 0.25)'
+                    }}
+                  />
+                  <span>{t(ANATOMICAL_MAP[m]?.frontName || MUSCLE_NAME[m] || m)}</span>
+                  {isTrained && <span style={{ fontSize: 10, opacity: 0.85 }}>{sets}s</span>}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              color: 'var(--label-2)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              marginBottom: 6
+            }}
+          >
+            {t('Posterior / Back Muscles')}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {POSTERIOR_CHIPS.map(m => {
+              const isSelected = sel === m
+              const sets = setsOf(m)
+              const isTrained = sets > 0
+              return (
+                <button
+                  key={'post_' + m}
+                  onClick={() => setSel(s => (s === m ? null : m))}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 9999,
+                    background: isSelected
+                      ? 'var(--theme-accent, #E8B477)'
+                      : isTrained
+                        ? 'rgba(232, 180, 119, 0.12)'
+                        : 'rgba(255, 255, 255, 0.03)',
+                    color: isSelected
+                      ? '#12100E'
+                      : isTrained
+                        ? 'var(--theme-accent, #E8B477)'
+                        : 'var(--label-2)',
+                    border: isSelected
+                      ? '1px solid var(--theme-accent, #E8B477)'
+                      : isTrained
+                        ? '1px solid rgba(232, 180, 119, 0.35)'
+                        : '1px solid rgba(255, 255, 255, 0.07)',
+                    fontSize: 11,
+                    fontWeight: isSelected || isTrained ? 700 : 500,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      background: isTrained ? 'var(--theme-accent, #E8B477)' : 'rgba(255, 255, 255, 0.25)'
+                    }}
+                  />
+                  <span>{t(ANATOMICAL_MAP[m]?.backName || MUSCLE_NAME[m] || m)}</span>
+                  {isTrained && <span style={{ fontSize: 10, opacity: 0.85 }}>{sets}s</span>}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

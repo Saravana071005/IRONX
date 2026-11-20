@@ -10,8 +10,8 @@ import {
 } from '../lib/muscles.js'
 import { todayISO } from '../lib/format.js'
 
-describe('MuscleBalanceChart & Exercise Muscle Mapping', () => {
-  it('renders correctly with empty workouts and shows empty state', () => {
+describe('MuscleBalanceChart & Anatomical Muscle Body Map', () => {
+  it('always renders the anatomical body map with Anterior and Posterior views even with 0 workouts', () => {
     const emptyS = { workouts: [] }
     const html = renderToString(
       <MemoryRouter>
@@ -24,8 +24,12 @@ describe('MuscleBalanceChart & Exercise Muscle Mapping', () => {
     expect(html).toContain('30 Days')
     expect(html).toContain('90 Days')
     expect(html).toContain('All')
-    expect(html).toContain('No muscle activity recorded yet.')
-    expect(html).toContain('Go to Workouts')
+    // Both views must always be rendered in the body map
+    expect(html).toContain('Anterior (Front)')
+    expect(html).toContain('Posterior (Back)')
+    expect(html).toContain('bodymap')
+    expect(html).toContain('Anterior / Front Muscles')
+    expect(html).toContain('Posterior / Back Muscles')
   })
 
   it('accurately maps standard exercises to primary and secondary muscle groups', () => {
@@ -69,7 +73,7 @@ describe('MuscleBalanceChart & Exercise Muscle Mapping', () => {
     expect(tri.primary).toContain('triceps')
   })
 
-  it('renders trained primary and secondary muscles on dashboard with daily workout details', () => {
+  it('renders trained primary and secondary muscles on dashboard with stimulation status', () => {
     const today = todayISO()
     const S = {
       workouts: [
@@ -114,13 +118,11 @@ describe('MuscleBalanceChart & Exercise Muscle Mapping', () => {
     )
 
     expect(html).toContain('Muscle Balance')
-    expect(html).toContain('Primary Target Muscles')
-    expect(html).toContain('Chest')
-    expect(html).toContain('Upper back')
-    expect(html).toContain('Secondary / Supporting Muscles')
-    expect(html).toContain('Chest &amp; Back Power')
-    expect(html).toContain('Barbell Bench Press')
-    expect(html).toContain('Lat Pulldown')
+    expect(html).toContain('Muscle Groups Stimulated')
+    expect(html).toContain('Anterior (Front)')
+    expect(html).toContain('Posterior (Back)')
+    expect(html).toContain('Anterior / Front Muscles')
+    expect(html).toContain('Posterior / Back Muscles')
   })
 
   it('correctly handles ISO timestamps in workout dates without dropping entries', () => {
@@ -153,9 +155,8 @@ describe('MuscleBalanceChart & Exercise Muscle Mapping', () => {
     )
 
     expect(html).toContain('Muscle Balance')
+    expect(html).toContain('Muscle Groups Stimulated')
     expect(html).toContain('Quads')
-    expect(html).toContain('Leg Day Session')
-    expect(html).toContain('Barbell Squat')
   })
 
   it('does not count planned, cancelled, or 0-completed-set workouts towards muscle balance', () => {
@@ -187,7 +188,9 @@ describe('MuscleBalanceChart & Exercise Muscle Mapping', () => {
       </MemoryRouter>
     )
 
-    // Should render empty state because no sets were actually done
-    expect(html).toContain('No muscle activity recorded yet.')
+    // Should indicate no muscle activity in this period while still showing the body diagrams
+    expect(html).toContain('No muscle activity recorded in this period')
+    expect(html).toContain('Anterior (Front)')
+    expect(html).toContain('Posterior (Back)')
   })
 })

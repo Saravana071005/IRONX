@@ -32,6 +32,28 @@ export const MUSCLE_NAME = {
   'hip-flexors': 'Hip flexors', calves: 'Calves', tibialis: 'Shins',
 }
 
+// Full anatomical names and view mapping for interactive muscular anatomy diagram
+export const ANATOMICAL_MAP = {
+  chest: { name: 'Chest / Pectorals', anatomical: 'Pectoralis Major & Minor', view: 'front', frontName: 'Pectorals' },
+  deltoids: { name: 'Shoulders / Deltoids', anatomical: 'Anterior, Lateral & Posterior Deltoids', view: 'both', frontName: 'Front & Side Delts', backName: 'Rear Deltoids' },
+  biceps: { name: 'Biceps', anatomical: 'Biceps Brachii', view: 'front', frontName: 'Biceps' },
+  triceps: { name: 'Triceps', anatomical: 'Triceps Brachii (All Heads)', view: 'both', frontName: 'Lateral Triceps', backName: 'Triceps' },
+  forearm: { name: 'Forearms', anatomical: 'Brachioradialis & Wrist Flexors', view: 'both', frontName: 'Forearms', backName: 'Forearms' },
+  abs: { name: 'Abdominals', anatomical: 'Rectus Abdominis (Core)', view: 'front', frontName: 'Abdominals' },
+  obliques: { name: 'Obliques', anatomical: 'Internal & External Obliques', view: 'front', frontName: 'Obliques' },
+  serratus: { name: 'Serratus', anatomical: 'Serratus Anterior', view: 'front', frontName: 'Serratus' },
+  'hip-flexors': { name: 'Hip Flexors', anatomical: 'Iliopsoas & TFL', view: 'front', frontName: 'Hip Flexors' },
+  quadriceps: { name: 'Quadriceps', anatomical: 'Rectus Femoris & Vasti (Quads)', view: 'front', frontName: 'Quadriceps' },
+  adductors: { name: 'Adductors', anatomical: 'Adductor Longus & Magnus (Inner Thigh)', view: 'both', frontName: 'Adductors', backName: 'Inner Thighs' },
+  calves: { name: 'Calves', anatomical: 'Gastrocnemius & Soleus', view: 'both', frontName: 'Lower Calves', backName: 'Calves' },
+  tibialis: { name: 'Shins', anatomical: 'Tibialis Anterior', view: 'front', frontName: 'Shins' },
+  trapezius: { name: 'Trapezius', anatomical: 'Trapezius (Upper, Middle, Lower)', view: 'both', frontName: 'Upper Traps', backName: 'Trapezius' },
+  'upper-back': { name: 'Lats & Rhomboids', anatomical: 'Latissimus Dorsi, Rhomboids & Teres', view: 'back', backName: 'Lats & Rhomboids' },
+  'lower-back': { name: 'Lower Back', anatomical: 'Erector Spinae & Lumbar', view: 'back', backName: 'Lower Back' },
+  gluteal: { name: 'Glutes', anatomical: 'Gluteus Maximus & Medius', view: 'back', backName: 'Glutes' },
+  hamstring: { name: 'Hamstrings', anatomical: 'Biceps Femoris & Semitendinosus', view: 'back', backName: 'Hamstrings' }
+}
+
 // Every spelling that occurs in the dataset's `tg` and `sm` fields. null = not drawable.
 const ALIAS = {
   // canonical slugs map to themselves
