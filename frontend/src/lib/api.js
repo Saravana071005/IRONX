@@ -5,11 +5,51 @@ export const BIO = IS_APPLE ? 'Face ID / Touch ID' : IS_ANDROID ? 'fingerprint o
 export const VAULT = IS_APPLE ? 'iCloud Keychain' : IS_ANDROID ? 'Google Password Manager' : 'your password manager'
 export const webauthnOK = () => !!(window.PublicKeyCredential && navigator.credentials)
 
-export async function api(path, opts) {
-  const r = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts))
-  const data = await r.json().catch(() => ({}))
-  if (!r.ok) { const e = new Error(data.error || ('HTTP ' + r.status)); e.status = r.status; throw e }
-  return data
+export async function api(path, opts = {}) {
+  const { timeout = 8000, signal, headers, ...rest } = opts
+  const controller = new AbortController()
+
+  let externalListener = null
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort(signal.reason)
+    } else {
+      externalListener = () => controller.abort(signal.reason)
+      signal.addEventListener('abort', externalListener, { once: true })
+    }
+  }
+
+  const timer = timeout > 0 ? setTimeout(() => {
+    controller.abort(new DOMException(`Request timed out after ${timeout}ms`, 'TimeoutError'))
+  }, timeout) : null
+
+  try {
+    const r = await fetch(path, {
+      ...rest,
+      headers: { 'Content-Type': 'application/json', ...(headers || {}) },
+      signal: controller.signal
+    })
+    const data = await r.json().catch(() => ({}))
+    if (!r.ok) {
+      const e = new Error(data.error || ('HTTP ' + r.status))
+      e.status = r.status
+      throw e
+    }
+    return data
+  } catch (err) {
+    if (err.name === 'AbortError' || err.name === 'TimeoutError' || controller.signal.aborted) {
+      const timeoutErr = new Error(`Network timeout on ${path} after ${timeout}ms`)
+      timeoutErr.name = 'TimeoutError'
+      timeoutErr.status = 408
+      throw timeoutErr
+    }
+    throw err
+  } finally {
+    if (timer) clearTimeout(timer)
+    if (signal && externalListener) {
+      signal.removeEventListener('abort', externalListener)
+    }
+  }
 }
 
 const bufToB64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
