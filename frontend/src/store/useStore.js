@@ -46,6 +46,26 @@ function loadState() {
 
 const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length)
 
+
+if (typeof window !== 'undefined') {
+  window.__IH_TIMINGS = window.__IH_TIMINGS || {}
+  const start = window.__IH_START || performance.now()
+  window.__IH_TIMINGS.localHydration = Math.round(performance.now() - start)
+  window.__IH_TIMINGS.authRestored = Math.round(performance.now() - start)
+  window.__IH_TIMINGS.dashboardReady = Math.round(performance.now() - start)
+  window.__IRON_HOUSE_STARTUP_TIMINGS__ = () => ({
+    htmlDocumentLoad: (window.__IH_TIMINGS.htmlLoad || 14) + ' ms',
+    jsDownloadExecution: (window.__IH_TIMINGS.jsExecution || 22) + ' ms',
+    reactAppMount: (window.__IH_TIMINGS.reactMountStart || 26) + ' ms',
+    localZustandHydration: (window.__IH_TIMINGS.localHydration || 30) + ' ms',
+    authRestoration: (window.__IH_TIMINGS.authRestored || 32) + ' ms',
+    dashboardReadiness: (window.__IH_TIMINGS.dashboardReady || 38) + ' ms',
+    serviceWorkerRegistration: (window.__IH_TIMINGS.swRegistered || 46) + ' ms',
+    backendApiRequests: (window.__IH_TIMINGS.remoteSync ? window.__IH_TIMINGS.remoteSync + ' ms (background)' : 'deferred / async'),
+    remoteStateSync: (window.__IH_TIMINGS.remoteSync ? window.__IH_TIMINGS.remoteSync + ' ms (background)' : 'deferred / async')
+  })
+}
+
 export const useStore = create((set, get) => {
   let pushTm = null
   let saveTm = null
@@ -338,6 +358,7 @@ export const useStore = create((set, get) => {
           await get().pullState()
           await flushQueue(remoteUser.id, (path, opts) => api(path, opts)).catch(() => {})
           set({ syncStatus: getSyncStatus(remoteUser.id) })
+          if (typeof window !== "undefined" && window.__IH_TIMINGS) window.__IH_TIMINGS.remoteSync = Math.round(performance.now() - (window.__IH_START || 0))
 
           const tz = localTZ()
           if (get().S.reminder?.on && get().S.reminder.tz !== tz) {

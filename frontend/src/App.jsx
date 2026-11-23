@@ -61,10 +61,9 @@ function Shell() {
 
   const authed = user || isGuest
   if (!ready && !authed) return (
-    <div id="app">
-      <div style={{ paddingTop: '44vh', display: 'flex', justifyContent: 'center', fontSize: 34, color: 'var(--label-3)' }}>
-        <Icon name="dumbbell" />
-      </div>
+    <div id="app" style={{ minHeight: '100vh', background: '#000000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+      <div className="spinner" />
+      <span style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--label-3)' }}>Loading...</span>
     </div>
   )
 
@@ -78,9 +77,9 @@ function Shell() {
           <div id="app" className="vfade" key={loc.pathname}>
             <ErrorBoundary>
               <Suspense fallback={
-                <div style={{ paddingTop: '38vh', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: 'var(--label-3)' }}>
-                  <Icon name="dumbbell" style={{ fontSize: 32 }} />
-                  <span style={{ fontSize: 13, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--label-3)' }}>Loading...</span>
+                <div style={{ paddingTop: '38vh', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, color: 'var(--label-3)' }}>
+                  <div className="spinner" />
+                  <span style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--label-3)' }}>Loading...</span>
                 </div>
               }>
                 {!authed ? <Login /> : (
