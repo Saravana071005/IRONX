@@ -1,7 +1,7 @@
 services:
   # IRONX Backend API Service (Node.js Web Service on Free Tier)
   - type: web
-    name: opengym-backend
+    name: ironx-backend
     runtime: node
     plan: free
     region: oregon
@@ -30,7 +30,7 @@ services:
 
   # IRONX Frontend Application (Static Site on Free Tier)
   - type: web
-    name: opengym-frontend
+    name: ironx-frontend
     runtime: static
     buildCommand: npm install && npm --prefix frontend run build
     staticPublishPath: frontend/dist
