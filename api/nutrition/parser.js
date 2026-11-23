@@ -1,9 +1,3 @@
-/**
- * Natural-Language Food & Meal Parser
- * Matches food names, extracts quantities & units, handles multi-ingredient phrases,
- * and detects ambiguities needing clarification.
- */
-
 import { searchFoods, getFoodById } from './db.js';
 import { resolveGrams, calculateNutrients } from './engine.js';
 
@@ -25,38 +19,63 @@ const WORD_NUMBERS = {
 };
 
 const UNIT_ALIASES = {
-  g: 'g', gram: 'g', grams: 'g',
-  kg: 'kg', kilogram: 'kg', kilograms: 'kg',
+  g: 'g', gm: 'g', gms: 'g', gram: 'g', grams: 'g',
+  kg: 'kg', kgs: 'kg', kilogram: 'kg', kilograms: 'kg',
   ml: 'ml', milliliter: 'ml', millilitre: 'ml', milliliters: 'ml', millilitres: 'ml',
   l: 'l', liter: 'l', litre: 'l', liters: 'l', litres: 'l',
   cup: 'cup', cups: 'cup',
   katori: 'katori', katoris: 'katori',
   bowl: 'bowl', bowls: 'bowl',
-  roti: 'roti', rotis: 'roti',
-  chapati: 'roti', chapatis: 'roti',
   slice: 'slice', slices: 'slice',
   piece: 'piece', pieces: 'piece', pc: 'piece', pcs: 'piece',
   tbsp: 'tbsp', tablespoon: 'tbsp', tablespoons: 'tbsp',
   tsp: 'tsp', teaspoon: 'tsp', teaspoons: 'tsp',
-  serving: 'serving', servings: 'serving',
+  serving: 'serving', servings: 'serving', portion: 'serving', portions: 'serving',
   plate: 'plate', plates: 'plate'
 };
 
-const PREP_STATES = ['raw', 'roasted', 'dry roasted', 'oil roasted', 'boiled', 'cooked', 'fried', 'deep fried', 'steamed', 'baked', 'grilled'];
+const SYNONYMS = {
+  'bannana': 'banana',
+  'bannanas': 'banana',
+  'badam': 'almond',
+  'badams': 'almonds',
+  'dry grapes': 'raisins',
+  'dry grape': 'raisin',
+  'kishmish': 'raisins',
+  'kismis': 'raisins',
+  'overnight soaked oats': 'oats',
+  'soaked oats': 'oats',
+  'overnight oats': 'oats',
+  'anda': 'egg',
+  'muttai': 'egg',
+  'chawal': 'rice',
+  'sadam': 'rice',
+  'curd': 'yogurt',
+  'dahi': 'yogurt'
+};
+
+const MODIFIERS = new Set([
+  'dry', 'soaked', 'overnight', 'fresh', 'hot', 'cold', 'raw',
+  'boiled', 'cooked', 'fried', 'steamed', 'baked', 'roasted',
+  'ripe', 'whole', 'cut', 'sliced', 'chopped', 'medium', 'large', 'small'
+]);
+
+const PREP_STATES = [
+  'overnight soaked', 'soaked', 'dry roasted', 'oil roasted',
+  'raw', 'roasted', 'boiled', 'cooked', 'fried', 'deep fried',
+  'steamed', 'baked', 'grilled'
+];
 
 /**
  * Splits a complex input sentence into individual food clauses.
- * Examples:
- * "2 wheat roti with chicken gravy" -> ["2 wheat roti", "chicken gravy"]
- * "150 g rice, 100 g chicken and 1 tablespoon oil" -> ["150 g rice", "100 g chicken", "1 tablespoon oil"]
  */
 export function splitMealInput(text) {
   if (!text || typeof text !== 'string') return [];
-  // Split on delimiters: comma, semicolon, newline, " and ", " with ", " + "
+  // Split on delimiters: comma, semicolon, newline, period, " and ", " with ", " + "
   let parts = text
-    .split(/\r?\n|;|,|\band\b|\bwith\b|\+/i)
+    .split(/\r?\n|;|,|\.|\band\b|\bwith\b|\+/i)
     .map(p => p.trim())
-    .filter(p => p.length > 0);
+    .filter(p => p.length > 0 && !/^[\.\,\;\:\!\?\-\+]+$/.test(p));
   return parts;
 }
 
@@ -67,7 +86,7 @@ export function extractEntities(phrase) {
   let cleaned = phrase.trim();
 
   // Strip leading fluff: "a plate of", "some", "bowl of"
-  cleaned = cleaned.replace(/^(a\s+plate\s+of|some|a\s+bowl\s+of|a\s+cup\s+of)\s+/i, '');
+  cleaned = cleaned.replace(/^(a\s+plate\s+of|some|a\s+bowl\s+of|a\s+cup\s+of|a\s+handful\s+of)\s+/i, '');
 
   let quantity = 1;
   let unit = null;
@@ -84,11 +103,7 @@ export function extractEntities(phrase) {
     }
   }
 
-  // 2. Extract leading quantity and unit
-  // e.g. "150 g", "2", "1/2 cup", "1.5 tbsp", "two"
-  const qtyUnitMatch = cleaned.match(/^(\d+(?:\.\d+)?|\d+\s*\/\s*\d+|[a-zA-Z]+)?\s*([a-zA-Z]+)?\s+(.*)$/);
-
-  // Check fraction e.g. 1/2
+  // 2. Check fraction e.g. 1/2 cup
   const fracMatch = cleaned.match(/^(\d+)\s*\/\s*(\d+)\s*([a-zA-Z]+)?\s*(.*)$/);
   if (fracMatch) {
     hasExplicitQuantity = true;
@@ -101,8 +116,8 @@ export function extractEntities(phrase) {
       cleaned = `${fracMatch[3] || ''} ${fracMatch[4] || ''}`.trim();
     }
   } else {
-    // Number followed by optional unit
-    const numMatch = cleaned.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?\s*(.*)$/);
+    // Number followed by optional unit (e.g. "150gm banana", "100 gm oats", "5 badam")
+    const numMatch = cleaned.match(/^(-?\d+(?:\.\d+)?)\s*([a-zA-Z]+)?\s*(.*)$/);
     if (numMatch) {
       hasExplicitQuantity = true;
       quantity = Number(numMatch[1]);
@@ -111,17 +126,9 @@ export function extractEntities(phrase) {
         unit = UNIT_ALIASES[potentialUnit];
         cleaned = numMatch[3].trim();
       } else if (potentialUnit) {
-        // Potential unit was actually part of food name (e.g. "2 rotis")
-        if (potentialUnit === 'rotis' || potentialUnit === 'roti') {
-          unit = 'roti';
-          cleaned = numMatch[3] ? `${numMatch[3]}` : 'roti';
-        } else if (potentialUnit === 'eggs' || potentialUnit === 'egg') {
-          unit = 'piece';
-          cleaned = 'egg';
-        } else {
-          cleaned = `${numMatch[2]} ${numMatch[3] || ''}`.trim();
-        }
+        cleaned = `${numMatch[2]} ${numMatch[3] || ''}`.trim();
       }
+      cleaned = cleaned.replace(/^of\s+/i, '');
     } else {
       // Check word number (e.g. "two wheat roti")
       const words = cleaned.split(/\s+/);
@@ -157,7 +164,12 @@ export function extractEntities(phrase) {
 
   // Default unit if not set
   if (!unit) {
-    unit = 'serving';
+    // If condiment/liquid sweetener mentioned without quantity, default to tbsp
+    if (/honey|oil|ghee|butter|sugar/i.test(cleaned)) {
+      unit = 'tbsp';
+    } else {
+      unit = hasExplicitQuantity ? 'piece' : 'serving';
+    }
   }
 
   return {
@@ -178,22 +190,52 @@ export function matchAndCalculate(parsedItem) {
   const assumptions = [];
   let clarification = null;
 
-  // Search candidate foods
-  let candidates = searchFoods(coreFoodQuery, 5);
+  // Validate quantity
+  const qNum = Number(quantity);
+  if (isNaN(qNum) || qNum <= 0 || qNum > 100000) {
+    return {
+      query: rawPhrase,
+      coreQuery: coreFoodQuery,
+      food_name: coreFoodQuery,
+      quantity: 0,
+      unit: unit || 'g',
+      matched: false,
+      error: `Invalid food quantity "${quantity}". Please enter a valid portion size.`,
+      alternatives: []
+    };
+  }
 
-  // If no match, try searching with individual keywords
-  if (!candidates.length && coreFoodQuery.includes(' ')) {
-    const tokens = coreFoodQuery.split(/\s+/).filter(t => t.length > 2);
+  // Apply synonym/typo normalization
+  let lookupQuery = coreFoodQuery.toLowerCase().trim();
+  if (SYNONYMS[lookupQuery]) {
+    lookupQuery = SYNONYMS[lookupQuery];
+  }
+
+  // Search candidate foods
+  let candidates = searchFoods(lookupQuery, 5);
+
+  // If no match and multi-word query, search with non-modifier tokens
+  if (!candidates.length && lookupQuery.includes(' ')) {
+    const tokens = lookupQuery.split(/\s+/).filter(t => t.length > 2 && !MODIFIERS.has(t));
     for (const tok of tokens) {
-      candidates = searchFoods(tok, 5);
+      const sub = SYNONYMS[tok] || tok;
+      candidates = searchFoods(sub, 5);
       if (candidates.length) break;
     }
+  }
+
+  // If still no candidates, search raw original phrase without prep state
+  if (!candidates.length && coreFoodQuery.toLowerCase() !== lookupQuery) {
+    candidates = searchFoods(coreFoodQuery, 5);
   }
 
   if (!candidates.length) {
     return {
       query: rawPhrase,
       coreQuery: coreFoodQuery,
+      food_name: coreFoodQuery,
+      quantity: qNum,
+      unit: unit || 'serving',
       matched: false,
       error: `Could not find verified food matching "${coreFoodQuery}".`,
       alternatives: []
@@ -204,7 +246,7 @@ export function matchAndCalculate(parsedItem) {
   const alternatives = candidates.slice(1).map(c => ({ id: c.id, name: c.name, source: c.source }));
 
   // Check ambiguity & generate clarifications
-  const qLower = coreFoodQuery.toLowerCase();
+  const qLower = lookupQuery.toLowerCase();
   if (qLower.includes('peanut') || qLower.includes('groundnut')) {
     if (!prepState) {
       clarification = "Are the peanuts raw, dry-roasted, or oil-roasted? (Defaulting to dry-roasted values)";
@@ -223,12 +265,12 @@ export function matchAndCalculate(parsedItem) {
     }
   }
 
-  if (!hasExplicitQuantity) {
+  if (!hasExplicitQuantity && !['tbsp', 'piece'].includes(unit)) {
     assumptions.push(`Default portion assumed (${bestFood.serving_size_g || 100} ${bestFood.serving_unit || 'g'}) — editable before logging`);
   }
 
   // Resolve grams and nutrients
-  const portion = resolveGrams(bestFood, quantity, unit);
+  const portion = resolveGrams(bestFood, qNum, unit);
   if (portion.assumption) assumptions.push(portion.assumption);
 
   const nutrients = calculateNutrients(bestFood, portion.grams);
@@ -242,7 +284,7 @@ export function matchAndCalculate(parsedItem) {
     tamil_name: bestFood.tamil_name || null,
     source: bestFood.source,
     is_recipe: !!bestFood.is_recipe,
-    quantity,
+    quantity: qNum,
     unit: portion.unit,
     grams: portion.grams,
     prep_state: prepState || bestFood.prep_state || 'cooked',
@@ -263,7 +305,7 @@ export function matchAndCalculate(parsedItem) {
 }
 
 /**
- * Parses full natural-language meal input and aggregates total nutrients.
+ * Parses full natural-language meal input and aggregates total nutrients synchronously.
  */
 export function parseMeal(text) {
   const clauses = splitMealInput(text);
@@ -303,6 +345,15 @@ export function parseMeal(text) {
     items,
     totals,
     item_count: items.length,
-    all_matched: items.every(i => i.matched)
+    all_matched: items.length > 0 && items.every(i => i.matched)
   };
+}
+
+/**
+ * Asynchronously parses meal input using deterministic local parsing.
+ */
+export async function parseMealAsync(text) {
+  const result = parseMeal(text);
+  result.provider = 'manual';
+  return result;
 }

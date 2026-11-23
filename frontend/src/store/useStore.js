@@ -20,7 +20,7 @@ export const DEF = {
   reminder: { on: false, time: '08:00', tz: null }, effort: null,
   coach: null,
   favorites: [],
-  nutritionTargets: { calorie: 2000, protein: 140, carb: 220, fat: 65, fibre: 30, diet: 'all' },
+  nutritionTargets: { calorie: 2000, calories: 2000, protein: 140, carb: 220, carbs: 220, fat: 65, fibre: 30, diet: 'all', waterGoal: 2.5 },
   meals: [],
   stealthMode: false,
   feedbackMode: 'normal',

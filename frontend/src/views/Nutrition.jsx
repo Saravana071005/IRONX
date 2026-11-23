@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { api } from '../lib/api.js'
@@ -6,160 +6,155 @@ import { todayISO, fmtDate } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
+import { exportDailyReportPdf } from '../lib/exportDailyReportPdf.js'
 
 const MEAL_TYPES = [
   { id: 'breakfast', label: 'Breakfast', icon: 'sun', color: 'var(--orange)' },
   { id: 'lunch', label: 'Lunch', icon: 'sun', color: 'var(--yellow)' },
   { id: 'dinner', label: 'Dinner', icon: 'moon', color: 'var(--indigo)' },
-  { id: 'snack', label: 'Snacks', icon: 'apple', color: 'var(--green)' }
+  { id: 'snacks', label: 'Snacks', icon: 'apple', color: 'var(--green)' }
 ]
 
-const QUICK_EXAMPLES = [
-  '2 wheat roti with chicken gravy',
-  '100 g roasted peanuts',
-  '150 g rice, 100 g chicken and 1 tablespoon oil',
-  '1 katori dal tadka',
-  '2 boiled eggs'
+const UNITS = ['g', 'kg', 'ml', 'L', 'piece', 'cup', 'serving']
+
+const CARDIO_TYPES = ['walking', 'running', 'cycling', 'treadmill', 'HIIT', 'other']
+
+const MUSCLE_GROUPS = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Full Body', 'Other']
+
+// Reference examples showing the simplified food logging format (clearly marked and not counted in user data)
+const EXAMPLE_ENTRIES = [
+  {
+    id: 'example-1',
+    is_example: true,
+    meal_type: 'breakfast',
+    food_name: 'Rolled oats, overnight soaked',
+    serving_quantity: 100,
+    serving_unit: 'g',
+    notes: 'Soaked overnight in water'
+  },
+  {
+    id: 'example-2',
+    is_example: true,
+    meal_type: 'breakfast',
+    food_name: 'Banana',
+    serving_quantity: 150,
+    serving_unit: 'g',
+    notes: 'Medium banana, sliced'
+  }
 ]
 
 export default function Nutrition() {
   const S = useStore(s => s.S)
-  const update = useStore(s => s.update)
   const user = useStore(s => s.user)
-  const isGuest = useStore(s => s.isGuest())
   const { openSheet, toast, confirmSheet } = useUI()
 
   const [date, setDate] = useState(todayISO())
-  const [logs, setLogs] = useState([])
-  const [totals, setTotals] = useState({ energy_kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0, fibre_g: 0 })
-  const [targets, setTargets] = useState({
-    calorie_target: S.nutritionTargets?.calorie || 2000,
-    protein_target_g: S.nutritionTargets?.protein || 140,
-    carb_target_g: S.nutritionTargets?.carb || 220,
-    fat_target_g: S.nutritionTargets?.fat || 65,
-    fibre_target_g: S.nutritionTargets?.fibre || 30,
-    diet_preference: S.nutritionTargets?.diet || 'all'
-  })
   const [loading, setLoading] = useState(false)
+  const [showExamples, setShowExamples] = useState(false)
 
-  // Natural Language input state
-  const [nlInput, setNlInput] = useState('')
-  const [analyzing, setAnalyzing] = useState(false)
-  const [parsedMeal, setParsedMeal] = useState(null)
-  const [selectedMealType, setSelectedMealType] = useState('lunch')
+  // Daily records
+  const [foods, setFoods] = useState([])
+  const [water, setWater] = useState([])
+  const [cardio, setCardio] = useState([])
+  const [strength, setStrength] = useState([])
 
-  // Load targets
+  // Settings
+  const [waterGoalL, setWaterGoalL] = useState(2.5)
+  const [editingWaterGoal, setEditingWaterGoal] = useState(false)
+  const [waterGoalDraft, setWaterGoalDraft] = useState('2.5')
+
+  // Quick water custom input
+  const [customWaterAmount, setCustomWaterAmount] = useState('')
+  const [customWaterUnit, setCustomWaterUnit] = useState('ml')
+  const [customWaterNote, setCustomWaterNote] = useState('')
+
+  // Load daily health data whenever date or user changes
   useEffect(() => {
-    if (user) {
-      api('/api/nutrition/targets').then(res => {
-        if (res.ok && res.targets) {
-          setTargets({
-            calorie_target: res.targets.calorie_target || 2000,
-            protein_target_g: res.targets.protein_target_g || 140,
-            carb_target_g: res.targets.carb_target_g || 220,
-            fat_target_g: res.targets.fat_target_g || 65,
-            fibre_target_g: res.targets.fibre_target_g || 30,
-            diet_preference: res.targets.diet_preference || 'all'
-          })
-        }
-      }).catch(() => {})
-    }
-  }, [user])
+    loadDayData(date)
+  }, [date, user])
 
-  // Load meal logs for date
-  const loadLogs = async (d) => {
+  const loadDayData = async (d) => {
     setLoading(true)
     if (user) {
       try {
-        const res = await api(`/api/nutrition/log?date=${d}`)
+        const res = await api(`/api/nutrition/health-log?date=${d}`)
         if (res.ok) {
-          setLogs(res.logs || [])
-          setTotals(res.totals || { energy_kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0, fibre_g: 0 })
+          setFoods(res.foods || [])
+          setWater(res.water || [])
+          setCardio(res.cardio || [])
+          setStrength(res.strength || [])
+          if (res.settings && res.settings.water_goal_litres != null) {
+            setWaterGoalL(res.settings.water_goal_litres)
+            setWaterGoalDraft(String(res.settings.water_goal_litres))
+          }
         }
       } catch (e) {
-        // Fallback to local store
-        const dayMeals = (S.meals || []).filter(m => m.date === d)
-        setLogs(dayMeals)
-        computeLocalTotals(dayMeals)
+        loadFromLocalStorage(d)
       }
     } else {
-      const dayMeals = (S.meals || []).filter(m => m.date === d)
-      setLogs(dayMeals)
-      computeLocalTotals(dayMeals)
+      loadFromLocalStorage(d)
     }
     setLoading(false)
   }
 
-  const computeLocalTotals = (list) => {
-    const tot = { energy_kcal: 0, protein_g: 0, carb_g: 0, fat_g: 0, fibre_g: 0 }
-    for (const m of list) {
-      tot.energy_kcal += Number(m.energy_kcal) || 0
-      tot.protein_g += Number(m.protein_g) || 0
-      tot.carb_g += Number(m.carb_g) || 0
-      tot.fat_g += Number(m.fat_g) || 0
-      tot.fibre_g += Number(m.fibre_g) || 0
-    }
-    tot.energy_kcal = Math.round(tot.energy_kcal * 10) / 10
-    tot.protein_g = Math.round(tot.protein_g * 10) / 10
-    tot.carb_g = Math.round(tot.carb_g * 10) / 10
-    tot.fat_g = Math.round(tot.fat_g * 10) / 10
-    tot.fibre_g = Math.round(tot.fibre_g * 10) / 10
-    setTotals(tot)
-  }
-
-  useEffect(() => {
-    loadLogs(date)
-  }, [date, user])
-
-  // Shift date helper
-  const shiftDate = (days) => {
-    const curr = new Date(date)
-    curr.setDate(curr.getDate() + days)
-    setDate(curr.toISOString().slice(0, 10))
-  }
-
-  // Handle Natural Language parse
-  const handleAnalyzeMeal = async () => {
-    if (!nlInput.trim()) return
-    setAnalyzing(true)
+  const loadFromLocalStorage = (d) => {
     try {
-      const res = await api('/api/nutrition/parse', {
-        method: 'POST',
-        body: JSON.stringify({ text: nlInput })
-      })
-      if (res.ok) {
-        setParsedMeal(res)
+      const stored = localStorage.getItem(`opengym_health_${d}`)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        setFoods(parsed.foods || [])
+        setWater(parsed.water || [])
+        setCardio(parsed.cardio || [])
+        setStrength(parsed.strength || [])
       } else {
-        toast(res.error || t('Could not analyze meal description'))
+        // Fallback to legacy meals if any match date
+        const dayMeals = (S.meals || []).filter(m => m.date === d || m.d === d).map(m => ({
+          id: m.id,
+          meal_type: m.type || m.meal_type || 'lunch',
+          food_name: m.name || m.food_name || 'Food entry',
+          serving_quantity: m.qty || m.serving_quantity || 1,
+          serving_unit: m.unit || m.serving_unit || 'g',
+          notes: m.notes || null
+        }))
+        setFoods(dayMeals)
+        setWater([])
+        setCardio([])
+        setStrength([])
+      }
+
+      const savedSettings = localStorage.getItem('opengym_health_settings')
+      if (savedSettings) {
+        const s = JSON.parse(savedSettings)
+        if (s.water_goal_litres != null) {
+          setWaterGoalL(s.water_goal_litres)
+          setWaterGoalDraft(String(s.water_goal_litres))
+        }
       }
     } catch (e) {
-      toast(t('Error parsing food: {0}', e.message))
+      setFoods([])
+      setWater([])
+      setCardio([])
+      setStrength([])
     }
-    setAnalyzing(false)
   }
 
-  // Add parsed item to meal
-  const handleAddParsedToMeal = async () => {
-    if (!parsedMeal || !parsedMeal.items?.length) return
-    let addedCount = 0
+  const saveToLocalStorage = (d, newFoods, newWater, newCardio, newStrength) => {
+    try {
+      localStorage.setItem(`opengym_health_${d}`, JSON.stringify({
+        foods: newFoods,
+        water: newWater,
+        cardio: newCardio,
+        strength: newStrength
+      }))
+    } catch (e) {}
+  }
 
-    for (const item of parsedMeal.items) {
-      if (!item.matched) continue
-      const entry = {
-        date,
-        meal_type: selectedMealType,
-        food_id: item.food_id,
-        food_name: item.food_name,
-        serving_quantity: item.quantity,
-        serving_unit: item.unit,
-        serving_grams: item.grams,
-        energy_kcal: item.nutrients.energy_kcal,
-        protein_g: item.nutrients.protein_g,
-        carb_g: item.nutrients.carb_g,
-        fat_g: item.nutrients.fat_g,
-        fibre_g: item.nutrients.fibre_g,
-        assumptions: item.assumptions
-      }
+  // Save water goal setting
+  const handleSaveWaterGoal = async (val) => {
+    const num = Math.max(0.5, Math.min(10, parseFloat(val) || 2.5))
+    setWaterGoalL(num)
+    setWaterGoalDraft(String(num))
+    setEditingWaterGoal(false)
 
       const entryWithId = { ...entry, id: entry.id || ('loc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)) }
       update(s => {
@@ -177,193 +172,55 @@ export default function Nutrition() {
       }
     }
 
-    toast(t('Added {0} items to {1}', addedCount, selectedMealType))
-    setParsedMeal(null)
-    setNlInput('')
-    loadLogs(date)
+    let strengthDurationMin = 0
+    let strengthCaloriesBurned = 0
+
+    for (const s of strength) {
+      strengthDurationMin += Number(s.duration_min) || 0
+      strengthCaloriesBurned += Number(s.calories_burned) || 0
+    }
+
+    const totalWorkoutDurationMin = cardioDurationMin + strengthDurationMin
+    const totalExerciseCaloriesBurned = cardioCaloriesBurned + strengthCaloriesBurned
+
+    return {
+      food_count: realFoods.length,
+      calorie_target: 1900,
+      water_ml: waterTotalMl,
+      water_litres: waterLitres,
+      water_goal_litres: waterGoalL,
+      cardio_duration_min: cardioDurationMin,
+      cardio_distance_km: Math.round(cardioDistanceKm * 10) / 10,
+      strength_duration_min: strengthDurationMin,
+      total_workout_duration_min: totalWorkoutDurationMin,
+      total_steps: cardioSteps,
+      exercise_calories_burned: totalExerciseCaloriesBurned
+    }
+  }, [foods, water, cardio, strength, waterGoalL])
+
+  // --- Date navigation ---
+  const changeDate = (days) => {
+    const cur = new Date(date + 'T00:00:00')
+    cur.setDate(cur.getDate() + days)
+    setDate(cur.toISOString().slice(0, 10))
   }
 
-  // Delete logged item
-  const handleDeleteEntry = (entry) => {
-    confirmSheet({
-      title: t('Delete food entry?'),
-      message: t('Remove "{0}" ({1} kcal) from this meal?', entry.food_name, entry.energy_kcal),
-      confirmText: t('Delete'),
-      danger: true,
-      onConfirm: async () => {
-        if (user && !entry.id.startsWith('loc_')) {
-          try {
-            await api('/api/nutrition/log/delete', {
-              method: 'POST',
-              body: JSON.stringify({ id: entry.id })
-            })
-          } catch (e) {}
-        }
-        update(s => {
-          if (s.meals) {
-            s.meals = s.meals.filter(m => m.id !== entry.id)
+  // --- Simplified Food Operations ---
+  const handleOpenFoodModal = (existing = null) => {
+    openSheet(close => (
+      <SimplifiedFoodFormModal
+        date={date}
+        existing={existing}
+        onSave={async (savedEntry) => {
+          close()
+          let updatedFoods
+          if (existing) {
+            updatedFoods = foods.map(f => f.id === savedEntry.id ? savedEntry : f)
+          } else {
+            updatedFoods = [...foods, savedEntry]
           }
-        })
-        toast(t('Item removed'))
-        loadLogs(date)
-      }
-    })
-  }
-
-  // Open Targets configuration sheet
-  const handleOpenTargets = () => {
-    openSheet(close => {
-      let cal = targets.calorie_target || 2000
-      let prot = targets.protein_target_g || 140
-      let carb = targets.carb_target_g || 220
-      let fat = targets.fat_target_g || 65
-      let fib = targets.fibre_target_g || 30
-      let diet = targets.diet_preference || 'all'
-
-      return (
-        <div>
-          <h3>{t('Nutrition Targets')}</h3>
-          <p className="muted small" style={{ marginBottom: 16 }}>
-            {t('Configure your daily calorie and macronutrient targets. Progress is updated in real time as you log meals.')}
-          </p>
-
-          <div className="list" style={{ marginBottom: 16 }}>
-            <div className="item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-              <div className="row between">
-                <span className="tt">{t('Daily Calories')}</span>
-                <span className="accent" style={{ fontWeight: 600 }}>{cal} kcal</span>
-              </div>
-              <input
-                type="number"
-                defaultValue={cal}
-                onChange={e => { cal = Number(e.target.value) || 2000 }}
-                style={{ width: '100%', marginTop: 8, padding: '8px 12px', background: 'var(--surface-2)', border: 'none', borderRadius: 8 }}
-              />
-            </div>
-
-            <div className="item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-              <div className="row between">
-                <span className="tt">{t('Protein Target')}</span>
-                <span style={{ color: 'var(--blue)', fontWeight: 600 }}>{prot} g</span>
-              </div>
-              <input
-                type="number"
-                defaultValue={prot}
-                onChange={e => { prot = Number(e.target.value) || 140 }}
-                style={{ width: '100%', marginTop: 8, padding: '8px 12px', background: 'var(--surface-2)', border: 'none', borderRadius: 8 }}
-              />
-            </div>
-
-            <div className="item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-              <div className="row between">
-                <span className="tt">{t('Carbohydrate Target')}</span>
-                <span style={{ color: 'var(--orange)', fontWeight: 600 }}>{carb} g</span>
-              </div>
-              <input
-                type="number"
-                defaultValue={carb}
-                onChange={e => { carb = Number(e.target.value) || 220 }}
-                style={{ width: '100%', marginTop: 8, padding: '8px 12px', background: 'var(--surface-2)', border: 'none', borderRadius: 8 }}
-              />
-            </div>
-
-            <div className="item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-              <div className="row between">
-                <span className="tt">{t('Fat Target')}</span>
-                <span style={{ color: 'var(--yellow)', fontWeight: 600 }}>{fat} g</span>
-              </div>
-              <input
-                type="number"
-                defaultValue={fat}
-                onChange={e => { fat = Number(e.target.value) || 65 }}
-                style={{ width: '100%', marginTop: 8, padding: '8px 12px', background: 'var(--surface-2)', border: 'none', borderRadius: 8 }}
-              />
-            </div>
-
-            <div className="item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-              <div className="row between">
-                <span className="tt">{t('Dietary Fibre Target')}</span>
-                <span style={{ color: 'var(--green)', fontWeight: 600 }}>{fib} g</span>
-              </div>
-              <input
-                type="number"
-                defaultValue={fib}
-                onChange={e => { fib = Number(e.target.value) || 30 }}
-                style={{ width: '100%', marginTop: 8, padding: '8px 12px', background: 'var(--surface-2)', border: 'none', borderRadius: 8 }}
-              />
-            </div>
-          </div>
-
-          <Button
-            variant="primary"
-            onClick={async () => {
-              const updated = {
-                calorie_target: cal,
-                protein_target_g: prot,
-                carb_target_g: carb,
-                fat_target_g: fat,
-                fibre_target_g: fib,
-                diet_preference: diet
-              }
-              setTargets(updated)
-              update(s => {
-                s.nutritionTargets = { calorie: cal, protein: prot, carb, fat, fibre: fib, diet }
-              })
-              if (user) {
-                try {
-                  await api('/api/nutrition/targets', { method: 'POST', body: JSON.stringify(updated) })
-                } catch (e) {}
-              }
-              toast(t('Targets saved'))
-              close()
-            }}
-          >
-            {t('Save Targets')}
-          </Button>
-        </div>
-      )
-    })
-  }
-
-  // Open Food & Recipe Explorer Sheet
-  const handleOpenFoodSearch = (mealType) => {
-    openSheet(close => {
-      let searchQ = ''
-      let results = []
-      let searching = false
-
-      const FoodSearchModal = () => {
-        const [items, setItems] = useState([])
-        const [q, setQ] = useState('')
-        const [busy, setBusy] = useState(false)
-
-        const runSearch = async (val) => {
-          setQ(val)
-          if (!val.trim()) { setItems([]); return }
-          setBusy(true)
-          try {
-            const res = await api(`/api/nutrition/search?q=${encodeURIComponent(val)}&limit=15`)
-            if (res.ok) setItems(res.foods || [])
-          } catch (e) {}
-          setBusy(false)
-        }
-
-        const handleSelectFood = async (food) => {
-          const entry = {
-            date,
-            meal_type: mealType,
-            food_id: food.id,
-            food_name: food.name,
-            serving_quantity: 1,
-            serving_unit: food.serving_unit || 'g',
-            serving_grams: food.serving_size_g || 100,
-            energy_kcal: food.energy_kcal,
-            protein_g: food.protein_g,
-            carb_g: food.carb_g,
-            fat_g: food.fat_g,
-            fibre_g: food.fibre_g,
-            assumptions: [`1 standard serving (${food.serving_size_g || 100} ${food.serving_unit || 'g'})`]
-          }
+          setFoods(updatedFoods)
+          saveToLocalStorage(date, updatedFoods, water, cardio, strength)
 
           const entryWithId = { ...entry, id: entry.id || ('loc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)) }
           update(s => { (s.meals = s.meals || []).push(entryWithId) })
@@ -372,365 +229,1276 @@ export default function Nutrition() {
               await api('/api/nutrition/log', { method: 'POST', body: JSON.stringify(entryWithId) })
             } catch (e) { /* preserved locally */ }
           }
-          toast(t('Added {0} to {1}', food.name, mealType))
-          close()
-          loadLogs(date)
-        }
+          toast(existing ? t('Food entry updated') : t('Food entry added'))
+        }}
+      />
+    ))
+  }
 
-        return (
-          <div>
-            <h3>{t('Search Food & Recipes')}</h3>
-            <p className="muted small" style={{ marginBottom: 12 }}>
-              {t('Search 7,000+ verified Indian staples, authentic recipes, and USDA ingredients.')}
-            </p>
-            <input
-              type="search"
-              placeholder={t('Search food, recipe, Tamil name...')}
-              autoFocus
-              value={q}
-              onChange={e => runSearch(e.target.value)}
-              style={{ width: '100%', padding: '12px 14px', background: 'var(--surface-2)', border: 'none', borderRadius: 10, marginBottom: 14 }}
-            />
+  const handleDeleteFood = (food) => {
+    if (food.is_example) {
+      toast(t('Example entries cannot be deleted; toggle "Show Examples" to hide them.'))
+      return
+    }
+    confirmSheet(t('Delete {0}?', food.food_name), async () => {
+      const updatedFoods = foods.filter(f => f.id !== food.id)
+      setFoods(updatedFoods)
+      saveToLocalStorage(date, updatedFoods, water, cardio, strength)
 
-            {busy && <div className="muted small" style={{ textAlign: 'center', padding: 12 }}>{t('Searching foods...')}</div>}
-
-            <div className="list" style={{ maxHeight: '55vh', overflowY: 'auto' }}>
-              {items.map(f => (
-                <div key={f.id} className="item" onClick={() => handleSelectFood(f)}>
-                  <span className="lrow-i" style={{ background: f.is_recipe ? 'var(--orange)' : 'var(--acc)' }}>
-                    <Icon name={f.is_recipe ? 'flame' : 'nutrition'} />
-                  </span>
-                  <div className="grow">
-                    <div className="tt">{f.name} {f.tamil_name && <span className="muted">({f.tamil_name})</span>}</div>
-                    <div className="ss">
-                      {f.energy_kcal} kcal · P: {f.protein_g}g · C: {f.carb_g}g · F: {f.fat_g}g · {f.source}
-                    </div>
-                  </div>
-                  <Icon name="plus" />
-                </div>
-              ))}
-              {!items.length && q && !busy && (
-                <div className="muted small" style={{ textAlign: 'center', padding: 24 }}>
-                  {t('No foods found for "{0}". Try natural-language parser on the main tab.', q)}
-                </div>
-              )}
-            </div>
-          </div>
-        )
+      if (user) {
+        try {
+          await api('/api/nutrition/food/delete', {
+            method: 'POST',
+            body: JSON.stringify({ id: food.id })
+          })
+        } catch (e) {}
       }
-
-      return <FoodSearchModal />
+      toast(t('Food entry deleted'))
     })
   }
 
-  // Progress computations
-  const calTarget = targets.calorie_target || 2000
-  const calConsumed = totals.energy_kcal || 0
-  const calRemaining = Math.max(0, Math.round(calTarget - calConsumed))
-  const calPct = Math.min(100, Math.round((calConsumed / calTarget) * 100))
+  // --- Water Operations ---
+  const handleAddWater = async (amountMl, note = '') => {
+    if (!amountMl || amountMl <= 0) return
+    const id = 'w_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
+    const newEntry = {
+      id,
+      date,
+      amount_ml: Math.round(amountMl),
+      unit: 'ml',
+      notes: note || null,
+      created_at: new Date().toISOString()
+    }
+
+    const updatedWater = [...water, newEntry]
+    setWater(updatedWater)
+    saveToLocalStorage(date, foods, updatedWater, cardio, strength)
+
+    if (user) {
+      try {
+        await api('/api/nutrition/water/save', {
+          method: 'POST',
+          body: JSON.stringify(newEntry)
+        })
+      } catch (e) {}
+    }
+    setCustomWaterAmount('')
+    setCustomWaterNote('')
+    toast(t('Added {0} ml water', Math.round(amountMl)))
+  }
+
+  const handleDeleteWater = (id) => {
+    confirmSheet(t('Delete this water entry?'), async () => {
+      const updatedWater = water.filter(w => w.id !== id)
+      setWater(updatedWater)
+      saveToLocalStorage(date, foods, updatedWater, cardio, strength)
+
+      if (user) {
+        try {
+          await api('/api/nutrition/water/delete', {
+            method: 'POST',
+            body: JSON.stringify({ id })
+          })
+        } catch (e) {}
+      }
+      toast(t('Water entry removed'))
+    })
+  }
+
+  // --- Cardio Operations ---
+  const handleOpenCardioModal = (existing = null) => {
+    openSheet(close => (
+      <CardioFormModal
+        date={date}
+        existing={existing}
+        onSave={async (savedEntry) => {
+          close()
+          let updatedCardio
+          if (existing) {
+            updatedCardio = cardio.map(c => c.id === savedEntry.id ? savedEntry : c)
+          } else {
+            updatedCardio = [...cardio, savedEntry]
+          }
+          setCardio(updatedCardio)
+          saveToLocalStorage(date, foods, water, updatedCardio, strength)
+
+          if (user) {
+            try {
+              await api('/api/nutrition/cardio/save', {
+                method: 'POST',
+                body: JSON.stringify({ ...savedEntry, date })
+              })
+            } catch (e) {}
+          }
+          toast(existing ? t('Cardio session updated') : t('Cardio session recorded'))
+        }}
+      />
+    ))
+  }
+
+  const handleDeleteCardio = (session) => {
+    confirmSheet(t('Delete {0} cardio session?', session.activity_type), async () => {
+      const updatedCardio = cardio.filter(c => c.id !== session.id)
+      setCardio(updatedCardio)
+      saveToLocalStorage(date, foods, water, updatedCardio, strength)
+
+      if (user) {
+        try {
+          await api('/api/nutrition/cardio/delete', {
+            method: 'POST',
+            body: JSON.stringify({ id: session.id })
+          })
+        } catch (e) {}
+      }
+      toast(t('Cardio session deleted'))
+    })
+  }
+
+  // --- Strength Operations ---
+  const handleOpenStrengthModal = (existing = null) => {
+    openSheet(close => (
+      <StrengthFormModal
+        date={date}
+        existing={existing}
+        onSave={async (savedEntry) => {
+          close()
+          let updatedStrength
+          if (existing) {
+            updatedStrength = strength.map(s => s.id === savedEntry.id ? savedEntry : s)
+          } else {
+            updatedStrength = [...strength, savedEntry]
+          }
+          setStrength(updatedStrength)
+          saveToLocalStorage(date, foods, water, cardio, updatedStrength)
+
+          if (user) {
+            try {
+              await api('/api/nutrition/strength/save', {
+                method: 'POST',
+                body: JSON.stringify({ ...savedEntry, date })
+              })
+            } catch (e) {}
+          }
+          toast(existing ? t('Exercise updated') : t('Exercise recorded'))
+        }}
+      />
+    ))
+  }
+
+  const handleDeleteStrength = (exercise) => {
+    confirmSheet(t('Delete {0} exercise entry?', exercise.exercise_name), async () => {
+      const updatedStrength = strength.filter(s => s.id !== exercise.id)
+      setStrength(updatedStrength)
+      saveToLocalStorage(date, foods, water, cardio, updatedStrength)
+
+      if (user) {
+        try {
+          await api('/api/nutrition/strength/delete', {
+            method: 'POST',
+            body: JSON.stringify({ id: exercise.id })
+          })
+        } catch (e) {}
+      }
+      toast(t('Strength exercise deleted'))
+    })
+  }
+
+  // --- Export PDF ---
+  const handleExportPdf = () => {
+    try {
+      const realFoods = foods.filter(f => !f.is_example)
+      exportDailyReportPdf({
+        date,
+        foods: realFoods,
+        water,
+        cardio,
+        strength,
+        totals,
+        settings: {
+          calorie_target: 1900,
+          water_goal_litres: waterGoalL
+        }
+      })
+      toast(t('Daily Report PDF exported successfully'))
+    } catch (e) {
+      toast(t('Failed to export PDF: {0}', e.message))
+    }
+  }
+
+  const displayFoods = showExamples ? [...EXAMPLE_ENTRIES, ...foods] : foods
 
   return (
-    <div className="nutrition-container">
-      {/* Header & Date Bar */}
-      <div className="hdr">
+    <div className="narrow" style={{ maxWidth: 960, margin: '0 auto', padding: '16px 12px 64px' }}>
+      {/* Page Title & Top Actions */}
+      <div className="hdr" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <div>
-          <h1>{t('Nutrition')}</h1>
-          <div className="sub">{t('AI Food Calculator & Verified Meal Tracker')}</div>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '1.75rem', fontWeight: 700, margin: 0 }}>
+            <span style={{ color: 'var(--acc)' }}><Icon name="clipboard" /></span>
+            {t('Daily Health Log')}
+          </h1>
+          <div className="sub" style={{ fontSize: '0.88rem', color: 'var(--muted)', marginTop: 4 }}>
+            {t('Manual food and activity logging with 1,900 kcal target and ChatGPT PDF report')}
+          </div>
         </div>
-        <Button size="sm" icon="target" variant="tinted" onClick={handleOpenTargets}>
-          {t('Targets')}
+
+        {/* Prominent Export Daily Report PDF Button */}
+        <Button
+          variant="acc"
+          icon="download"
+          onClick={handleExportPdf}
+          style={{ fontWeight: 600, padding: '10px 18px', fontSize: '0.95rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+        >
+          {t('Export Daily Report PDF')}
         </Button>
       </div>
 
-      {/* Date Switcher */}
-      <div className="card row between" style={{ padding: '10px 16px', marginBottom: 16 }}>
-        <button className="iconbtn" onClick={() => shiftDate(-1)} aria-label="Previous day">
-          <Icon name="chevronLeft" />
-        </button>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontWeight: 600, fontSize: 16 }}>
-            {date === todayISO() ? t('Today') : fmtDate(date)}
-          </div>
-          <div className="muted small">{date}</div>
-        </div>
-        <button className="iconbtn" onClick={() => shiftDate(1)} aria-label="Next day">
-          <Icon name="chevronRight" />
-        </button>
-      </div>
-
-      <div className="cols">
-        {/* Left Column: Progress & Daily Meal Log */}
-        <div>
-          {/* Calorie & Macro Target Progress Card */}
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="row between" style={{ marginBottom: 8 }}>
-              <span className="muted small" style={{ textTransform: 'uppercase', letterSpacing: '.05em' }}>
-                {t('Calories Today')}
-              </span>
-              <span className="accent" style={{ fontWeight: 600 }}>{calPct}%</span>
-            </div>
-
-            <div className="row between" style={{ alignItems: 'baseline', marginBottom: 12 }}>
-              <div className="big" style={{ fontSize: 36 }}>{Math.round(calConsumed)} <span className="muted" style={{ fontSize: 18, fontWeight: 400 }}>/ {calTarget} kcal</span></div>
-              <div className="muted small">
-                {calConsumed > calTarget ? (
-                  <span style={{ color: 'var(--red)', fontWeight: 600 }}>+{Math.round(calConsumed - calTarget)} {t('kcal over')}</span>
-                ) : (
-                  <span>{calRemaining} {t('kcal left')}</span>
-                )}
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div style={{ height: 8, background: 'var(--surface-3)', borderRadius: 99, overflow: 'hidden', marginBottom: 16 }}>
-              <div
-                style={{
-                  height: '100%',
-                  width: `${calPct}%`,
-                  background: calConsumed > calTarget ? 'var(--red)' : 'var(--acc)',
-                  borderRadius: 99,
-                  transition: 'width 0.4s ease'
-                }}
-              />
-            </div>
-
-            {/* Macro Summary Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-              <div style={{ background: 'var(--surface-2)', padding: '10px 8px', borderRadius: 10, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--blue)', fontWeight: 600, textTransform: 'uppercase' }}>{t('Protein')}</div>
-                <div style={{ fontSize: 16, fontWeight: 600, marginTop: 2 }}>{Math.round(totals.protein_g)}g</div>
-                <div className="muted" style={{ fontSize: 10 }}>/ {targets.protein_target_g}g</div>
-              </div>
-              <div style={{ background: 'var(--surface-2)', padding: '10px 8px', borderRadius: 10, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--orange)', fontWeight: 600, textTransform: 'uppercase' }}>{t('Carbs')}</div>
-                <div style={{ fontSize: 16, fontWeight: 600, marginTop: 2 }}>{Math.round(totals.carb_g)}g</div>
-                <div className="muted" style={{ fontSize: 10 }}>/ {targets.carb_target_g}g</div>
-              </div>
-              <div style={{ background: 'var(--surface-2)', padding: '10px 8px', borderRadius: 10, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--yellow)', fontWeight: 600, textTransform: 'uppercase' }}>{t('Fat')}</div>
-                <div style={{ fontSize: 16, fontWeight: 600, marginTop: 2 }}>{Math.round(totals.fat_g)}g</div>
-                <div className="muted" style={{ fontSize: 10 }}>/ {targets.fat_target_g}g</div>
-              </div>
-              <div style={{ background: 'var(--surface-2)', padding: '10px 8px', borderRadius: 10, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600, textTransform: 'uppercase' }}>{t('Fibre')}</div>
-                <div style={{ fontSize: 16, fontWeight: 600, marginTop: 2 }}>{Math.round(totals.fibre_g)}g</div>
-                <div className="muted" style={{ fontSize: 10 }}>/ {targets.fibre_target_g}g</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Meal Categories Sections */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {MEAL_TYPES.map(m => {
-              const mealItems = logs.filter(l => l.meal_type === m.id)
-              const mealCals = Math.round(mealItems.reduce((acc, curr) => acc + (curr.energy_kcal || 0), 0))
-
-              return (
-                <div key={m.id} className="card" style={{ padding: '14px 16px' }}>
-                  <div className="row between" style={{ marginBottom: 10 }}>
-                    <div className="row" style={{ gap: 8 }}>
-                      <span className="lrow-i" style={{ background: m.color, width: 26, height: 26, borderRadius: 6, fontSize: 15 }}>
-                        <Icon name={m.icon} />
-                      </span>
-                      <span style={{ fontWeight: 600, fontSize: 16 }}>{t(m.label)}</span>
-                    </div>
-                    <div className="row" style={{ gap: 10 }}>
-                      <span className="muted small" style={{ fontWeight: 500 }}>{mealCals} kcal</span>
-                      <button
-                        className="btn xs tinted"
-                        onClick={() => handleOpenFoodSearch(m.id)}
-                        title={t('Search food')}
-                      >
-                        <Icon name="plus" /> {t('Add')}
-                      </button>
-                    </div>
-                  </div>
-
-                  {mealItems.length > 0 ? (
-                    <div className="list">
-                      {mealItems.map(item => (
-                        <div key={item.id} className="item" style={{ padding: '8px 4px', borderBottom: 'var(--hair) solid var(--sep)' }}>
-                          <div className="grow">
-                            <div style={{ fontWeight: 500, fontSize: 15 }}>{item.food_name}</div>
-                            <div className="muted small">
-                              {item.serving_quantity} {item.serving_unit} ({item.serving_grams}g) · P: {item.protein_g}g · C: {item.carb_g}g · F: {item.fat_g}g
-                            </div>
-                          </div>
-                          <div className="row" style={{ gap: 8 }}>
-                            <span style={{ fontWeight: 600, fontSize: 14 }}>{Math.round(item.energy_kcal)} kcal</span>
-                            <button
-                              className="iconbtn"
-                              style={{ width: 28, height: 28, fontSize: 14, color: 'var(--red)' }}
-                              onClick={() => handleDeleteEntry(item)}
-                              title={t('Delete item')}
-                            >
-                              <Icon name="trash" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="muted small" style={{ padding: '6px 0', fontSize: 13 }}>
-                      {t('No items logged yet')}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Right Column: AI / Natural Language Nutrition Calculator */}
-        <div>
-          <div className="card" style={{ marginBottom: 14 }}>
-            <div className="row between" style={{ marginBottom: 6 }}>
-              <div className="row" style={{ gap: 8 }}>
-                <span className="lrow-i" style={{ background: 'var(--purple)', width: 28, height: 28, borderRadius: 7, fontSize: 16 }}>
-                  <Icon name="sparkles" />
-                </span>
-                <span style={{ fontWeight: 600, fontSize: 17 }}>{t('AI Meal Calculator')}</span>
-              </div>
-              <span className="chip sm nocap" style={{ background: 'var(--surface-2)', fontSize: 11 }}>
-                {t('Verified Data')}
-              </span>
-            </div>
-            <p className="muted small" style={{ marginBottom: 12 }}>
-              {t('Type food items, quantities, or complete meals. The engine parses ingredients and calculates exact calories and macros.')}
-            </p>
-
-            {/* Input Text Area */}
-            <textarea
-              rows={3}
-              placeholder={t('e.g. 2 wheat roti with chicken gravy\nor: 150 g rice, 100 g chicken and 1 tablespoon oil')}
-              value={nlInput}
-              onChange={e => setNlInput(e.target.value)}
+      {/* Date Selector Strip */}
+      <div className="card" style={{ padding: '12px 16px', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              className="iconbtn"
+              onClick={() => changeDate(-1)}
+              aria-label="Previous day"
+              style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--surface-2)' }}
+            >
+              <Icon name="chevronLeft" />
+            </button>
+            <input
+              type="date"
+              value={date}
+              onChange={e => e.target.value && setDate(e.target.value)}
               style={{
-                width: '100%',
-                padding: '12px 14px',
                 background: 'var(--surface-2)',
-                border: '1px solid var(--surface-3)',
-                borderRadius: 12,
-                color: 'var(--label)',
-                fontSize: 15,
-                lineHeight: 1.4,
-                resize: 'vertical',
-                marginBottom: 10
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                padding: '6px 12px',
+                fontSize: '1rem',
+                fontWeight: 600,
+                color: 'var(--fg)'
               }}
             />
-
-            {/* Quick Prompt Chips */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-              {QUICK_EXAMPLES.map((ex, i) => (
-                <button
-                  key={i}
-                  className="chip sm nocap"
-                  onClick={() => setNlInput(ex)}
-                  style={{ background: 'var(--surface-2)', cursor: 'pointer', fontSize: 12 }}
-                >
-                  {ex}
-                </button>
-              ))}
-            </div>
-
-            <Button
-              variant="primary"
-              icon="sparkles"
-              disabled={!nlInput.trim() || analyzing}
-              onClick={handleAnalyzeMeal}
+            <button
+              className="iconbtn"
+              onClick={() => changeDate(1)}
+              aria-label="Next day"
+              style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--surface-2)' }}
             >
-              {analyzing ? t('Analyzing with verified database...') : t('Calculate Nutrition')}
-            </Button>
+              <Icon name="chevronRight" />
+            </button>
           </div>
 
-          {/* Parsed Analysis Panel */}
-          {parsedMeal && (
-            <div className="card" style={{ border: '1px solid var(--acc)', animation: 'slideup 0.2s ease' }}>
-              <div className="row between" style={{ marginBottom: 12 }}>
-                <div style={{ fontWeight: 600, fontSize: 16 }}>{t('Nutrition Analysis')}</div>
-                <button
-                  className="iconbtn"
-                  style={{ width: 26, height: 26, fontSize: 13 }}
-                  onClick={() => setParsedMeal(null)}
-                >
-                  <Icon name="xmark" />
-                </button>
-              </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {date !== todayISO() && (
+              <button
+                className="btn small"
+                onClick={() => setDate(todayISO())}
+                style={{ padding: '4px 10px', fontSize: '0.85rem' }}
+              >
+                {t('Today')}
+              </button>
+            )}
+            <button
+              className={`btn small ${showExamples ? 'acc' : ''}`}
+              onClick={() => setShowExamples(!showExamples)}
+              style={{ padding: '4px 10px', fontSize: '0.85rem' }}
+              title={t('Toggle reference example entries')}
+            >
+              <Icon name="lightbulb" />
+              <span style={{ marginLeft: 4 }}>{showExamples ? t('Hide Examples') : t('Show Examples')}</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
-              {/* Items Breakdown */}
-              <div className="list" style={{ marginBottom: 14 }}>
-                {parsedMeal.items?.map((item, idx) => (
-                  <div key={idx} className="item" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '10px 6px', borderBottom: 'var(--hair) solid var(--sep)' }}>
-                    <div className="row between">
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 15 }}>{item.food_name}</div>
-                        {item.tamil_name && <div className="muted" style={{ fontSize: 12 }}>({item.tamil_name})</div>}
-                      </div>
-                      <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--acc)' }}>
-                        {item.nutrients?.energy_kcal} kcal
-                      </span>
-                    </div>
+      {/* SECTION 5: Daily Summary Interface */}
+      <div className="card" style={{ marginBottom: 24, border: '1px solid var(--border)', background: 'var(--surface)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: 'var(--acc)', fontSize: '1.2rem' }}><Icon name="chart" /></span>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>{t('Daily Summary')}</h2>
+          </div>
+          <span className="small muted" style={{ fontWeight: 500 }}>
+            {t('Daily Target')}: <strong style={{ color: 'var(--fg)' }}>1,900 kcal</strong>
+          </span>
+        </div>
 
-                    <div className="row between" style={{ marginTop: 4, fontSize: 13 }}>
-                      <span className="muted">{item.quantity} {item.unit} ({item.grams}g)</span>
-                      <span className="muted">
-                        P: {item.nutrients?.protein_g}g · C: {item.nutrients?.carb_g}g · F: {item.nutrients?.fat_g}g · Fibre: {item.nutrients?.fibre_g}g
-                      </span>
-                    </div>
-
-                    {/* Clarifications / Assumptions banner */}
-                    {item.clarification && (
-                      <div style={{ marginTop: 6, padding: '6px 10px', background: 'color-mix(in srgb, var(--orange) 16%, transparent)', borderRadius: 6, fontSize: 12, color: 'var(--orange)' }}>
-                        <Icon name="info" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-                        {item.clarification}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Meal Total Summary */}
-              <div style={{ background: 'var(--surface-2)', padding: '12px 14px', borderRadius: 10, marginBottom: 14 }}>
-                <div className="row between" style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>
-                  <span>{t('Total Meal Nutrition')}</span>
-                  <span className="accent">{parsedMeal.totals?.energy_kcal} kcal</span>
-                </div>
-                <div className="muted small row between">
-                  <span>{t('Protein: {0}g', parsedMeal.totals?.protein_g)}</span>
-                  <span>{t('Carbs: {0}g', parsedMeal.totals?.carb_g)}</span>
-                  <span>{t('Fat: {0}g', parsedMeal.totals?.fat_g)}</span>
-                  <span>{t('Fibre: {0}g', parsedMeal.totals?.fibre_g)}</span>
-                </div>
-              </div>
-
-              {/* Meal Selection and Add Action */}
-              <div className="row between" style={{ marginBottom: 12 }}>
-                <span className="muted small">{t('Log to meal:')}</span>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {MEAL_TYPES.map(m => (
-                    <button
-                      key={m.id}
-                      className={`btn xs ${selectedMealType === m.id ? 'primary' : ''}`}
-                      onClick={() => setSelectedMealType(m.id)}
-                    >
-                      {t(m.label)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="row" style={{ gap: 10 }}>
-                <Button variant="primary" icon="check" onClick={handleAddParsedToMeal}>
-                  {t('Add to {0}', MEAL_TYPES.find(m => m.id === selectedMealType)?.label || selectedMealType)}
-                </Button>
-                <Button variant="ghost" onClick={() => setParsedMeal(null)}>
-                  {t('Cancel')}
-                </Button>
-              </div>
+        {/* Overview Stats Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 16 }}>
+          <div style={{ background: 'var(--surface-2)', padding: '12px 14px', borderRadius: 10 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600 }}>{t('Food Entries')}</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--fg)', marginTop: 2 }}>
+              {totals.food_count} <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 500 }}>{t('items')}</span>
             </div>
+          </div>
+          <div style={{ background: 'var(--surface-2)', padding: '12px 14px', borderRadius: 10 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600 }}>{t('Water Consumed')}</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--blue)', marginTop: 2 }}>
+              {totals.water_litres} L <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 500 }}>/ {waterGoalL} L</span>
+            </div>
+          </div>
+          <div style={{ background: 'var(--surface-2)', padding: '12px 14px', borderRadius: 10 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600 }}>{t('Cardio Duration')}</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--orange)', marginTop: 2 }}>
+              {totals.cardio_duration_min} <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 500 }}>min</span>
+            </div>
+          </div>
+          <div style={{ background: 'var(--surface-2)', padding: '12px 14px', borderRadius: 10 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600 }}>{t('Strength Exercises')}</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--purple)', marginTop: 2 }}>
+              {strength.length} <span style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 500 }}>{t('exercises')}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Tracking Note on 1,900 kcal Target */}
+        <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '12px 14px', marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <span style={{ color: 'var(--acc)', fontSize: '1.1rem', marginTop: 1 }}><Icon name="info" /></span>
+          <div style={{ fontSize: '0.85rem', lineHeight: 1.45, color: 'var(--muted)' }}>
+            <strong style={{ color: 'var(--fg)' }}>{t('Daily Calorie Target: 1,900 kcal')}</strong>
+            <br />
+            {t('The live website records food names and quantities without calculating calories or macros. When you click "Export Daily Report PDF", full nutritional estimates, target comparisons, and hydration/activity analyses are evaluated by ChatGPT via the embedded prompt.')}
+          </div>
+        </div>
+
+        {/* Activity & Workout Stats Strip */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: '0.88rem', color: 'var(--muted)' }}>
+          <span>{t('Total Workout Duration')}: <strong style={{ color: 'var(--fg)' }}>{totals.total_workout_duration_min} min</strong></span>
+          <span>•</span>
+          <span>{t('Total Steps')}: <strong style={{ color: 'var(--fg)' }}>{totals.total_steps ? totals.total_steps.toLocaleString() : t('Not recorded')}</strong></span>
+          {totals.exercise_calories_burned > 0 && (
+            <>
+              <span>•</span>
+              <span>{t('Exercise Calories (user estimate)')}: <strong style={{ color: 'var(--fg)' }}>{totals.exercise_calories_burned} kcal</strong></span>
+            </>
           )}
         </div>
       </div>
+
+      {/* SECTION 1 & 2: Food Intake Log Table (Simplified) */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: 'var(--green)', fontSize: '1.2rem' }}><Icon name="apple" /></span>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>{t('Food Intake')}</h2>
+          </div>
+          <Button
+            variant="acc"
+            icon="plus"
+            size="small"
+            onClick={() => handleOpenFoodModal()}
+            style={{ fontWeight: 600 }}
+          >
+            {t('Add Food')}
+          </Button>
+        </div>
+
+        {/* Food Table (Meal, Food Name, Quantity, Unit, Notes, Actions) */}
+        {displayFoods.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--muted)', background: 'var(--surface-2)', borderRadius: 10 }}>
+            <Icon name="nutrition" style={{ fontSize: '2rem', marginBottom: 8, display: 'inline-block' }} />
+            <div style={{ fontWeight: 600 }}>{t('No food entries recorded for this date')}</div>
+            <div style={{ fontSize: '0.85rem', marginTop: 4 }}>
+              {t('Click "Add Food" to record foods, quantities, and units (e.g. 100 g rolled oats, 150 g banana).')}
+            </div>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border)', color: 'var(--muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>
+                  <th style={{ padding: '10px' }}>{t('Meal')}</th>
+                  <th style={{ padding: '10px' }}>{t('Food Name')}</th>
+                  <th style={{ padding: '10px' }}>{t('Quantity')}</th>
+                  <th style={{ padding: '10px' }}>{t('Unit')}</th>
+                  <th style={{ padding: '10px' }}>{t('Notes')}</th>
+                  <th style={{ padding: '10px', textAlign: 'right' }}>{t('Actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayFoods.map(f => (
+                  <tr
+                    key={f.id}
+                    style={{
+                      borderBottom: '1px solid var(--border)',
+                      background: f.is_example ? 'color-mix(in srgb,var(--surface-2) 60%,transparent)' : 'transparent'
+                    }}
+                  >
+                    <td style={{ padding: '12px 10px', verticalAlign: 'middle' }}>
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          padding: '3px 8px',
+                          borderRadius: 6,
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                          background: 'var(--surface-2)',
+                          textTransform: 'capitalize'
+                        }}
+                      >
+                        {f.meal_type}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 10px', fontWeight: 600, verticalAlign: 'middle' }}>
+                      {f.food_name}
+                      {f.is_example && (
+                        <span style={{ marginLeft: 6, fontSize: '0.72rem', background: 'var(--surface-3)', color: 'var(--muted)', padding: '2px 6px', borderRadius: 4 }}>
+                          {t('Example - Not Counted')}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: '12px 10px', verticalAlign: 'middle', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                      {f.serving_quantity}
+                    </td>
+                    <td style={{ padding: '12px 10px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                      {f.serving_unit}
+                    </td>
+                    <td style={{ padding: '12px 10px', color: 'var(--muted)', fontSize: '0.85rem', verticalAlign: 'middle' }}>
+                      {f.notes || '-'}
+                    </td>
+                    <td style={{ padding: '12px 10px', textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                      {!f.is_example && (
+                        <>
+                          <button
+                            className="iconbtn"
+                            onClick={() => handleOpenFoodModal(f)}
+                            style={{ width: 30, height: 30, marginRight: 4 }}
+                            aria-label="Edit food entry"
+                          >
+                            <Icon name="pencil" />
+                          </button>
+                          <button
+                            className="iconbtn danger"
+                            onClick={() => handleDeleteFood(f)}
+                            style={{ width: 30, height: 30 }}
+                            aria-label="Delete food entry"
+                          >
+                            <Icon name="trash" />
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ background: 'var(--surface-2)', fontWeight: 600 }}>
+                  <td colSpan={2} style={{ padding: '10px' }}>
+                    {t('Total Foods Recorded')}: {totals.food_count} {t('items')}
+                  </td>
+                  <td colSpan={4} style={{ padding: '10px', textAlign: 'right', fontSize: '0.82rem', color: 'var(--muted)' }}>
+                    {t('Target: 1,900 kcal | Complete nutrition breakdown estimated in exported PDF')}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* SECTION B: Water Intake Tracker */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: 'var(--blue)', fontSize: '1.2rem' }}><Icon name="cup" /></span>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>{t('Water Intake')}</h2>
+          </div>
+
+          {/* Daily Water Goal Setting */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {editingWaterGoal ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.5"
+                  max="10"
+                  value={waterGoalDraft}
+                  onChange={e => setWaterGoalDraft(e.target.value)}
+                  style={{ width: 64, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border)' }}
+                />
+                <span style={{ fontSize: '0.85rem' }}>L</span>
+                <button className="btn small acc" onClick={() => handleSaveWaterGoal(waterGoalDraft)}>
+                  <Icon name="check" />
+                </button>
+                <button className="btn small" onClick={() => setEditingWaterGoal(false)}>
+                  <Icon name="xmark" />
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.88rem' }}>
+                <span className="muted">{t('Daily Goal')}:</span>
+                <strong style={{ color: 'var(--fg)' }}>{waterGoalL} L</strong>
+                <button
+                  className="iconbtn"
+                  onClick={() => setEditingWaterGoal(true)}
+                  style={{ width: 24, height: 24 }}
+                  aria-label="Edit water goal"
+                >
+                  <Icon name="pencil" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Hydration Status Bar */}
+        <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '14px', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+            <div>
+              <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--blue)' }}>{totals.water_litres} L</span>
+              <span style={{ fontSize: '0.9rem', color: 'var(--muted)', marginLeft: 6 }}>({totals.water_ml} ml)</span>
+            </div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+              {totals.water_litres >= waterGoalL ? (
+                <span style={{ color: 'var(--green)' }}>✓ {t('Daily goal reached!')}</span>
+              ) : (
+                <span style={{ color: 'var(--muted)' }}>
+                  {Math.round((waterGoalL - totals.water_litres) * 100) / 100} L {t('remaining')}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div style={{ height: 8, borderRadius: 4, background: 'var(--surface-3)', overflow: 'hidden' }}>
+            <div
+              style={{
+                height: '100%',
+                width: `${Math.min(100, Math.round((totals.water_litres / waterGoalL) * 100))}%`,
+                background: 'var(--blue)',
+                borderRadius: 4,
+                transition: 'width 0.3s ease'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Quick Add Buttons & Custom Amount */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          <button className="btn small" onClick={() => handleAddWater(250, 'Glass of water')}>
+            + 250 ml
+          </button>
+          <button className="btn small" onClick={() => handleAddWater(500, 'Bottle of water')}>
+            + 500 ml
+          </button>
+          <button className="btn small" onClick={() => handleAddWater(750, 'Large bottle')}>
+            + 750 ml
+          </button>
+          <button className="btn small" onClick={() => handleAddWater(1000, '1 Litre jug')}>
+            + 1,000 ml (1 L)
+          </button>
+        </div>
+
+        {/* Custom Water Input */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+          <input
+            type="number"
+            min="1"
+            placeholder={t('Amount')}
+            value={customWaterAmount}
+            onChange={e => setCustomWaterAmount(e.target.value)}
+            style={{ width: 100, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+          />
+          <select
+            value={customWaterUnit}
+            onChange={e => setCustomWaterUnit(e.target.value)}
+            style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)' }}
+          >
+            <option value="ml">ml</option>
+            <option value="L">L</option>
+          </select>
+          <input
+            type="text"
+            placeholder={t('Optional notes (e.g. morning glass, post-workout)')}
+            value={customWaterNote}
+            onChange={e => setCustomWaterNote(e.target.value)}
+            style={{ flex: 1, minWidth: 160, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+          />
+          <Button
+            variant="acc"
+            size="small"
+            onClick={() => {
+              const amt = customWaterUnit === 'L' ? parseFloat(customWaterAmount) * 1000 : parseFloat(customWaterAmount)
+              handleAddWater(amt, customWaterNote)
+            }}
+          >
+            {t('Add Water')}
+          </Button>
+        </div>
+
+        {/* Water Log Entries List */}
+        {water.length > 0 && (
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600, marginBottom: 8 }}>
+              {t("Today's Water Entries")} ({water.length})
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {water.map((w, idx) => (
+                <div
+                  key={w.id || idx}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    background: 'var(--surface-2)',
+                    fontSize: '0.88rem'
+                  }}
+                >
+                  <div>
+                    <strong>{w.amount_ml} ml</strong> <span style={{ color: 'var(--muted)' }}>({(w.amount_ml / 1000).toFixed(2)} L)</span>
+                    {w.notes && <span style={{ marginLeft: 8, color: 'var(--muted)', fontSize: '0.82rem' }}>— {w.notes}</span>}
+                  </div>
+                  <button
+                    className="iconbtn danger"
+                    onClick={() => handleDeleteWater(w.id)}
+                    style={{ width: 26, height: 26 }}
+                    aria-label="Delete water entry"
+                  >
+                    <Icon name="trash" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* SECTION C: Cardio Activity Log */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: 'var(--orange)', fontSize: '1.2rem' }}><Icon name="figureRun" /></span>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>{t('Cardio Activity Log')}</h2>
+          </div>
+          <Button
+            variant="acc"
+            icon="plus"
+            size="small"
+            onClick={() => handleOpenCardioModal()}
+            style={{ fontWeight: 600 }}
+          >
+            {t('Add Cardio Session')}
+          </Button>
+        </div>
+
+        {cardio.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '24px 16px', color: 'var(--muted)', background: 'var(--surface-2)', borderRadius: 10 }}>
+            <div style={{ fontWeight: 600 }}>{t('No cardio sessions recorded today')}</div>
+            <div style={{ fontSize: '0.85rem', marginTop: 4 }}>{t('Record walking, running, cycling, treadmill, or HIIT sessions.')}</div>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border)', color: 'var(--muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>
+                  <th style={{ padding: '8px 10px' }}>{t('Activity')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('Duration')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('Distance')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('Steps')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('Calories Burned (est)')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('Notes')}</th>
+                  <th style={{ padding: '8px 10px', textAlign: 'right' }}>{t('Actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cardio.map(c => (
+                  <tr key={c.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '10px', fontWeight: 600, textTransform: 'capitalize' }}>{c.activity_type}</td>
+                    <td style={{ padding: '10px' }}>{c.duration_min} min</td>
+                    <td style={{ padding: '10px' }}>{c.distance_km != null ? `${c.distance_km} km` : '-'}</td>
+                    <td style={{ padding: '10px' }}>{c.steps != null ? c.steps.toLocaleString() : '-'}</td>
+                    <td style={{ padding: '10px', color: 'var(--orange)', fontWeight: 600 }}>{c.calories_burned != null ? `${c.calories_burned} kcal` : '-'}</td>
+                    <td style={{ padding: '10px', color: 'var(--muted)', fontSize: '0.85rem' }}>{c.notes || '-'}</td>
+                    <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button
+                        className="iconbtn"
+                        onClick={() => handleOpenCardioModal(c)}
+                        style={{ width: 28, height: 28, marginRight: 4 }}
+                        aria-label="Edit cardio session"
+                      >
+                        <Icon name="pencil" />
+                      </button>
+                      <button
+                        className="iconbtn danger"
+                        onClick={() => handleDeleteCardio(c)}
+                        style={{ width: 28, height: 28 }}
+                        aria-label="Delete cardio session"
+                      >
+                        <Icon name="trash" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ background: 'var(--surface-2)', fontWeight: 700 }}>
+                  <td style={{ padding: '10px' }}>{t('Total Cardio')}</td>
+                  <td style={{ padding: '10px' }}>{totals.cardio_duration_min} min</td>
+                  <td style={{ padding: '10px' }}>{totals.cardio_distance_km ? `${totals.cardio_distance_km} km` : '-'}</td>
+                  <td style={{ padding: '10px' }}>{totals.total_steps ? totals.total_steps.toLocaleString() : '-'}</td>
+                  <td style={{ padding: '10px', color: 'var(--orange)' }}>
+                    {cardio.reduce((acc, c) => acc + (Number(c.calories_burned) || 0), 0) ? `${cardio.reduce((acc, c) => acc + (Number(c.calories_burned) || 0), 0)} kcal` : '-'}
+                  </td>
+                  <td colSpan={2} style={{ padding: '10px' }} />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* SECTION D: Strength Workout Log */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: 'var(--purple)', fontSize: '1.2rem' }}><Icon name="dumbbell" /></span>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>{t('Strength Workout Log')}</h2>
+          </div>
+          <Button
+            variant="acc"
+            icon="plus"
+            size="small"
+            onClick={() => handleOpenStrengthModal()}
+            style={{ fontWeight: 600 }}
+          >
+            {t('Add Exercise')}
+          </Button>
+        </div>
+
+        {strength.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '24px 16px', color: 'var(--muted)', background: 'var(--surface-2)', borderRadius: 10 }}>
+            <div style={{ fontWeight: 600 }}>{t('No strength exercises recorded today')}</div>
+            <div style={{ fontSize: '0.85rem', marginTop: 4 }}>{t('Log exercises, muscle groups, sets, repetitions, and weights.')}</div>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border)', color: 'var(--muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>
+                  <th style={{ padding: '8px 10px' }}>{t('Exercise Name')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('Muscle Group')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('Sets')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('Reps')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('Weight (kg)')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('Duration')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('Calories (est)')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('Notes')}</th>
+                  <th style={{ padding: '8px 10px', textAlign: 'right' }}>{t('Actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {strength.map(s => (
+                  <tr key={s.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '10px', fontWeight: 600 }}>{s.exercise_name}</td>
+                    <td style={{ padding: '10px' }}>
+                      {s.muscle_group ? (
+                        <span style={{ background: 'var(--surface-2)', padding: '2px 8px', borderRadius: 4, fontSize: '0.8rem' }}>
+                          {s.muscle_group}
+                        </span>
+                      ) : '-'}
+                    </td>
+                    <td style={{ padding: '10px' }}>{s.sets != null ? s.sets : '-'}</td>
+                    <td style={{ padding: '10px' }}>{s.reps != null ? s.reps : '-'}</td>
+                    <td style={{ padding: '10px' }}>{s.weight_kg != null ? `${s.weight_kg} kg` : '-'}</td>
+                    <td style={{ padding: '10px' }}>{s.duration_min != null ? `${s.duration_min} min` : '-'}</td>
+                    <td style={{ padding: '10px', color: 'var(--purple)', fontWeight: 600 }}>
+                      {s.calories_burned != null ? `${s.calories_burned} kcal` : '-'}
+                    </td>
+                    <td style={{ padding: '10px', color: 'var(--muted)', fontSize: '0.85rem' }}>{s.notes || '-'}</td>
+                    <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button
+                        className="iconbtn"
+                        onClick={() => handleOpenStrengthModal(s)}
+                        style={{ width: 28, height: 28, marginRight: 4 }}
+                        aria-label="Edit strength exercise"
+                      >
+                        <Icon name="pencil" />
+                      </button>
+                      <button
+                        className="iconbtn danger"
+                        onClick={() => handleDeleteStrength(s)}
+                        style={{ width: 28, height: 28 }}
+                        aria-label="Delete strength exercise"
+                      >
+                        <Icon name="trash" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ background: 'var(--surface-2)', fontWeight: 700 }}>
+                  <td style={{ padding: '10px' }}>{t('Total Strength')}</td>
+                  <td style={{ padding: '10px' }}>{strength.length} {t('exercises')}</td>
+                  <td style={{ padding: '10px' }}>
+                    {strength.reduce((acc, s) => acc + (Number(s.sets) || 0), 0) ? `${strength.reduce((acc, s) => acc + (Number(s.sets) || 0), 0)} sets` : '-'}
+                  </td>
+                  <td colSpan={2} style={{ padding: '10px' }} />
+                  <td style={{ padding: '10px' }}>{totals.strength_duration_min ? `${totals.strength_duration_min} min` : '-'}</td>
+                  <td style={{ padding: '10px', color: 'var(--purple)' }}>
+                    {strength.reduce((acc, s) => acc + (Number(s.calories_burned) || 0), 0) ? `${strength.reduce((acc, s) => acc + (Number(s.calories_burned) || 0), 0)} kcal` : '-'}
+                  </td>
+                  <td colSpan={2} style={{ padding: '10px' }} />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
+  )
+}
+
+/* ============================ MODALS ============================ */
+
+/**
+ * Simplified Food Entry Form Modal:
+ * Contains only Meal, Food Name, Quantity, Unit, and optional Notes.
+ * Completely removes calories and macronutrient inputs.
+ */
+function SimplifiedFoodFormModal({ date, existing, onSave }) {
+  const [mealType, setMealType] = useState(existing?.meal_type || 'breakfast')
+  const [foodName, setFoodName] = useState(existing?.food_name || '')
+  const [quantity, setQuantity] = useState(existing?.serving_quantity != null ? String(existing.serving_quantity) : '100')
+  const [unit, setUnit] = useState(existing?.serving_unit || 'g')
+  const [notes, setNotes] = useState(existing?.notes || '')
+  const [err, setErr] = useState('')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!foodName.trim()) {
+      setErr('Please enter food name')
+      return
+    }
+    if (quantity === '' || isNaN(parseFloat(quantity)) || parseFloat(quantity) <= 0) {
+      setErr('Please enter a valid positive quantity')
+      return
+    }
+
+    const entry = {
+      id: existing?.id || 'food_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      date,
+      meal_type: mealType,
+      food_name: foodName.trim(),
+      serving_quantity: parseFloat(quantity),
+      serving_unit: unit,
+      notes: notes.trim() || null
+    }
+
+    onSave(entry)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ padding: '4px 0 16px' }}>
+      <h3 style={{ margin: '0 0 14px', fontSize: '1.2rem', fontWeight: 700 }}>
+        {existing ? t('Edit Food Entry') : t('Add Food Entry')}
+      </h3>
+
+      {err && (
+        <div style={{ color: 'var(--red)', fontSize: '0.85rem', marginBottom: 12, padding: '6px 10px', background: 'color-mix(in srgb,var(--red) 12%,transparent)', borderRadius: 6 }}>
+          {err}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 14 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Meal *')}
+          </label>
+          <select
+            value={mealType}
+            onChange={e => setMealType(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)' }}
+          >
+            {MEAL_TYPES.map(m => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Food Name *')}
+          </label>
+          <input
+            type="text"
+            required
+            placeholder="e.g. Rolled oats, overnight soaked"
+            value={foodName}
+            onChange={e => setFoodName(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+          />
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Quantity *')}
+          </label>
+          <input
+            type="number"
+            step="any"
+            min="0.1"
+            required
+            placeholder="e.g. 100"
+            value={quantity}
+            onChange={e => setQuantity(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontWeight: 600 }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Unit *')}
+          </label>
+          <select
+            value={unit}
+            onChange={e => setUnit(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)' }}
+          >
+            {UNITS.map(u => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 18 }}>
+        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+          {t('Notes (optional)')}
+        </label>
+        <input
+          type="text"
+          placeholder="e.g. Soaked overnight in water, raw, boiled"
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        <Button variant="acc" type="submit" style={{ padding: '10px 20px', fontWeight: 600 }}>
+          {t('Save Food Entry')}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function CardioFormModal({ date, existing, onSave }) {
+  const [activityType, setActivityType] = useState(existing?.activity_type || 'walking')
+  const [durationMin, setDurationMin] = useState(existing?.duration_min != null ? String(existing.duration_min) : '')
+  const [distanceKm, setDistanceKm] = useState(existing?.distance_km != null ? String(existing.distance_km) : '')
+  const [steps, setSteps] = useState(existing?.steps != null ? String(existing.steps) : '')
+  const [caloriesBurned, setCaloriesBurned] = useState(existing?.calories_burned != null ? String(existing.calories_burned) : '')
+  const [notes, setNotes] = useState(existing?.notes || '')
+  const [err, setErr] = useState('')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!durationMin || isNaN(parseFloat(durationMin))) {
+      setErr('Please enter duration in minutes')
+      return
+    }
+
+    const entry = {
+      id: existing?.id || 'cardio_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      date,
+      activity_type: activityType,
+      duration_min: Math.max(1, parseFloat(durationMin) || 0),
+      distance_km: distanceKm !== '' ? Math.max(0, parseFloat(distanceKm)) : null,
+      steps: steps !== '' ? Math.max(0, parseInt(steps, 10)) : null,
+      calories_burned: caloriesBurned !== '' ? Math.max(0, parseFloat(caloriesBurned)) : null,
+      notes: notes.trim() || null
+    }
+
+    onSave(entry)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ padding: '4px 0 16px' }}>
+      <h3 style={{ margin: '0 0 14px', fontSize: '1.2rem', fontWeight: 700 }}>
+        {existing ? t('Edit Cardio Session') : t('Add Cardio Session')}
+      </h3>
+
+      {err && (
+        <div style={{ color: 'var(--red)', fontSize: '0.85rem', marginBottom: 12, padding: '6px 10px', background: 'color-mix(in srgb,var(--red) 12%,transparent)', borderRadius: 6 }}>
+          {err}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Activity Type *')}
+          </label>
+          <select
+            value={activityType}
+            onChange={e => setActivityType(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)' }}
+          >
+            {CARDIO_TYPES.map(act => (
+              <option key={act} value={act}>{act.charAt(0).toUpperCase() + act.slice(1)}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Duration (minutes) *')}
+          </label>
+          <input
+            type="number"
+            min="1"
+            required
+            placeholder="e.g. 30"
+            value={durationMin}
+            onChange={e => setDurationMin(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+          />
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Distance (km)')}
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="optional"
+            value={distanceKm}
+            onChange={e => setDistanceKm(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Steps')}
+          </label>
+          <input
+            type="number"
+            min="0"
+            placeholder="optional"
+            value={steps}
+            onChange={e => setSteps(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Est. Calories Burned')}
+          </label>
+          <input
+            type="number"
+            min="0"
+            placeholder="optional"
+            value={caloriesBurned}
+            onChange={e => setCaloriesBurned(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+          />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+          {t('Notes (optional)')}
+        </label>
+        <input
+          type="text"
+          placeholder="e.g. brisk walk in park, incline 3"
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        <Button variant="acc" type="submit" style={{ padding: '10px 20px', fontWeight: 600 }}>
+          {t('Save Cardio Session')}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function StrengthFormModal({ date, existing, onSave }) {
+  const [exerciseName, setExerciseName] = useState(existing?.exercise_name || '')
+  const [muscleGroup, setMuscleGroup] = useState(existing?.muscle_group || 'Chest')
+  const [sets, setSets] = useState(existing?.sets != null ? String(existing.sets) : '')
+  const [reps, setReps] = useState(existing?.reps != null ? String(existing.reps) : '')
+  const [weightKg, setWeightKg] = useState(existing?.weight_kg != null ? String(existing.weight_kg) : '')
+  const [durationMin, setDurationMin] = useState(existing?.duration_min != null ? String(existing.duration_min) : '')
+  const [caloriesBurned, setCaloriesBurned] = useState(existing?.calories_burned != null ? String(existing.calories_burned) : '')
+  const [notes, setNotes] = useState(existing?.notes || '')
+  const [err, setErr] = useState('')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!exerciseName.trim()) {
+      setErr('Please enter exercise name')
+      return
+    }
+
+    const entry = {
+      id: existing?.id || 'strength_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      date,
+      exercise_name: exerciseName.trim(),
+      muscle_group: muscleGroup || null,
+      sets: sets !== '' ? Math.max(1, parseInt(sets, 10)) : null,
+      reps: reps !== '' ? Math.max(1, parseInt(reps, 10)) : null,
+      weight_kg: weightKg !== '' ? Math.max(0, parseFloat(weightKg)) : null,
+      duration_min: durationMin !== '' ? Math.max(0, parseFloat(durationMin)) : null,
+      calories_burned: caloriesBurned !== '' ? Math.max(0, parseFloat(caloriesBurned)) : null,
+      notes: notes.trim() || null
+    }
+
+    onSave(entry)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ padding: '4px 0 16px' }}>
+      <h3 style={{ margin: '0 0 14px', fontSize: '1.2rem', fontWeight: 700 }}>
+        {existing ? t('Edit Strength Exercise') : t('Add Strength Exercise')}
+      </h3>
+
+      {err && (
+        <div style={{ color: 'var(--red)', fontSize: '0.85rem', marginBottom: 12, padding: '6px 10px', background: 'color-mix(in srgb,var(--red) 12%,transparent)', borderRadius: 6 }}>
+          {err}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Exercise Name *')}
+          </label>
+          <input
+            type="text"
+            required
+            placeholder="e.g. Barbell Squat, Dumbbell Curl"
+            value={exerciseName}
+            onChange={e => setExerciseName(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Muscle Group')}
+          </label>
+          <select
+            value={muscleGroup}
+            onChange={e => setMuscleGroup(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)' }}
+          >
+            {MUSCLE_GROUPS.map(mg => (
+              <option key={mg} value={mg}>{mg}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Sets')}
+          </label>
+          <input
+            type="number"
+            min="1"
+            placeholder="e.g. 4"
+            value={sets}
+            onChange={e => setSets(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Reps')}
+          </label>
+          <input
+            type="number"
+            min="1"
+            placeholder="e.g. 10"
+            value={reps}
+            onChange={e => setReps(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Weight (kg)')}
+          </label>
+          <input
+            type="number"
+            step="0.5"
+            min="0"
+            placeholder="e.g. 60"
+            value={weightKg}
+            onChange={e => setWeightKg(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+          />
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Duration (min, optional)')}
+          </label>
+          <input
+            type="number"
+            min="0"
+            placeholder="e.g. 20"
+            value={durationMin}
+            onChange={e => setDurationMin(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+            {t('Est. Calories (optional)')}
+          </label>
+          <input
+            type="number"
+            min="0"
+            placeholder="optional manual estimate"
+            value={caloriesBurned}
+            onChange={e => setCaloriesBurned(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+          />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+          {t('Notes (optional)')}
+        </label>
+        <input
+          type="text"
+          placeholder="e.g. drop set on last set, good form"
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        <Button variant="acc" type="submit" style={{ padding: '10px 20px', fontWeight: 600 }}>
+          {t('Save Strength Exercise')}
+        </Button>
+      </div>
+    </form>
   )
 }
