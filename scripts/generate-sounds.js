@@ -1,5 +1,5 @@
 // scripts/generate-sounds.js
-// Generates clean, high-fidelity PCM WAV alert audio files for OpenGym
+// Generates clean, high-fidelity PCM WAV alert audio files for IRONX
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'

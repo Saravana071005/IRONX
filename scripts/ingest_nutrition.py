@@ -1,5 +1,5 @@
 """
-openGym AI Nutrition Engine — Data Ingestion & Deduplication Pipeline
+IRONX AI Nutrition Engine — Data Ingestion & Deduplication Pipeline
 Ingests:
 1. ICMR-NIN 2017 & INDB NIN_fct (897 items with Tamil & regional aliases)
 2. INDB Recipes (1,015 recipes, 10,271 ingredient rows, serving sizes)

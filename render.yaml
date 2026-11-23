@@ -1,5 +1,5 @@
 services:
-  # OpenGym Backend API Service (Node.js Web Service on Free Tier)
+  # IRONX Backend API Service (Node.js Web Service on Free Tier)
   - type: web
     name: ironx-backend
     runtime: node
@@ -18,7 +18,7 @@ services:
       - key: SECRET
         generateValue: true
       - key: RP_NAME
-        value: openGym
+        value: IRONX
       - key: RP_ID
         sync: false
       - key: ORIGIN
@@ -28,9 +28,9 @@ services:
       - key: DATA_DIR
         value: /tmp/opengym-data
 
-  # OpenGym Frontend Application (Static Site on Free Tier)
+  # IRONX Frontend Application (Static Site on Free Tier)
   - type: web
-    name: opengym-frontend
+    name: ironx-frontend
     runtime: static
     buildCommand: npm install && npm --prefix frontend run build
     staticPublishPath: frontend/dist

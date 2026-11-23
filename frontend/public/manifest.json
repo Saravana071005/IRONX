@@ -1,7 +1,8 @@
 {
+  "id": "/",
   "name": "IRONX",
   "short_name": "IRONX",
-  "description": "IRONX – Elite Strength, Conditioning & Health Intelligence",
+  "description": "IRONX — Elite Strength, Conditioning & Health Intelligence",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

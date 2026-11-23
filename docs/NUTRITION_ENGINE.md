@@ -1,8 +1,8 @@
-# openGym AI Nutrition Engine — Integration & Architecture Guide
+# IRONX AI Nutrition Engine — Integration & Architecture Guide
 
 ## Overview
 
-The **openGym AI Nutrition Engine** is a high-performance, deterministic nutrition computation and natural-language meal tracking system seamlessly integrated into openGym. It combines verified Indian and international food-composition databases with an NLP entity extraction and matching pipeline, household portion conversions, user nutrition targets, and persistent daily meal logging.
+The **IRONX AI Nutrition Engine** is a high-performance, deterministic nutrition computation and natural-language meal tracking system seamlessly integrated into IRONX. It combines verified Indian and international food-composition databases with an NLP entity extraction and matching pipeline, household portion conversions, user nutrition targets, and persistent daily meal logging.
 
 ---
 

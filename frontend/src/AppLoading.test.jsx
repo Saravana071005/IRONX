@@ -33,8 +33,8 @@ describe('Direct Launch and Simple Loading Screen', () => {
     expect(loadingHtml).toContain('background:#000000')
 
     // Absolutely NO branding, NO logo, NO welcome message
-    expect(loadingHtml).not.toContain('IRON HOUSE')
-    expect(loadingHtml).not.toContain('iron-house-logo')
+    expect(loadingHtml).not.toContain('IRONX')
+    expect(loadingHtml).not.toContain('ironx-logo')
     expect(loadingHtml).not.toContain('Welcome')
     expect(loadingHtml).not.toContain('Arc Reactor')
   })

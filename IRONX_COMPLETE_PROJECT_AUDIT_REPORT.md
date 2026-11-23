@@ -1,8 +1,8 @@
-# OpenGym — Complete Project Audit, Bug Fixing & Production Verification Report
+# IRONX — Complete Project Audit, Bug Fixing & Production Verification Report
 
-**Project:** OpenGym (Privacy-first progressive overload gym tracker and health suite)  
-**GitHub Repository:** `https://github.com/Saravana071005/Open-Gym.git`  
-**Production URL:** `https://open-gym-g3m5.vercel.app/`  
+**Project:** IRONX (Privacy-first progressive overload gym tracker and health suite)  
+**GitHub Repository:** `https://github.com/Saravana071005/ironx.git`  
+**Production URL:** `https://ironx-g3m5.vercel.app/`  
 **Date:** November 13, 2026  
 **Auditor:** Senior Full-Stack, Database, DevOps & QA Systems Lead  
 
@@ -10,14 +10,14 @@
 
 ## 1. Executive Summary
 
-A comprehensive full-stack audit, code-level inspection, bug remediation, and production verification was conducted on OpenGym across all 12 phases mandated by the system requirements.
+A comprehensive full-stack audit, code-level inspection, bug remediation, and production verification was conducted on IRONX across all 12 phases mandated by the system requirements.
 
 ### Key Outcomes:
 - **Total Tests Passing:** **303 automated tests** (227 Frontend Vitest tests + 76 Backend Node tests).
 - **Core Issues Diagnosed & Resolved:**
   1. **Vercel Build Failure (Exit Code 254):** Root cause identified as a mismatch between Vercel Root Directory and the build command (`npm --prefix frontend run build` run inside `frontend/` causing `ENOENT: frontend/frontend/package.json`).
   2. **Multi-Segment API 404 & 405 Errors on Vercel:** Diagnosed missing rewrites and missing serverless file entrypoints for `/api/nutrition/*`, `/api/coach/*`, `/api/push/*`, and `/api/admin/*`. Fixed with wildcard rewrites in `vercel.json` / `frontend/vercel.json`, query parameter preservation in `api/index.js` & `api/[...path].js`, and dedicated serverless handlers in both root `api/` and `frontend/api/`.
-  3. **Vercel Lambda SQLite Read-Only Crash:** Fixed `api/nutrition/db.js` and `frontend/api/_lib/nutrition/db.js` to seed `nutrition.db` into writable `/tmp/opengym-data/nutrition.db` under serverless execution.
+  3. **Vercel Lambda SQLite Read-Only Crash:** Fixed `api/nutrition/db.js` and `frontend/api/_lib/nutrition/db.js` to seed `nutrition.db` into writable `/tmp/IRONX-data/nutrition.db` under serverless execution.
   4. **MongoDB Cold-Start Race Condition:** Resolved passkey verification 404 errors during lambda cold starts by awaiting database sync and implementing direct database query fallbacks.
   5. **CI / Docker Monorepo Misconfigurations:** Repaired `.github/workflows/test.yml`, `api/Dockerfile`, `docker-compose.yml`, and `.github/workflows/docker-publish.yml` to reflect the consolidated monorepo dependencies.
   6. **Protected Database Health Check:** Implemented `GET /api/health/db` returning strictly `{"database":"connected"}` (200) or `{"database":"unavailable"}` (503) without leaking credentials or infrastructure traces.
@@ -32,7 +32,7 @@ A comprehensive full-stack audit, code-level inspection, bug remediation, and pr
 | **BUG-01** | Vercel Deployment | Exit code 254 during build | If Root Directory in Vercel is set to `frontend`, running `npm --prefix frontend run build` causes npm to look for `frontend/frontend/package.json`, which does not exist. | Clarified correct configuration: Set Root Directory to `.` with `npm --prefix frontend run build`, or Root Directory to `frontend` with `npm run build`. | **RESOLVED** |
 | **BUG-02** | Vercel Serverless API | 404 Not Found on `/api/nutrition/*`, `/api/coach/*`, `/api/push/*` | Vercel serverless routing requires matching filesystem files. Standalone files only existed for `/api/health`, `/api/register/*`, `/api/login/*`. Subdirectories lacked handlers, and `vercel.json` rewrote all non-api traffic to `/index.html` while lacking an API wildcard rewrite. | Added rewrite `/api/(.*) -> /api/index.js?path=$1` in `vercel.json` & `frontend/vercel.json`, and added dedicated handlers in `api/` and `frontend/api/`. | **RESOLVED** |
 | **BUG-03** | Authentication | 404 / 405 on Passkey Login during cold start | In serverless lambdas, `syncFromMongo()` ran asynchronously without being awaited at boot. When `/api/login/verify` arrived before sync finished, `db.creds` was empty, returning 404 "unknown passkey". | Added `await ensureMongoSync()` in request handler and added direct MongoDB Atlas fallback lookup in `POST /api/login/verify`. | **RESOLVED** |
-| **BUG-04** | Nutrition SQLite DB | Read-only filesystem error on Vercel | In AWS Lambda / Vercel, `/var/task` is strictly read-only. `DatabaseSync` opening `/var/task/data/nutrition.db` crashed on `CREATE TABLE` / write operations. | Modified `getDb()` to detect Vercel environment and copy the seed database into `/tmp/opengym-data/nutrition.db` before opening. | **RESOLVED** |
+| **BUG-04** | Nutrition SQLite DB | Read-only filesystem error on Vercel | In AWS Lambda / Vercel, `/var/task` is strictly read-only. `DatabaseSync` opening `/var/task/data/nutrition.db` crashed on `CREATE TABLE` / write operations. | Modified `getDb()` to detect Vercel environment and copy the seed database into `/tmp/IRONX-data/nutrition.db` before opening. | **RESOLVED** |
 | **BUG-05** | GitHub Actions CI | `npm test` failed in `api` job | Commit `7daf879` consolidated dependencies into root `package.json` and deleted `api/package.json`. The CI workflow continued to run `npm test` with `working-directory: api`. | Updated `.github/workflows/test.yml` to run `npm ci` and `node --test api/test/*.test.js` from root. | **RESOLVED** |
 | **BUG-06** | Docker API Build | `COPY package.json` failed in `api/Dockerfile` | `api/Dockerfile` assumed context `./api` with its own `package.json`, missing `nutrition/` and `db/` directories. | Updated `api/Dockerfile`, `docker-compose.yml`, and `.github/workflows/docker-publish.yml` to build from root context with complete directory copying. | **RESOLVED** |
 | **BUG-07** | Database Health Check | Health check lacked isolated status format | Phase 4 mandates simple status `{"database":"connected"}` or `{"database":"unavailable"}` without exposing credentials or hosts. | Implemented `GET /api/health/db` and query parameter switch on `GET /api/health`. Added automated verification tests. | **RESOLVED** |
@@ -55,7 +55,7 @@ A comprehensive full-stack audit, code-level inspection, bug remediation, and pr
 
 ### 3.2 Database Resilience & Writable Storage
 - **Lazy MongoDB Connection:** Refactored `api/db/mongo.js` and `frontend/api/_lib/db/mongo.js` to evaluate `process.env.MONGODB_URI` lazily at invocation time with automatic reconnection handling.
-- **Lambda Writable SQLite Storage:** Updated `api/nutrition/db.js` and `frontend/api/_lib/nutrition/db.js` to automatically copy `data/nutrition.db` to `/tmp/opengym-data/nutrition.db` if running on Vercel.
+- **Lambda Writable SQLite Storage:** Updated `api/nutrition/db.js` and `frontend/api/_lib/nutrition/db.js` to automatically copy `data/nutrition.db` to `/tmp/IRONX-data/nutrition.db` if running on Vercel.
 - **Passkey Cold-Start Protection:** Updated `api/server.js` and `frontend/api/_lib/server.js` to await MongoDB sync and perform fallback single-document queries on cache misses.
 
 ### 3.3 CI & Monorepo Docker Configurations
@@ -100,11 +100,11 @@ To guarantee seamless deployments of both the Vite client and all serverless API
 | Variable Name | Used In | Required | Local (.env) | Vercel Prod | Vercel Preview | Action Needed |
 |---|---|---|---|---|---|---|
 | `MONGODB_URI` | `api/db/mongo.js`, `api/server.js` | **YES** (for multi-instance/Vercel persistence) | ❌ Missing | ❌ Missing | ❌ Missing | **Add Atlas URI to Vercel & local .env** |
-| `MONGODB_DB` | `api/db/mongo.js` | Optional (default: `opengym`) | ❌ Missing | ❌ Missing | ❌ Missing | Optional (defaults to `opengym`) |
+| `MONGODB_DB` | `api/db/mongo.js` | Optional (default: `IRONX`) | ❌ Missing | ❌ Missing | ❌ Missing | Optional (defaults to `IRONX`) |
 | `SECRET` | `api/server.js` | **YES** (for stable session cookies across lambdas) | ⚠️ Generated per run | ⚠️ Generated per run | ⚠️ Generated per run | **Set static 64-char hex secret in Vercel** |
-| `RP_ID` | `api/server.js` (WebAuthn) | **YES** | ✅ `localhost` | ⚠️ Auto-detected from Host | ⚠️ Auto-detected from Host | Set to `open-gym-g3m5.vercel.app` in Prod |
-| `ORIGIN` | `api/server.js` (WebAuthn) | **YES** | ✅ `http://localhost:8080` | ⚠️ Auto-detected from Host | ⚠️ Auto-detected from Host | Set to `https://open-gym-g3m5.vercel.app` in Prod |
-| `RP_NAME` | `api/server.js` | Optional | ✅ `openGym` | ⚠️ Default (`openGym`) | ⚠️ Default (`openGym`) | No action needed |
+| `RP_ID` | `api/server.js` (WebAuthn) | **YES** | ✅ `localhost` | ⚠️ Auto-detected from Host | ⚠️ Auto-detected from Host | Set to `ironx-g3m5.vercel.app` in Prod |
+| `ORIGIN` | `api/server.js` (WebAuthn) | **YES** | ✅ `http://localhost:8080` | ⚠️ Auto-detected from Host | ⚠️ Auto-detected from Host | Set to `https://ironx-g3m5.vercel.app` in Prod |
+| `RP_NAME` | `api/server.js` | Optional | ✅ `IRONX` | ⚠️ Default (`IRONX`) | ⚠️ Default (`IRONX`) | No action needed |
 | `WEB_PORT` | `docker-compose.yml` | Optional | ✅ `8080` | N/A | N/A | No action needed |
 | `ADMIN_UIDS` | `api/server.js` | Optional | ❌ Missing | ❌ Missing | ❌ Missing | Set if admin features required |
 | `INVITE_ONLY` | `api/server.js` | Optional | ❌ Missing | ❌ Missing | ❌ Missing | Leave unset unless invite gating needed |
@@ -122,7 +122,7 @@ To guarantee seamless deployments of both the Vite client and all serverless API
   {"ok":true,"users":0,"database":{"type":"sqlite_file","connected":true,"configured":false}}
   ```
 - **Analysis:**
-  Because `MONGODB_URI` is not set in Vercel environment variables, the application runs in local file/sqlite fallback mode. On Vercel Serverless, local filesystem state (`/tmp/opengym-data`) is ephemeral and discarded when containers sleep. User profiles and workout data will not persist across different lambda instances or geographic regions until MongoDB Atlas is connected.
+  Because `MONGODB_URI` is not set in Vercel environment variables, the application runs in local file/sqlite fallback mode. On Vercel Serverless, local filesystem state (`/tmp/IRONX-data`) is ephemeral and discarded when containers sleep. User profiles and workout data will not persist across different lambda instances or geographic regions until MongoDB Atlas is connected.
 - **Safety Rule Enforced:** In strict accordance with Phase 4, no fake connections were created and execution has paused for your valid Atlas connection string.
 
 ---
@@ -252,4 +252,4 @@ To guarantee seamless deployments of both the Vite client and all serverless API
 | GitHub CI & Docker Contexts | **PASS** |
 | **MongoDB Atlas Persistence** | **BLOCKED (Unconfigured)** |
 
-Once the `MONGODB_URI` environment variable is added to Vercel and local `.env`, OpenGym is 100% production-ready.
+Once the `MONGODB_URI` environment variable is added to Vercel and local `.env`, IRONX is 100% production-ready.

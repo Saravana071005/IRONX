@@ -5,7 +5,7 @@ import { startGoogleLogin } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import Icon from '../components/Icon.jsx'
-import IronHouseLogo from '../components/IronHouseLogo.jsx'
+import IronXLogo from '../components/IronXLogo.jsx'
 import { Button } from '../components/ui.jsx'
 
 function GoogleIcon() {
@@ -38,7 +38,7 @@ export default function Login() {
 
   const head = (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', margin: '20px 0 18px', background: 'transparent' }}>
-      <IronHouseLogo size={80} variant="black" />
+      <IronXLogo size={64} />
       <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '26px', fontWeight: 800, letterSpacing: '0.04em', margin: 0, color: 'var(--label)' }}>
         IRONX
       </h1>

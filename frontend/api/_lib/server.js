@@ -1,4 +1,4 @@
-/* opengym-api — passkey (WebAuthn) auth + per-user state storage for openGym
+/* ironx-api — passkey (WebAuthn) auth + per-user state storage for IRONX
    No framework, JSON-file storage, signed session cookies.               */
 import http from 'node:http';
 import crypto from 'node:crypto';
@@ -56,7 +56,7 @@ const PORT = +(process.env.PORT || 3000);
 const isVercel = !!(process.env.VERCEL || process.env.NOW_REGION);
 const defaultDataDir = isVercel ? path.join(os.tmpdir(), 'opengym-data') : (fs.existsSync('/data') ? '/data' : path.resolve(process.cwd(), 'data'));
 const DATA = process.env.DATA_DIR || defaultDataDir;
-const RP_NAME = process.env.RP_NAME || 'IRON HOUSE';
+const RP_NAME = process.env.RP_NAME || 'IRONX';
 const ORIGIN = (process.env.ORIGIN || 'http://localhost:8080').trim();
 const FRONTEND_ORIGIN = (process.env.FRONTEND_ORIGIN || process.env.ORIGIN || 'https://opengym-frontend-229c.onrender.com').trim();
 const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
@@ -573,7 +573,7 @@ const routes = {
   'GET /': async (req, res) => {
     json(res, 200, {
       status: 'ok',
-      service: 'OpenGym API',
+      service: 'IRONX API',
       message: 'Backend server is running'
     });
   },
@@ -1599,7 +1599,7 @@ const routes = {
   'POST /api/push/test': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
-    await sendPush(user.id, { title: 'IRON HOUSE', body: 'Test notification ✅ — this is what alerts look like.', tag: 'test' });
+    await sendPush(user.id, { title: 'IRONX', body: 'Test notification ✅ — this is what alerts look like.', tag: 'test' });
     json(res, 200, { ok: true });
   },
 

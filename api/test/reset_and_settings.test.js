@@ -55,8 +55,8 @@ function createMockReqRes(method, url, headers = {}, bodyPayload = null) {
 }
 
 test('SQLite Nutrition DB: clearAllNutritionDataForUser wipes all user records while isolating other accounts', () => {
-  const userA = 'test_usr_a_' + Date.now();
-  const userB = 'test_usr_b_' + Date.now();
+  const userA = 'test_usr_a_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+  const userB = 'test_usr_b_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
   const date = '2026-11-19';
 
   // Seed User A records

@@ -10,12 +10,132 @@ import LineChart from '../components/LineChart.jsx'
 import Heatmap from '../components/Heatmap.jsx'
 import Icon from '../components/Icon.jsx'
 import MuscleBalanceChart from '../components/MuscleBalanceChart.jsx'
+import { calcEWMA, calcTransformationProgress, compareMeasurements, MEASUREMENT_SITES } from '../lib/transformation.js'
+import { generateWeeklyFitnessReport } from '../lib/fitnessReport.js'
 import { e1rmSeries, best1RM } from '../lib/onerm.js'
 import {
   hasEffort, displayScale, scaleName, toScale, avgRir, isHardSet
 } from '../lib/effort.js'
 import { Button, Segmented, SelectRow } from '../components/ui.jsx'
 
+
+
+function WeeklyReportCard({ S }) {
+  const report = generateWeeklyFitnessReport(S)
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div className="row between" style={{ cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <span className="lrow-i" style={{ background: 'var(--acc)', width: 28, height: 28, fontSize: 14 }}>
+            <Icon name="sparkles" />
+          </span>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.05rem' }}>{t('Weekly Fitness Intelligence')}</h2>
+            <div className="muted small">{report.training.workoutsCount} {t('workouts')} · {fmtVol(report.training.totalVolumeKg)} {t('tonnage')}</div>
+          </div>
+        </div>
+        <Icon name={open ? 'chevronUp' : 'chevronDown'} className="chev" />
+      </div>
+
+      {open && (
+        <div style={{ marginTop: 14, borderTop: '1px solid var(--sep)', paddingTop: 12 }}>
+          <div className="grid2" style={{ marginBottom: 12 }}>
+            <div className="tile" style={{ padding: '8px 12px' }}>
+              <div className="l">{t('Completed Sets')}</div>
+              <div className="v" style={{ fontSize: '1.2rem' }}>{report.training.totalSets}</div>
+            </div>
+            <div className="tile" style={{ padding: '8px 12px' }}>
+              <div className="l">{t('New PRs')}</div>
+              <div className="v" style={{ fontSize: '1.2rem', color: 'var(--yellow)' }}>{report.training.newPRCount}</div>
+            </div>
+          </div>
+
+          {report.training.topExercises.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div className="small muted" style={{ fontWeight: 600, marginBottom: 6 }}>{t('Top Performing Exercises')}</div>
+              {report.training.topExercises.map(ex => (
+                <div key={ex.id} className="row between small" style={{ padding: '4px 0', borderBottom: 'var(--hair) solid var(--sep)' }}>
+                  <span>{ex.name}</span>
+                  <span><b>{fmtVol(ex.volume)}</b> · {ex.sets} sets</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {report.nutrition.hasData && (
+            <div style={{ marginBottom: 12 }}>
+              <div className="small muted" style={{ fontWeight: 600, marginBottom: 4 }}>{t('Nutrition Adherence')}</div>
+              <div className="small">
+                {t('Avg Calories')}: <b>{report.nutrition.avgCalories}</b> / {report.nutrition.targetCalorie} kcal · {t('Avg Protein')}: <b>{report.nutrition.avgProtein}g</b> / {report.nutrition.targetProtein}g
+              </div>
+            </div>
+          )}
+
+          {report.recommendations.length > 0 && (
+            <div>
+              <div className="small muted" style={{ fontWeight: 600, marginBottom: 6 }}>{t('Actionable Improvement Focus')}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {report.recommendations.map((rec, i) => (
+                  <div key={i} style={{ padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', fontSize: 12 }}>
+                    <div style={{ fontWeight: 600, color: 'var(--acc)', marginBottom: 2 }}>{rec.title}</div>
+                    <div className="muted">{rec.detail}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PRVaultCard({ S }) {
+  const [filter, setFilter] = useState('')
+  const vault = S.prVault || []
+  const filtered = filter ? vault.filter(p => p.exName.toLowerCase().includes(filter.toLowerCase())) : vault
+
+  return (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div className="row between" style={{ marginBottom: 8 }}>
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <span className="lrow-i" style={{ background: 'var(--yellow)', color: '#000', width: 28, height: 28, fontSize: 14 }}>
+            <Icon name="trophy" />
+          </span>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.05rem' }}>{t('Personal Record Vault')}</h2>
+            <div className="muted small">{vault.length} {t('verified personal records')}</div>
+          </div>
+        </div>
+      </div>
+
+      {vault.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+          {filtered.map(pr => (
+            <div key={pr.id} className="row between" style={{ padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)' }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>{pr.exName}</div>
+                <div className="small muted">{pr.label} · {fmtDate(pr.date)}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--yellow)' }}>
+                  {pr.value} {pr.metric === 'duration' ? 's' : S.unit}
+                </div>
+                {pr.prevValue && (
+                  <div className="small dim">was {pr.prevValue}</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="muted small">{t('No personal records verified yet. Complete workouts to automatically unlock records!')}</div>
+      )}
+    </div>
+  )
+}
 export default function Stats() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
@@ -143,6 +263,7 @@ export default function Stats() {
           </h1>
           <div className="sub" style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 2 }}>
             {t('Real verified workout progression and cardio logs')}
+
           </div>
         </div>
         <button className="iconbtn" onClick={() => nav('/history')} aria-label={t('History')} title={t('History')}>
@@ -316,6 +437,8 @@ export default function Stats() {
         />
       </div>
 
+      <WeeklyReportCard S={S} />
+      <PRVaultCard S={S} />
       <MuscleBalanceChart S={S} />
 
       <div className="cols">

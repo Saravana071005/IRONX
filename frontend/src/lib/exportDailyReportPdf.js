@@ -107,7 +107,7 @@ export function buildDailyReportDoc(data) {
   }
   doc.setFontSize(18);
   doc.setTextColor(...primaryColor);
-  doc.text('IRON HOUSE — Daily Health & Activity Report', margin + 14, currentY + 24);
+  doc.text('IRONX — Daily Health & Activity Report', margin + 14, currentY + 24);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
@@ -421,7 +421,7 @@ export function buildDailyReportDoc(data) {
     doc.setFontSize(8);
     doc.setTextColor(...mutedTextColor);
     doc.text(
-      `IRON HOUSE Daily Health Log | Date: ${date} | Page ${i} of ${totalPages}`,
+      `IRONX Daily Health Log | Date: ${date} | Page ${i} of ${totalPages}`,
       pageWidth / 2,
       pageHeight - 16,
       { align: 'center' }
@@ -437,6 +437,6 @@ export function buildDailyReportDoc(data) {
 export function exportDailyReportPdf(data) {
   const doc = buildDailyReportDoc(data);
   const date = data?.date || new Date().toISOString().slice(0, 10);
-  doc.save(`IRON_HOUSE_daily_report_${date}.pdf`);
+  doc.save(`IRONX_daily_report_${date}.pdf`);
   return doc;
 }

@@ -5,7 +5,7 @@ import { effectiveRoutine } from '../lib/history.js'
 import { todayISO } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import Icon from './Icon.jsx'
-import IronHouseLogo from './IronHouseLogo.jsx'
+import IronXLogo from './IronXLogo.jsx'
 
 export default function Sidebar({ onStart, mobileOpen = false, onClose }) {
   const nav = useNavigate()
@@ -107,7 +107,7 @@ export default function Sidebar({ onStart, mobileOpen = false, onClose }) {
             onClick={() => handleNav('/home')}
             title="IRONX Home"
           >
-            <IronHouseLogo size={collapsed ? 32 : 36} />
+            <IronXLogo size={collapsed ? 30 : 34} />
             {!collapsed && (
               <div className="sidebar-brand-text">
                 <span className="sidebar-brand-title">IRONX</span>

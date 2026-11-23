@@ -14,5 +14,30 @@ export default defineConfig({
       '/gif': { target: media, changeOrigin: true }
     }
   },
-  build: { chunkSizeWarningLimit: 1500 }
+  build: {
+    modulePreload: {
+      resolveDependencies: (filename, deps) => {
+        // Exclude heavy 860kB exercise-db from initial index.html modulepreload
+        return deps.filter(dep => !dep.includes('exercise-db'))
+      }
+    },
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('exercises-data.js')) {
+            return 'exercise-db'
+          }
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'vendor-react'
+            }
+            if (id.includes('zustand')) {
+              return 'vendor-state'
+            }
+          }
+        }
+      }
+    }
+  }
 })

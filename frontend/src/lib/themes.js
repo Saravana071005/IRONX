@@ -1,4 +1,4 @@
-// OpenGym Dynamic Accent Theme System
+// IRONX Dynamic Accent Theme System
 // Centralized theme presets, color ramps, ambient glow palettes, and DOM binder
 
 export const THEME_PRESETS = {

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <title>IRONX</title>
-<meta name="description" content="IRONX – Elite Strength, Conditioning & Health Intelligence">
+<meta name="description" content="IRONX — Elite Strength, Conditioning & Health Intelligence">
 <meta name="theme-color" content="#0F1115">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -13,11 +13,11 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="IRONX">
 <meta property="og:site_name" content="IRONX">
-<meta property="og:description" content="IRONX – Elite Strength, Conditioning & Health Intelligence">
+<meta property="og:description" content="IRONX — Elite Strength, Conditioning & Health Intelligence">
 <meta property="og:image" content="/ironx-logo.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="IRONX">
-<meta name="twitter:description" content="IRONX – Elite Strength, Conditioning & Health Intelligence">
+<meta name="twitter:description" content="IRONX — Elite Strength, Conditioning & Health Intelligence">
 <meta name="twitter:image" content="/ironx-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,9 +27,22 @@
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="icon" type="image/png" href="ironx-logo.png">
 <link rel="apple-touch-icon" href="ironx-logo.png">
+<script>
+  window.__IH_START = performance.now();
+  window.__IH_TIMINGS = { navStart: 0 };
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.__IH_TIMINGS) window.__IH_TIMINGS.htmlLoad = Math.round(performance.now() - (window.__IH_START || 0));
+  });
+</script>
 </head>
-<body>
-<div id="root"></div>
+<body style="background:#0F1115;margin:0;">
+<div id="root">
+  <div id="loading" style="background:#0F1115;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:rgba(235,235,245,0.32);font-family:'Plus Jakarta Sans',sans-serif;">
+    <div style="width:28px;height:28px;border:2.5px solid rgba(255,255,255,0.15);border-top-color:#10B981;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+    <span style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;">Loading...</span>
+  </div>
+  <style>@keyframes spin{to{transform:rotate(360deg);}}</style>
+</div>
 <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

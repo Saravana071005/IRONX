@@ -8,17 +8,59 @@ export const webauthnOK = () => !!(window.PublicKeyCredential && navigator.crede
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '')
 
 export async function api(path, opts = {}) {
+  const { timeout = 8000, signal, headers, ...rest } = opts
   const url = path.startsWith('/api') ? (API_BASE + path) : path
   const token = typeof localStorage !== 'undefined' ? localStorage.getItem('gym_auth_token') : null
-  const headers = Object.assign(
+
+  const controller = new AbortController()
+  let externalListener = null
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort(signal.reason)
+    } else {
+      externalListener = () => controller.abort(signal.reason)
+      signal.addEventListener('abort', externalListener, { once: true })
+    }
+  }
+
+  const timer = timeout > 0 ? setTimeout(() => {
+    controller.abort(new DOMException(`Request timed out after ${timeout}ms`, 'TimeoutError'))
+  }, timeout) : null
+
+  const mergedHeaders = Object.assign(
     { 'Content-Type': 'application/json' },
     token ? { 'Authorization': `Bearer ${token}` } : {},
-    opts.headers || {}
+    headers || {}
   )
-  const r = await fetch(url, Object.assign({ credentials: 'include' }, opts, { headers }))
-  const data = await r.json().catch(() => ({}))
-  if (!r.ok) { const e = new Error(data.error || ('HTTP ' + r.status)); e.status = r.status; throw e }
-  return data
+
+  try {
+    const r = await fetch(url, {
+      ...rest,
+      credentials: 'include',
+      headers: mergedHeaders,
+      signal: controller.signal
+    })
+    const data = await r.json().catch(() => ({}))
+    if (!r.ok) {
+      const e = new Error(data.error || ('HTTP ' + r.status))
+      e.status = r.status
+      throw e
+    }
+    return data
+  } catch (err) {
+    if (err.name === 'AbortError' || err.name === 'TimeoutError' || controller.signal.aborted) {
+      const timeoutErr = new Error(`Network timeout on ${path} after ${timeout}ms`)
+      timeoutErr.name = 'TimeoutError'
+      timeoutErr.status = 408
+      throw timeoutErr
+    }
+    throw err
+  } finally {
+    if (timer) clearTimeout(timer)
+    if (signal && externalListener) {
+      signal.removeEventListener('abort', externalListener)
+    }
+  }
 }
 
 /**

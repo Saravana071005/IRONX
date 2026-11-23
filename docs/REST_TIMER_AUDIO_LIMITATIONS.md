@@ -1,14 +1,14 @@
-# OpenGym — Rest Timer Audio & Background Music Platform Architecture
+# IRONX — Rest Timer Audio & Background Music Platform Architecture
 
 ## Overview
 
-This document details the architecture, capabilities, and platform-level constraints regarding background audio playback and workout rest timer completion alerts in OpenGym across iOS Safari, Installed iOS PWAs, Android browsers, and Desktop environments.
+This document details the architecture, capabilities, and platform-level constraints regarding background audio playback and workout rest timer completion alerts in IRONX across iOS Safari, Installed iOS PWAs, Android browsers, and Desktop environments.
 
 ---
 
 ## 1. Requirement & User Intent
 
-In OpenGym, when a lifter finishes a set, the rest timer starts countdown (e.g., 90 seconds). Lifters often train while listening to music via streaming services (Spotify, Apple Music, YouTube Music, etc.).
+In IRONX, when a lifter finishes a set, the rest timer starts countdown (e.g., 90 seconds). Lifters often train while listening to music via streaming services (Spotify, Apple Music, YouTube Music, etc.).
 
 A desired behavior is often to:
 1. Automatically pause external music when a set completes and the rest timer starts.
@@ -55,9 +55,9 @@ On iOS (both Mobile Safari and Home Screen Installed PWAs):
 
 ---
 
-## 4. OpenGym Rest Timer & Alert Architecture
+## 4. IRONX Rest Timer & Alert Architecture
 
-Because external music cannot be safely or legitimately paused and resumed via web/PWA APIs, OpenGym provides an independent, robust rest timer and audible alert system that coexists cleanly with background playback:
+Because external music cannot be safely or legitimately paused and resumed via web/PWA APIs, IRONX provides an independent, robust rest timer and audible alert system that coexists cleanly with background playback:
 
 1. **Independent Timer Operation:**
    - The rest timer operates cleanly in `frontend/src/store/useUI.js`.

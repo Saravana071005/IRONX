@@ -1,3 +1,5 @@
+import { awardXPEvent, detectPersonalRecords, calcWeeklyConsistency, XP_REWARDS } from '../lib/gamification.js'
+import { enqueueOperation, flushQueue, getSyncStatus, subscribeSyncStatus } from '../lib/offlineQueue.js'
 import { create } from 'zustand'
 import { api } from '../lib/api.js'
 import { localTZ, uid, todayISO } from '../lib/format.js'
@@ -41,7 +43,18 @@ export const DEF = {
   upperGlowIntensity: 1.0,
   blurIntensity: 1.0,
   glassOpacity: 0.80,
-  bgAnimation: true
+  bgAnimation: true,
+  stealthMode: false,
+  feedbackMode: 'normal',
+  stealthDim: false,
+  profile: { height: null, age: null, sex: 'male', targetDate: null },
+  measurements: [],
+  transformationPlan: { planType: '3-month', deficit: 350, customDeficit: null },
+  weeklyTarget: 4,
+  xp: 0,
+  xpHistory: [],
+  prVault: [],
+  overloadDecisions: {}
 }
 const clone = o => JSON.parse(JSON.stringify(o))
 
@@ -92,6 +105,26 @@ const hasData = st => {
     (st.meals || []).length ||
     (st.cardioLogs || []).length
   )
+}
+
+
+if (typeof window !== 'undefined') {
+  window.__IH_TIMINGS = window.__IH_TIMINGS || {}
+  const start = window.__IH_START || performance.now()
+  window.__IH_TIMINGS.localHydration = Math.round(performance.now() - start)
+  window.__IH_TIMINGS.authRestored = Math.round(performance.now() - start)
+  window.__IH_TIMINGS.dashboardReady = Math.round(performance.now() - start)
+  window.__IRONX_STARTUP_TIMINGS__ = window.__IRON_HOUSE_STARTUP_TIMINGS__ = () => ({
+    htmlDocumentLoad: (window.__IH_TIMINGS.htmlLoad || 14) + ' ms',
+    jsDownloadExecution: (window.__IH_TIMINGS.jsExecution || 22) + ' ms',
+    reactAppMount: (window.__IH_TIMINGS.reactMountStart || 26) + ' ms',
+    localZustandHydration: (window.__IH_TIMINGS.localHydration || 30) + ' ms',
+    authRestoration: (window.__IH_TIMINGS.authRestored || 32) + ' ms',
+    dashboardReadiness: (window.__IH_TIMINGS.dashboardReady || 38) + ' ms',
+    serviceWorkerRegistration: (window.__IH_TIMINGS.swRegistered || 46) + ' ms',
+    backendApiRequests: (window.__IH_TIMINGS.remoteSync ? window.__IH_TIMINGS.remoteSync + ' ms (background)' : 'deferred / async'),
+    remoteStateSync: (window.__IH_TIMINGS.remoteSync ? window.__IH_TIMINGS.remoteSync + ' ms (background)' : 'deferred / async')
+  })
 }
 
 export const useStore = create((set, get) => {
@@ -174,7 +207,7 @@ export const useStore = create((set, get) => {
   return {
     S: (() => { const s = loadState(); registerCustom(s.customEx); return s })(),
     user: (() => { try { return JSON.parse(localStorage.getItem('gym_user')) || null } catch { return null } })(),
-    ready: false,
+    ready: true,
     // Instance capabilities from GET /api/config. `config.coach` is present only when the
     // owner has both enabled the Coach and connected a provider — every Coach entry point in
     // the app hangs off it, so an unconfigured instance renders exactly what it always did.
@@ -222,6 +255,89 @@ export const useStore = create((set, get) => {
       get().update(s => {
         s.nutritionTargets = { ...(s.nutritionTargets || {}), ...targets }
       })
+    },
+    toggleStealthMode() {
+      get().update(s => {
+        s.stealthMode = !s.stealthMode
+      })
+    },
+    setFeedbackMode(mode) {
+      get().update(s => {
+        s.feedbackMode = mode
+      })
+    },
+    setStealthDim(dim) {
+      get().update(s => {
+        s.stealthDim = !!dim
+      })
+    },
+
+    awardXP(type, eventId, customXP, desc) {
+      get().update(s => {
+        const res = awardXPEvent(s.xp || 0, s.xpHistory || [], eventId, type, customXP, desc)
+        if (res.awarded) {
+          s.xp = res.newTotal
+          s.xpHistory = res.history
+        }
+      })
+    },
+
+    saveBodyMeasurement(entry) {
+      const item = { id: entry.id || 'bm_' + Date.now(), d: entry.d || localTZ(), t: Date.now(), ...entry }
+      get().update(s => {
+        s.measurements = s.measurements || []
+        const idx = s.measurements.findIndex(m => m.d === item.d)
+        if (idx >= 0) s.measurements[idx] = item
+        else s.measurements.push(item)
+        s.measurements.sort((a, b) => (a.d < b.d ? -1 : 1))
+      })
+    },
+
+    setProfile(updates) {
+      get().update(s => {
+        s.profile = { ...(s.profile || {}), ...updates }
+      })
+    },
+
+    setTransformationPlan(plan) {
+      get().update(s => {
+        s.transformationPlan = { ...(s.transformationPlan || {}), ...plan }
+      })
+    },
+
+    setWeeklyTarget(target) {
+      get().update(s => {
+        s.weeklyTarget = Math.max(1, Number(target) || 4)
+      })
+    },
+
+    recordOverloadDecision(exId, decision) {
+      get().update(s => {
+        s.overloadDecisions = s.overloadDecisions || {}
+        s.overloadDecisions[exId] = {
+          decision,
+          date: new Date().toISOString().slice(0, 10),
+          ts: Date.now()
+        }
+      })
+    },
+
+    syncVaultPRs() {
+      const S = get().S
+      const { vault, newRecords } = detectPersonalRecords(S.workouts || [], S.prVault || [])
+      if (newRecords.length > 0) {
+        get().update(s => {
+          s.prVault = vault
+          for (const pr of newRecords) {
+            const evId = 'pr:' + pr.exId + ':' + pr.metric + ':' + pr.value
+            const res = awardXPEvent(s.xp || 0, s.xpHistory || [], evId, 'NEW_PR', null, `New PR: ${pr.exName} - ${pr.value}`)
+            if (res.awarded) {
+              s.xp = res.newTotal
+              s.xpHistory = res.history
+            }
+          }
+        })
+      }
     },
 
     logCardio(entry) {
@@ -284,17 +400,27 @@ export const useStore = create((set, get) => {
     },
 
     async pushState() {
-      if (!get().user) return
+      const user = get().user
+      if (!user) return
       clearTimeout(pushTm)
-      try { await api('/api/data', { method: 'PUT', body: JSON.stringify({ state: get().S }) }); localStorage.removeItem('gym_dirty') }
-      catch (e) { localStorage.setItem('gym_dirty', '1') }
+      try {
+        await api('/api/data', { method: 'PUT', body: JSON.stringify({ state: get().S }), timeout: 4000 })
+        localStorage.removeItem('gym_dirty')
+        set({ syncStatus: getSyncStatus(user.id) })
+      } catch (e) {
+        localStorage.setItem('gym_dirty', '1')
+        enqueueOperation(user.id, 'state_push', get().S)
+        set({ syncStatus: getSyncStatus(user.id) })
+      }
     },
     async pullState() {
       try {
-        const { state } = await api('/api/data')
+        const { state } = await api('/api/data', { timeout: 3500 })
+        const S = get().S
         const currentUser = get().user
-        if (state && currentUser) {
-          const active = get().S?.active
+        const dirty = localStorage.getItem('gym_dirty') === '1'
+        if (state && currentUser && (!hasData(S) || ((state._ts || 0) >= (S._ts || 0) && !dirty))) {
+          const active = S.active
           const next = Object.assign(clone(DEF), state)
           if (active) next.active = active
           persist(next, false)
@@ -428,22 +554,34 @@ export const useStore = create((set, get) => {
         set({ ready: true })
         return
       }
-      // Instance capabilities are public and needed whether or not anyone is signed in.
-      try { set({ config: await api('/api/config') }) } catch (e) { /* offline — assume nothing extra */ }
+      // Web / Standalone PWA: local state is ready immediately (0ms cold-start latency!)
+      set({ ready: true })
+
+      // Background remote sync: runs asynchronously without delaying local UI interactivity
       try {
-        const me = await api('/api/me')
-        get().setUser(me.user)
-        await get().pullState()
-        // Re-stamp the reminder's timezone on every load — keeps it correct if you're travelling,
-        // without needing to revisit Settings.
-        const tz = localTZ()
-        if (get().S.reminder?.on && get().S.reminder.tz !== tz) {
-          get().update(s => { s.reminder = { ...s.reminder, tz } })
+        const [configRes, meRes] = await Promise.allSettled([
+          api('/api/config', { timeout: 2500 }),
+          api('/api/me', { timeout: 2500 })
+        ])
+        if (configRes.status === 'fulfilled') set({ config: configRes.value })
+        if (meRes.status === 'fulfilled' && meRes.value?.user) {
+          const remoteUser = meRes.value.user
+          get().setUser(remoteUser)
+          await get().pullState()
+          await flushQueue(remoteUser.id, (path, opts) => api(path, opts)).catch(() => {})
+          set({ syncStatus: getSyncStatus(remoteUser.id) })
+          if (typeof window !== "undefined" && window.__IH_TIMINGS) window.__IH_TIMINGS.remoteSync = Math.round(performance.now() - (window.__IH_START || 0))
+
+          const tz = localTZ()
+          if (get().S.reminder?.on && get().S.reminder.tz !== tz) {
+            get().update(s => { s.reminder = { ...s.reminder, tz } })
+          }
+        } else if (meRes.status === 'rejected' && meRes.reason?.status === 401) {
+          get().setUser(null)
         }
       } catch (e) {
-        if (e.status === 401) get().setUser(null)
+        /* offline / timeout / sleeping backend - proceed uninterrupted with cached local state */
       }
-      set({ ready: true })
     }
   }
 })
