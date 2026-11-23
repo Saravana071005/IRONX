@@ -16,7 +16,7 @@ import { loadStarterPlan, confirmSheet, importFromApp } from '../sheets.jsx'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { forgetCoach } from '../lib/coach-api.js'
 import Icon from '../components/Icon.jsx'
-import IronHouseLogo from '../components/IronHouseLogo.jsx'
+import IronXLogo from '../components/IronXLogo.jsx'
 import { Section, Row, SelectRow, Switch, Segmented, Button, TextField } from '../components/ui.jsx'
 import {
   ALERT_TONES,
@@ -55,7 +55,7 @@ export default function Settings() {
 
   const doExport = async () => {
     const json = JSON.stringify(S, null, 2)
-    const name = 'iron-house-backup-' + todayISO() + '.json'
+    const name = 'ironx-backup-' + todayISO() + '.json'
     // WKWebView can't download blob URLs — the native build hands the file to the share sheet.
     if (MOBILE) {
       try { await shareExport(json, name); toast(t('Backup exported')) } catch (e) { /* share sheet dismissed */ }
@@ -71,7 +71,7 @@ export default function Settings() {
     rd.onload = () => {
       try {
         const data = JSON.parse(rd.result)
-        if (!data.workouts || !data.routines) throw new Error('not an IRON HOUSE backup')
+        if (!data.workouts || !data.routines) throw new Error('not an IRONX backup')
         confirmSheet({ title: t('Import backup?'), message: t('This replaces all current data with the backup file.'), confirmText: t('Import'), danger: true, onConfirm: () => { replaceState(Object.assign(JSON.parse(JSON.stringify(DEF)), data), true); toast(t('Backup imported')) } })
       } catch (e) { toast(t('Import failed: {0}', e.message)) }
     }
@@ -100,13 +100,13 @@ export default function Settings() {
     <Section title={MOBILE ? t('Your data') : DEMO ? t('Demo') : t('Account')}>
       {MOBILE ? <>
         <Row icon="lock" iconTint="var(--acc)" title={t('All data stays on this phone')} subtitle={t('No account, no cloud — back it up anytime with Export below.')} />
-        <Row icon="rocket" iconTint="var(--indigo)" title={t('Self-host IRON HOUSE')} subtitle={t('Google sign-in, sync across your devices, your own data.')} accessory="chevron"
+        <Row icon="rocket" iconTint="var(--indigo)" title={t('Self-host IRONX')} subtitle={t('Google sign-in, sync across your devices, your own data.')} accessory="chevron"
           onClick={() => window.open(REPO, '_blank', 'noopener')} />
       </> : DEMO ? <>
         <Row icon="sparkles" iconTint="var(--theme-accent, #E8B477)" title={t('You’re in the demo')} subtitle={t('Example data, stored only in this browser — change anything you like.')} />
         <Row icon="reset" iconTint="var(--theme-accent, #E8B477)" title={t('Reset demo data')} accessory="chevron"
           onClick={() => confirmSheet({ title: t('Reset demo data?'), message: t('Puts the example plan, workouts and weigh-ins back the way they started.'), confirmText: t('Reset'), onConfirm: () => { resetDemo(); nav('/home'); toast(t('Demo data reset')) } })} />
-        <Row icon="rocket" iconTint="var(--theme-accent, #E8B477)" title={t('Self-host IRON HOUSE')} subtitle={t('Google sign-in, sync across your devices, your own data.')} accessory="chevron"
+        <Row icon="rocket" iconTint="var(--theme-accent, #E8B477)" title={t('Self-host IRONX')} subtitle={t('Google sign-in, sync across your devices, your own data.')} accessory="chevron"
           onClick={() => window.open(REPO, '_blank', 'noopener')} />
       </> : user ? <>
         <Row
@@ -416,7 +416,7 @@ export default function Settings() {
           <br />
           {t('• Silent Switch: When headphones are connected, audio plays through headphones even in Silent mode. On phone speakers, the hardware Silent switch mutes browser audio.')}
           <br />
-          {t('• Background Limitation: When your iPhone is locked or Safari is backgrounded, iOS suspends browser JavaScript and WebAudio. IRON HOUSE recalculates elapsed time immediately upon returning so your workout timer stays 100% accurate.')}
+          {t('• Background Limitation: When your iPhone is locked or Safari is backgrounded, iOS suspends browser JavaScript and WebAudio. IRONX recalculates elapsed time immediately upon returning so your workout timer stays 100% accurate.')}
         </div>
       </div>
     </Section>
@@ -761,14 +761,14 @@ export default function Settings() {
     {!MOBILE && <Section title={t('Tip')}>
       <Row icon="lightbulb" iconTint="var(--theme-accent, #E8B477)"
         title={IS_ANDROID ? t('In Chrome: ⋮ menu → Add to Home screen') : t('In Safari: Share → Add to Home Screen')}
-        subtitle={t('to install IRON HOUSE as a full-screen app.') + ' ' + (user ? t('Your data syncs with your profile — sign in anywhere to see it.') : t('Guest data stays on this device — export a backup now and then!'))} />
+        subtitle={t('to install IRONX as a full-screen app.') + ' ' + (user ? t('Your data syncs with your profile — sign in anywhere to see it.') : t('Guest data stays on this device — export a backup now and then!'))} />
     </Section>}
 
     <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24, marginBottom: 8 }}>
-      <IronHouseLogo size={36} />
+      <IronXLogo size={32} />
     </div>
     <div className="dim small" style={{ textAlign: 'center', marginTop: 4, lineHeight: 1.6 }}>
-      IRON HOUSE · {t('Elite Strength & Conditioning')}<br />
+      IRONX · {t('Elite Strength & Conditioning')}<br />
       exercise data: hasaneyldrm/exercises-dataset (CC)
     </div>
 
@@ -1031,7 +1031,7 @@ function PushCard({ S, update, toast }) {
           (S.reminder?.tz ? ' ' + t('Timezone: {0} (auto-detected, updates if you travel).', S.reminder.tz) : '')
         : null}
     >
-      <Row icon="bell" iconTint="var(--red)" title={t('Push notifications')} subtitle={t('Rest-timer alerts, even if IRON HOUSE is closed.')}>
+      <Row icon="bell" iconTint="var(--red)" title={t('Push notifications')} subtitle={t('Rest-timer alerts, even if IRONX is closed.')}>
         <Switch checked={on} disabled={busy} onChange={toggle} />
       </Row>
       {on && (

@@ -1,4 +1,4 @@
-/* IRON HOUSE Service Worker — High-Performance Gym Offline & PWA Caching (v3.0)
+/* IRONX Service Worker — High-Performance Gym Offline & PWA Caching (v3.0)
    - Precache critical application shell during install for instant 0ms offline availability
    - Infallible Navigation: Cache-First with background Stale-While-Revalidate (0ms startup latency on iOS Standalone PWA)
    - Cache-First for immutable, content-hashed assets (/assets/*) and exercise media (/img/*, /gif/*, /sounds/*, /fonts/*)
@@ -6,13 +6,13 @@
    - Never cache authenticated /api/* endpoints or private user sessions
    - Safe cache eviction of legacy caches on activate
 */
-const CACHE_NAME = 'ironhouse-v3.0';
+const CACHE_NAME = 'ironx-v4.0';
 
 const PRECACHE_ASSETS = [
   './',
   'index.html',
   'manifest.json',
-  'manifest.json?v=3',
+  'manifest.json?v=4',
   'icon-180.png',
   'icon-512.png',
   'favicon.ico'
@@ -38,7 +38,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
   event.waitUntil(
-    self.registration.showNotification(data.title || 'IRON HOUSE', {
+    self.registration.showNotification(data.title || 'IRONX', {
       body: data.body || '',
       icon: 'icon-512.png',
       badge: 'icon-180.png',
@@ -138,7 +138,7 @@ self.addEventListener('fetch', (event) => {
         return (
           (await cache.match('index.html')) ||
           new Response(
-            '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>IRON HOUSE</title><style>body{background:#000;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}</style></head><body><div style="text-align:center"><h1>IRON HOUSE</h1><p>Offline - please check connection</p></div></body></html>',
+            '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>IRONX</title><style>body{background:#000;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}</style></head><body><div style="text-align:center"><h1>IRONX</h1><p>Offline - please check connection</p></div></body></html>',
             { headers: { 'Content-Type': 'text/html' } }
           )
         );

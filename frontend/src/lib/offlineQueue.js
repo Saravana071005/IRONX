@@ -1,5 +1,5 @@
 /**
- * Iron House - Offline-First Synchronization Queue
+ * IRONX - Offline-First Synchronization Queue
  *
  * Persists pending mutations locally, handles network reconnects,
  * enforces strict account isolation, and provides reactive sync status.

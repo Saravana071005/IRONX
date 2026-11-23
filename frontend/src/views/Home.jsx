@@ -33,7 +33,7 @@ class WidgetBoundary extends Component {
     return { hasError: true, error }
   }
   componentDidCatch(error, info) {
-    console.warn(`[IRON HOUSE Widget Error] ${this.props.title || 'Widget'}:`, error, info)
+    console.warn(`[IRONX Widget Error] ${this.props.title || 'Widget'}:`, error, info)
   }
   render() {
     if (this.state.hasError) {

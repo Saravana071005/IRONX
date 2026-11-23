@@ -1,5 +1,5 @@
 /**
- * Iron House - Gamification & Motivation Engine
+ * IRONX - Gamification & Motivation Engine
  *
  * Implements XP awards, Level 1–50 progression with athletic tiers,
  * Personal Record (PR) Vault detection, and non-punitive weekly consistency streaks.

@@ -10,7 +10,7 @@ import { useWakeLock } from './lib/wakelock.js'
 import { startFlow } from './sheets.jsx'
 import { applyThemeToDocument } from './lib/themes.js'
 import Icon from './components/Icon.jsx'
-import IronHouseLogo from './components/IronHouseLogo.jsx'
+import IronXLogo from './components/IronXLogo.jsx'
 import TabBar from './components/TabBar.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
@@ -137,8 +137,8 @@ function Shell() {
                 <Icon name="bars" />
               </button>
               <div className="mobile-header-brand" onClick={() => navigate('/home')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', background: 'transparent', border: 'none', boxShadow: 'none' }}>
-                <IronHouseLogo size={28} />
-                <span className="sidebar-brand-title" style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '0.04em', color: 'var(--label)' }}>IRON HOUSE</span>
+                <IronXLogo size={28} />
+                <span className="sidebar-brand-title" style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '0.04em', color: 'var(--label)' }}>IRONX</span>
               </div>
               <div className="mobile-header-actions">
                 {S.active ? (

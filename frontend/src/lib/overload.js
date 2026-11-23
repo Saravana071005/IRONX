@@ -1,5 +1,5 @@
 /**
- * Iron House - Progressive Overload Guidance Engine
+ * IRONX - Progressive Overload Guidance Engine
  *
  * Tracks previous working weights, sets, reps, and Epley 1RM.
  * Evaluates performance against target rep ranges and suggests

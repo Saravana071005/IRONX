@@ -1,5 +1,5 @@
 /**
- * Iron House - Weekly Fitness Intelligence Report Engine
+ * IRONX - Weekly Fitness Intelligence Report Engine
  *
  * Computes deterministic training and nutrition aggregates, detects
  * progressive overload signals, evaluates recovery balance, and generates

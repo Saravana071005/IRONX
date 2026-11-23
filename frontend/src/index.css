@@ -31,7 +31,7 @@
 }
 
 /* ============================================================================
-   IRON HOUSE — Design & Typography System
+   IRONX — Design & Typography System
    ========================================================================== */
 
 /* ---------------------------------------------------------------- tokens -- */
@@ -347,7 +347,8 @@ h1, h2, h3, h4, h5, h6, .hdr h1, .sidebar-brand-title, .modal-title, .sheet-titl
 .t-foot   {font-size:13px;line-height:1.38;font-weight:400;letter-spacing:-.001em}
 .t-cap    {font-size:12px;line-height:1.33;font-weight:400;letter-spacing:0}
 
-/* IRON HOUSE Official Brand & Logo System - Strict Pure Black, Zero Glow */
+/* IRONX Official Brand & Logo System - Strict Pure Black, Zero Glow, Transparent */
+.ironx-logo,
 .iron-house-logo,
 .iron-house-emblem {
   display: inline-flex;
@@ -383,6 +384,7 @@ h1, h2, h3, h4, h5, h6, .hdr h1, .sidebar-brand-title, .modal-title, .sheet-titl
 
 @media (prefers-reduced-motion: reduce) {
   .iron-house-glow,
+  .ironx-logo img,
   .iron-house-logo img,
   .iron-house-emblem img {
     filter: none !important;

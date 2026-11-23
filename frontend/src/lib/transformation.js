@@ -1,5 +1,5 @@
 /**
- * Iron House - Transformation & Bodyweight Trend Intelligence
+ * IRONX - Transformation & Bodyweight Trend Intelligence
  *
  * Implements 7-day EWMA (exponentially weighted moving average),
  * weekly rate-of-change, Mifflin-St Jeor TDEE estimation,
