@@ -491,3 +491,13 @@ function playSynthesizedAlert(selected, vol) {
 
   return Promise.resolve(true)
 }
+
+export function playHaptic(type = 'tap') {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.vibrate) return
+    if (type === 'setDone') navigator.vibrate(30)
+    else if (type === 'restOver') navigator.vibrate([60, 80, 60])
+    else if (type === 'heavy') navigator.vibrate([40, 60, 40, 60, 80])
+    else navigator.vibrate(20)
+  } catch (e) { /* */ }
+}

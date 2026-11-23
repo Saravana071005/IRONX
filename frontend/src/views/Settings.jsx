@@ -1,3 +1,5 @@
+import { flushQueue, getSyncStatus } from '../lib/offlineQueue.js'
+import { PLAN_PRESETS } from '../lib/transformation.js'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore, DEF, hasData } from '../store/useStore.js'
@@ -146,6 +148,53 @@ export default function Settings() {
           />
         </>
       )}
+    </Section>
+
+    {/* ---------- transformation & goals ---------- */}
+    <Section title={t('Transformation & Goals')} footer={t('Defines your fat-loss deficit plan and weekly training consistency targets.')}>
+      <Row icon="calendar" iconTint="var(--blue)" title={t('Weekly workout target')}>
+        <Segmented className="seg-inline"
+          options={[
+            { value: 3, label: '3 / wk' },
+            { value: 4, label: '4 / wk' },
+            { value: 5, label: '5 / wk' },
+            { value: 6, label: '6 / wk' }
+          ]}
+          value={S.weeklyTarget || 4}
+          onChange={v => update(s => { s.weeklyTarget = v })}
+        />
+      </Row>
+      <Row icon="target" iconTint="var(--yellow)" title={t('Fat-loss / Recomp plan')}>
+        <Segmented className="seg-inline"
+          options={[
+            { value: '2-month', label: '2M' },
+            { value: '3-month', label: '3M' },
+            { value: '4-month', label: '4M' },
+            { value: 'custom', label: t('Custom') }
+          ]}
+          value={S.transformationPlan?.planType || '3-month'}
+          onChange={v => update(s => { s.transformationPlan = { ...(s.transformationPlan || {}), planType: v } })}
+        />
+      </Row>
+    </Section>
+
+    {/* ---------- offline synchronization ---------- */}
+    <Section title={t('Offline Synchronization')} footer={t('Workouts, nutrition, and weigh-ins are saved locally first and synced automatically upon reconnection.')}>
+      <Row icon="cloud" iconTint="var(--teal)" title={t('Sync status')}
+        subtitle={(() => {
+          const st = getSyncStatus(user?.id)
+          return st.state === 'offline' ? t('Offline — changes stored locally') : st.pendingCount > 0 ? t('{0} pending mutation(s)', st.pendingCount) : t('All changes synced to account')
+        })()}>
+        <Button size="sm" onClick={async () => {
+          try {
+            await flushQueue(user?.id, pushState)
+            await pushState()
+            toast(t('Sync complete'))
+          } catch (e) {
+            toast(t('Sync failed: {0}', e.message || 'offline'))
+          }
+        }}>{t('Sync now')}</Button>
+      </Row>
     </Section>
 
     {/* ---------- general ---------- */}
@@ -370,6 +419,28 @@ export default function Settings() {
           {t('• Background Limitation: When your iPhone is locked or Safari is backgrounded, iOS suspends browser JavaScript and WebAudio. IRON HOUSE recalculates elapsed time immediately upon returning so your workout timer stays 100% accurate.')}
         </div>
       </div>
+    </Section>
+
+    {/* ---------- gym stealth mode ---------- */}
+    <Section title={t('Gym Stealth Mode')} footer={t('Optimized for gym sessions: silences sound alerts, enables tactile vibration cues, and activates low-glare OLED styling.')}>
+      <Row icon="bellSlash" iconTint="var(--acc)" title={t('Stealth mode')} subtitle={t('Silences sound effects and suppresses intrusive mid-workout popups')}>
+        <Switch checked={!!S.stealthMode} onChange={v => update(s => { s.stealthMode = v })} />
+      </Row>
+      <Row icon="bolt" iconTint="var(--teal)" title={t('Feedback profile')}>
+        <Segmented className="seg-inline"
+          options={[
+            { value: 'normal', label: t('Normal') },
+            { value: 'haptic', label: t('Haptic') },
+            { value: 'visual', label: t('Visual') },
+            { value: 'silent', label: t('Silent') }
+          ]}
+          value={S.feedbackMode || 'normal'}
+          onChange={v => update(s => { s.feedbackMode = v })}
+        />
+      </Row>
+      <Row icon="moon" iconTint="var(--purple)" title={t('Low-glare OLED dimming')} subtitle={t('Ultra-deep black background to reduce gym lighting glare and save battery')}>
+        <Switch checked={!!S.stealthDim} onChange={v => update(s => { s.stealthDim = v })} />
+      </Row>
     </Section>
 
     {coachAvailable(config, user, { demo: DEMO, mobile: MOBILE }) && (

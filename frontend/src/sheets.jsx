@@ -1,7 +1,8 @@
+import { awardXPEvent, detectPersonalRecords, calcWeeklyConsistency } from './lib/gamification.js'
 import { useEffect, useRef, useState } from 'react'
 import { useStore, getHealthStorageKey } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
-import { EXDB, EXIDX, BODYPARTS, isCardio, allExercises, equipmentOf } from './lib/exercises.js'
+import { EXIDX, BODYPARTS, isCardio, allExercises, equipmentOf } from './lib/exercises.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS } from './lib/format.js'
 import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, workoutVolume, setsDone, setsDoneActive, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf } from './lib/history.js'
 import { beep, vibrate, unlockAudio } from './lib/sound.js'
@@ -117,6 +118,11 @@ function BwSheet({ required, onDone, close }) {
         s.bodyweight.push({ d: selectedDate, w: n, u: unit, t: Date.now() })
       }
       s.bodyweight.sort((a, b) => (a.d < b.d ? -1 : (a.d > b.d ? 1 : 0)))
+      const xRes = awardXPEvent(s.xp || 0, s.xpHistory || [], 'bw:' + selectedDate, 'WEIGHT_LOGGED', 15, 'Logged weight: ' + n + ' ' + (s.unit || unit))
+      if (xRes.awarded) {
+        s.xp = xRes.newTotal
+        s.xpHistory = xRes.history
+      }
     })
     close()
     if (onDone) onDone(n)
@@ -1241,6 +1247,34 @@ function doFinishWorkout() {
     })
     s.workouts.push(w)
     s.active = null
+
+    // 1. Award +100 XP for workout completion
+    const wRes = awardXPEvent(s.xp || 0, s.xpHistory || [], 'workout:' + w.id, 'WORKOUT_COMPLETE', 100, 'Completed ' + w.name)
+    if (wRes.awarded) {
+      s.xp = wRes.newTotal
+      s.xpHistory = wRes.history
+    }
+
+    // 2. Personal Record Vault scan
+    const { vault, newRecords } = detectPersonalRecords(s.workouts, s.prVault || [])
+    s.prVault = vault
+    for (const pr of newRecords) {
+      const pRes = awardXPEvent(s.xp || 0, s.xpHistory || [], 'pr:' + pr.exId + ':' + pr.metric + ':' + pr.value, 'NEW_PR', 75, `PR: ${pr.exName} (${pr.value})`)
+      if (pRes.awarded) {
+        s.xp = pRes.newTotal
+        s.xpHistory = pRes.history
+      }
+    }
+
+    // 3. Weekly consistency streak check
+    const consistency = calcWeeklyConsistency(s.workouts, s.weeklyTarget || 4)
+    if (consistency.isTargetMet) {
+      const cRes = awardXPEvent(s.xp || 0, s.xpHistory || [], 'weekly:' + consistency.currentWeek, 'WEEKLY_TARGET', 50, `Weekly target reached (${consistency.completed}/${consistency.target})`)
+      if (cRes.awarded) {
+        s.xp = cRes.newTotal
+        s.xpHistory = cRes.history
+      }
+    }
   })
   useUI.getState().stopRest()
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
