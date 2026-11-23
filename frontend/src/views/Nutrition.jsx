@@ -161,29 +161,19 @@ export default function Nutrition() {
         assumptions: item.assumptions
       }
 
+      const entryWithId = { ...entry, id: entry.id || ('loc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)) }
+      update(s => {
+        if (!s.meals) s.meals = []
+        s.meals.push(entryWithId)
+      })
+      addedCount++
       if (user) {
         try {
           await api('/api/nutrition/log', {
             method: 'POST',
-            body: JSON.stringify(entry)
+            body: JSON.stringify(entryWithId)
           })
-          addedCount++
-        } catch (e) {
-          // Fallback to local
-          const localEntry = { ...entry, id: 'loc_' + Date.now() + Math.random() }
-          update(s => {
-            if (!s.meals) s.meals = []
-            s.meals.push(localEntry)
-          })
-          addedCount++
-        }
-      } else {
-        const localEntry = { ...entry, id: 'loc_' + Date.now() + Math.random() }
-        update(s => {
-          if (!s.meals) s.meals = []
-          s.meals.push(localEntry)
-        })
-        addedCount++
+        } catch (e) { /* preserved locally */ }
       }
     }
 
@@ -375,14 +365,12 @@ export default function Nutrition() {
             assumptions: [`1 standard serving (${food.serving_size_g || 100} ${food.serving_unit || 'g'})`]
           }
 
+          const entryWithId = { ...entry, id: entry.id || ('loc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)) }
+          update(s => { (s.meals = s.meals || []).push(entryWithId) })
           if (user) {
             try {
-              await api('/api/nutrition/log', { method: 'POST', body: JSON.stringify(entry) })
-            } catch (e) {
-              update(s => { (s.meals = s.meals || []).push({ ...entry, id: 'loc_' + Date.now() }) })
-            }
-          } else {
-            update(s => { (s.meals = s.meals || []).push({ ...entry, id: 'loc_' + Date.now() }) })
+              await api('/api/nutrition/log', { method: 'POST', body: JSON.stringify(entryWithId) })
+            } catch (e) { /* preserved locally */ }
           }
           toast(t('Added {0} to {1}', food.name, mealType))
           close()

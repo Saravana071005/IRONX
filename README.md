@@ -1,237 +1,368 @@
-<div align="center">
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=6A0DAD&height=200&section=header&text=Saravanakumar%20L&fontSize=52&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Computer%20Science%20%7C%20Data%20Analytics%20%7C%20Full%20Stack%20Developer&descAlignY=60&descAlign=50" width="100%"/>
+</p>
 
-<img src="assets/banner.png" alt="openGym" width="720">
+<p align="center">
+  <a href="https://git.io/typing-svg">
+    <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=22&pause=1000&color=9B59B6&center=true&vCenter=true&width=700&lines=Building+Scalable+Full-Stack+Platforms;Turning+Data+Into+Decisions;IoT+%7C+FSM+Systems+%7C+Inventory+Automation;Python+%7C+Power+BI+%7C+SQL+%7C+Dashboard+Dev;CSE+Student+%40+SRM+University" alt="Typing SVG" />
+  </a>
+</p>
 
-<br>
+<p align="center">
+  <img src="https://img.shields.io/badge/B.Tech-Computer%20Science%20%26%20Engineering-6A0DAD?style=for-the-badge&logo=academia&logoColor=white"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/SRM%20University-CGPA%3A%206.7-4B0082?style=for-the-badge&logo=graduation-cap&logoColor=white"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/Batch-2023--2027-7B2FBE?style=for-the-badge&logoColor=white"/>
+</p>
 
-**A self-hosted gym & body-weight tracker you actually own.**
+<p align="center">
+  <img src="https://img.shields.io/badge/📍%20Thanjavur%2C%20Tamil%20Nadu-India-8B00FF?style=flat-square&logoColor=white"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/Status-Open%20To%20Opportunities-00C853?style=flat-square&logo=checkmarx&logoColor=white"/>
+</p>
 
-Plan your week, run guided workouts, track every set and your body weight over time —
-on your phone, synced across devices, behind your own passkey login.
-No account on someone else's server, no subscription, no ads. Just `docker compose up`.
+<p align="center">
+  <a href="https://www.linkedin.com/in/saravana-kumar-557ab2358/">
+    <img src="https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white"/>
+  </a>
+  &nbsp;
+  <a href="mailto:saravanakumar0701h@gmail.com">
+    <img src="https://img.shields.io/badge/Gmail-Contact-EA4335?style=for-the-badge&logo=gmail&logoColor=white"/>
+  </a>
+  &nbsp;
+  <a href="https://github.com/Saravana071005">
+    <img src="https://img.shields.io/badge/GitHub-Follow-181717?style=for-the-badge&logo=github&logoColor=white"/>
+  </a>
+</p>
 
-<br>
+<p align="center">
+  <img src="https://komarev.com/ghpvc/?username=Saravana071005&style=flat-square&color=6A0DAD&label=Profile+Views"/>
+  &nbsp;
+  <img src="https://img.shields.io/github/followers/Saravana071005?style=flat-square&color=9B59B6&label=Followers"/>
+</p>
 
-[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-a3e635?style=flat-square)](LICENSE)
-![Self-hosted](https://img.shields.io/badge/self--hosted-%F0%9F%8F%A0-60a5fa?style=flat-square)
-![PWA](https://img.shields.io/badge/PWA-installable-a78bfa?style=flat-square)
-![React](https://img.shields.io/badge/React-19-38bdf8?style=flat-square&logo=react&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-compose-2496ED?style=flat-square&logo=docker&logoColor=white)
-![No tracking](https://img.shields.io/badge/telemetry-none-f472b6?style=flat-square)
-<br>
-![GitHub last commit](https://img.shields.io/github/last-commit/DuarteSantos8/openGym?style=flat-square)
-[![GitHub stars](https://img.shields.io/github/stars/DuarteSantos8/openGym?style=flat-square)](https://github.com/DuarteSantos8/openGym/stargazers)
-[![GitHub issues](https://img.shields.io/github/issues/DuarteSantos8/openGym?style=flat-square)](https://github.com/DuarteSantos8/openGym/issues)
+---
 
-</div>
+## ◈ About
 
-<br>
-
-> ### 🤖 This is a fork — it adds the AI Coach
->
-> A fork of [DuarteSantos8/openGym](https://github.com/DuarteSantos8/openGym) that adds one
-> optional feature: an AI that **designs** your training plan and **revises it from what you
-> actually log**, running on your own server under your own provider account.
->
-> Everything else is upstream openGym. With the Coach switched off, this is byte-for-byte the
-> app it forked from.
->
-> **→ [What it does and how to use it](docs/AI_COACH.md)** ·
-> [Claude setup](Claude-setup-instructions.md) ·
-> [ChatGPT / Codex setup](ChatGPT-setup-instructions.md) ·
-> [design deck (PDF)](openGym_AI_Strategy.pdf)
-
-<br>
-
-<div align="center">
-<table>
-<tr>
-<td align="center"><img src="assets/screenshots/home.png" alt="Home" width="230"><br><sub><b>Home</b> — today's workout & weight</sub></td>
-<td align="center"><img src="assets/screenshots/workout.png" alt="Workout" width="230"><br><sub><b>Guided workout</b> — animated demos & sets</sub></td>
-<td align="center"><img src="assets/screenshots/stats.png" alt="Stats" width="230"><br><sub><b>Stats</b> — heatmap, charts & PRs</sub></td>
-</tr>
-</table>
-</div>
-
-<div align="center">
-
-### [🌐 opengym.duarte-santos.ch](https://opengym.duarte-santos.ch) · [▶ Try the live demo](https://duartesantos8.github.io/openGym/)
-
-No signup, nothing to install — it runs entirely in your browser on example data.<br>
-<sub>There's no server behind the demo, so passkey sign-in, sync across devices and the
-admin dashboard only exist in a self-hosted instance.</sub>
-
-</div>
-
-## Why
-
-Most workout apps lock your data behind a login on their servers, nag you to upgrade, or
-disappear when the startup does. openGym is the opposite: **it runs on your box, your data
-stays in a folder you control, and it's yours to fork.** It still feels modern — installable
-as a home-screen app, passkey sign-in, offline support, sync across your phone and laptop.
-
-## Features
-
-- ⚖️ **Body-weight tracking** — interactive chart with a goal line you set, gains/losses colored by whether they move toward it
-- 🏋️ **Weekly plan** — a routine per weekday, over a library of **1,324 exercises** (searchable, with animated demos)
-- 🗓️ **Reschedule any day** — sick, missed a session, or fewer gym days this week? Move a workout to another day without touching your weekly plan
-- ▶️ **Guided workouts** — it knows what day it is and starts today's session; asks your body weight first, pre-fills your weights from last time, rest timer, PR detection, per-exercise weight tracking
-- ☀️ **The screen stays awake while you train** — no unlocking the phone and finding your place again between every set. On for as long as a workout is running, released the moment you finish it, and switchable off in Settings
-- 🔗 **Supersets** — build them, and log them back-to-back with a rest only after the pair
-- ⏱️ **Timed exercises** — planks, hangs, wall sits and loaded carries are logged by time, not reps, with a work timer that counts the set itself (separate from the rest timer) and logs the time you actually held. They can carry weight too
-- 📈 **Progression that follows a rule** — pick one per routine, override it per exercise: linear, **Greyskull LP** (AMRAP top set, double jumps, 10 % resets), double progression through a rep range, or adding time. Your weights are already right when the session opens, and every target says *why* it's that number. Missed reps never advance the load, stalls trigger a deload, and bodyweight exercises progress in reps instead
-- 💪 **Estimated 1RM** — per exercise, from your best eligible set (it names which one), with its own progress curve and a calculator for sets you haven't done. Won't guess above 12 reps
-- 🎯 **Effort per set, in your scale** — an optional third column rating how hard a set was, as **RIR** (reps left in the tank) or **RPE** (the same judgement on a 10-point scale). Off by default; each set keeps the scale it was logged with, and nothing else reads the value — your progression and 1RM are unaffected
-- 🏃 **Cardio** — log time + speed, not just weight × reps
-- 📤 **Share a plan** — send someone your routines and week schedule as a small file (no workouts, no weigh-ins), or print it as a clean PDF. Importing merges, so their plan is never overwritten
-- 🔧 **Filter by equipment** — narrow the library to what you actually own; the options adapt to what you've picked, so every combination on screen has results behind it
-- ✨ **Your own exercises** — a name and a body part is enough; they behave like built-in ones everywhere, with an optional description instead of an animation
-- 🟩 **Activity heatmap** — a GitHub-style year view, shaded by time spent training
-- 💪 **Muscle map** — a front-and-back body diagram shaded by how much work each muscle got, over a week, a month or all time. It names the muscles you *haven't* trained in that period, previews what a routine hits while you build it, and shows what you just trained when you finish. Male or female figure, your pick
-- 🔔 **Push notifications** — rest-timer alerts even with the app closed, plus an optional reminder on days you have a workout planned but haven't logged one. Opt in per profile; keys are generated on first run, nothing to configure
-- 🤖 **AI Coach** (optional) — an AI that *designs* your plan and adjusts it from what you actually log. A short intake produces a complete weekly plan you can refine in plain language; on demand or on a schedule it reads your stalls, effort ratings, adherence and body-weight trend and proposes **discrete, explained changes** you accept one by one. Choose the official Claude Agent SDK or the bundled OpenAI Codex CLI with ChatGPT device-code sign-in; it is off until the instance owner enables it, needs each profile's separate consent, and never changes anything without your approval — every change-set is snapshotted and revertible. The progression engine still owns your session-to-session weights. **[Full guide →](docs/AI_COACH.md)**
-- 🔑 **Passkeys, not passwords** — Face ID / Touch ID / fingerprint login; each profile keeps its own data, synced across devices
-- 🛠️ **Admin dashboard** (optional) — for whoever runs the instance: who's training right now, per-user history, disable accounts, and invite-only signup. Off by default, so a fresh instance stays open with no admin
-- 🎨 **Designed, not assembled** — light/dark themes and 8 accent colors saved to your profile, over a hand-drawn icon set instead of emoji, so it looks the same on every phone
-- 🌍 **12 languages** — full UI translation (EN, DE, ES, FR, IT, PT, PL, TR, RU, ZH, KO, HI); exercise instructions localized in 10 of them, loaded on demand so the app stays fast
-- 📥 **Bring your history with you** — import from **FitNotes** (Android and iOS), **Strong** and **Hevy**, or body weight straight out of an **Apple Health** export. Exercise names are matched against the library and anything unrecognised becomes one of your own exercises, so nothing in the file is dropped
-- 📦 **Yours to keep** — one-tap JSON export/import, guest mode, **no telemetry**
-- 📱 **Standalone Android app** — the whole tracker as a sideloadable APK: no account, no server, data on the phone, native workout reminders ([download](https://opengym.duarte-santos.ch))
-
-## Quick start (self-host)
-
-You need [Docker](https://docs.docker.com/get-docker/) with Compose.
-
-```bash
-git clone https://github.com/DuarteSantos8/openGym
-cd openGym
-cp .env.example .env
-docker compose pull   # grab prebuilt images (amd64 + arm64) — skip to build from source instead
-docker compose up -d
+```yaml
+name         : Saravanakumar L
+location     : Thanjavur, Tamil Nadu, India
+education    : B.Tech Computer Science & Engineering — SRM University (2023–2027)
+focus        : Data Analytics · Full-Stack Development · IoT Systems · Dashboard Engineering
+languages    : Python · SQL · HTML · CSS
+tools        : Power BI · Microsoft Excel · MySQL · Visual Studio Code
+mindset      : Systems thinker. Data-driven builder. Continuous learner.
 ```
 
-Open **http://localhost:8080**, tap **Create profile**, and you're in. First launch downloads
-the exercise media (~140 MB) once. Prefer building the images yourself instead of pulling from
-`ghcr.io`? Drop the `pull` step and run `docker compose up -d --build` — you don't need Node or
-a build step locally either way.
+I am a Computer Science and Engineering undergraduate at SRM University with a strong foundation in data analytics, full-stack web development, and IoT-based system design. My engineering philosophy is grounded in building systems that are reliable, scalable, and decision-ready — whether that means a finite state machine governing complex booking workflows, or a live dashboard surfacing operational insight from raw data.
 
-> Want it reachable from your phone over the internet with passkeys? You'll need an HTTPS
-> domain — a two-line change in `.env`. See **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
+I approach every project from a product engineering mindset: understanding the problem deeply, designing clean architecture, and delivering outcomes that matter. My work spans inventory management automation, real-time seat allocation platforms, road safety IoT infrastructure, and e-commerce lifecycle systems.
 
-## Mobile app (no server at all)
+**Open To:**
+- 🔹 Data Analyst / Business Analyst Internships
+- 🔹 Full-Stack Development Roles (Entry-Level)
+- 🔹 Python / SQL / Power BI Projects
+- 🔹 Open Source Collaboration
+- 🔹 Research Assistantships in Data Engineering
 
-The same codebase also builds a **standalone mobile app** (Capacitor): no account, no sync,
-no backend — everything stays on the phone, with native workout-day reminders and share-sheet
-backups. Self-hosting gets you multi-device sync and profiles for friends & family; the
-mobile app is the install-and-done flavor.
+---
 
-- **Android:** [**download the APK**](https://opengym.duarte-santos.ch) and sideload it —
-  openGym is deliberately not on the Play Store. Or build it yourself: **[docs/MOBILE.md](docs/MOBILE.md)**.
-- **iPhone:** Apple doesn't allow installing apps outside the App Store, so there is no iOS
-  download. Self-host and add it to your home screen from Safari (it's a full PWA), or build
-  the native app onto your own device from Xcode — see **[docs/MOBILE.md](docs/MOBILE.md)**.
+## ◈ Tech Stack
 
-## How it works
+<p align="center">
+  <strong>Languages</strong><br/><br/>
+  <img src="https://skillicons.dev/icons?i=python,html,css,mysql&theme=dark" />
+</p>
 
+<p align="center">
+  <strong>Frontend & UI</strong><br/><br/>
+  <img src="https://skillicons.dev/icons?i=html,css,vscode&theme=dark" />
+</p>
+
+<p align="center">
+  <strong>Backend & Databases</strong><br/><br/>
+  <img src="https://skillicons.dev/icons?i=mysql,python&theme=dark" />
+</p>
+
+<p align="center">
+  <strong>Analytics, Cloud & Tooling</strong><br/><br/>
+  <img src="https://skillicons.dev/icons?i=github,vscode,linux&theme=dark" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Power%20BI-Dashboard%20Dev-F2C811?style=for-the-badge&logo=powerbi&logoColor=black"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/Microsoft%20Excel-Advanced-217346?style=for-the-badge&logo=microsoftexcel&logoColor=white"/>
+</p>
+
+---
+
+## ◈ Analytics & Engineering Expertise
+
+| Domain | Proficiency | Details |
+|--------|-------------|---------|
+| **Data Analytics** | ⬛⬛⬛⬛⬜ Advanced | Python (Pandas, NumPy), Excel, Power BI dashboards |
+| **SQL & Databases** | ⬛⬛⬛⬛⬜ Advanced | MySQL, relational schema design, query optimization |
+| **Full-Stack Web Dev** | ⬛⬛⬛⬜⬜ Intermediate | HTML, CSS, Python backend, REST concepts |
+| **IoT Systems** | ⬛⬛⬛⬜⬜ Intermediate | Sensor integration, GPS modules, alert pipelines |
+| **FSM Architecture** | ⬛⬛⬛⬛⬜ Advanced | State machine design for lifecycle & booking workflows |
+| **Dashboard Development** | ⬛⬛⬛⬛⬜ Advanced | Power BI, Excel-based reporting, KPI visualization |
+| **Inventory Systems** | ⬛⬛⬛⬛⬜ Advanced | Billing automation, stock tracking, invoice generation |
+
+---
+
+## ◈ Featured Projects
+
+<details>
+<summary><strong>⬡ Dynamic E-Commerce Platform with FSM-Based Product State Management</strong></summary>
+<br/>
+
+> A full-stack e-commerce platform engineered with Finite State Machine (FSM) architecture to handle real-world product lifecycle transitions across inventory states — from listing to reservation to final sale.
+
+| Attribute | Details |
+|-----------|---------|
+| **Stack** | Python · HTML · CSS · MySQL |
+| **Architecture** | FSM-based product lifecycle (available → reserved → sold) |
+| **Scale** | Multi-product catalog with concurrent state transitions |
+| **Performance** | Real-time inventory consistency via state-guarded transitions |
+| **Security** | Role-based access, state validation before write operations |
+| **Impact** | Eliminates oversell risk; enables auditable product state history |
+| **Repository** | _Coming Soon_ |
+
+This project demonstrates production-grade thinking applied to an e-commerce domain: rather than simple CRUD operations, product states are governed by a deterministic FSM that prevents invalid transitions — a pattern used in large-scale platforms to ensure data integrity at scale.
+
+</details>
+
+---
+
+<details>
+<summary><strong>⬡ IoT-Based Road Damage Detection and Alert System</strong></summary>
+<br/>
+
+> A real-time infrastructure monitoring system leveraging IoT sensors and GPS to detect road damage and potholes, automatically dispatching alerts to municipal authorities for rapid response.
+
+| Attribute | Details |
+|-----------|---------|
+| **Stack** | IoT Sensors · GPS Module · Python · Alert Pipeline |
+| **Architecture** | Sensor → Processor → Geo-tag → Alert Dispatch |
+| **Scale** | Continuous real-time road monitoring across defined routes |
+| **Performance** | Low-latency event detection and alert notification |
+| **Security** | Verified sensor data validation before alert escalation |
+| **Impact** | Reduces road maintenance response time; improves road safety |
+| **Repository** | _Coming Soon_ |
+
+This system addresses a critical infrastructure problem at the intersection of IoT and public safety. By combining vibration/damage sensors with GPS tagging, it creates an automated field-reporting pipeline that removes manual inspection bottlenecks and enables data-driven maintenance scheduling.
+
+</details>
+
+---
+
+<details>
+<summary><strong>⬡ Pharmacy & Medicine Inventory Management System</strong></summary>
+<br/>
+
+> An end-to-end inventory management platform purpose-built for pharmacy operations — automating stock tracking, sales recording, and professional invoice generation in a single integrated system.
+
+| Attribute | Details |
+|-----------|---------|
+| **Stack** | Python · MySQL · Excel Integration |
+| **Architecture** | Inventory Engine + Billing Module + Reporting Layer |
+| **Scale** | Multi-SKU medicine catalog with expiry and reorder tracking |
+| **Performance** | Automated low-stock alerts and reconciliation reporting |
+| **Security** | Role-controlled stock write access; audit log on transactions |
+| **Impact** | Eliminates manual reconciliation; reduces billing errors to zero |
+| **Repository** | _Coming Soon_ |
+
+Pharmacy inventory management is a domain with strict accuracy requirements — incorrect stock data directly impacts patient outcomes. This system enforces data integrity at every write, automates reorder logic, and produces formatted invoices that meet pharmacy billing standards.
+
+</details>
+
+---
+
+<details>
+<summary><strong>⬡ Real-Time Airline Seat Allocation System</strong></summary>
+<br/>
+
+> An advanced airline management platform implementing FSM-based flight and booking workflows, real-time seat allocation logic, and automated ticket billing — built to handle concurrent reservation scenarios without conflict.
+
+| Attribute | Details |
+|-----------|---------|
+| **Stack** | Python · MySQL · HTML · CSS |
+| **Architecture** | FSM flight states + seat lock mechanism + billing automation |
+| **Scale** | Multi-flight, multi-class seat inventory with live allocation |
+| **Performance** | Conflict-free concurrent booking via state-locked seat reservation |
+| **Security** | Booking state validation before seat commit; rollback on failure |
+| **Impact** | Zero double-booking; fully automated end-to-end ticket generation |
+| **Repository** | _Coming Soon_ |
+
+This system models airline seat allocation as a distributed state problem — each seat moves through states (available → held → confirmed → cancelled) under FSM governance, ensuring that concurrent users cannot claim the same seat. The billing module generates structured ticket outputs tied to confirmed booking state only.
+
+</details>
+
+---
+
+## ◈ Education
+
+**B.Tech — Computer Science and Engineering**
+SRM University · 2023 – 2027
+CGPA: 6.7
+
+> Focus: Software Engineering · Data Analytics · Database Systems · IoT · Full-Stack Development
+
+---
+
+**Higher Secondary Certificate (HSC)**
+Velammal Bodhi Campus · 2022 – 2023
+
+---
+
+**Secondary School Leaving Certificate (SSLC)**
+Maharishi Vidya Mandir · 2020 – 2021
+
+---
+
+## ◈ Achievements
+
+<p align="center">
+
+| Recognition | Details |
+|-------------|---------|
+| 🏗️ FSM Systems Builder | Architected two independent FSM-governed platforms (E-Commerce + Airline) |
+| 📊 Analytics Stack | Proficient in Python + Excel + Power BI end-to-end analytics pipeline |
+| 🌐 Full-Stack Projects | Delivered 4 complete end-to-end systems across web, IoT, and data domains |
+| 🚀 Coursera Certified | Completed Python for Beginners and Web Development on Coursera |
+| 🛠️ IoT Engineering | Built real-world GPS + sensor pipeline for public infrastructure monitoring |
+
+</p>
+
+---
+
+## ◈ Certifications
+
+<p align="center">
+  <strong>Coursera</strong><br/><br/>
+  <img src="https://img.shields.io/badge/Coursera-Python%20for%20Beginners-0056D2?style=for-the-badge&logo=coursera&logoColor=white"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/Coursera-Web%20Development-0056D2?style=for-the-badge&logo=coursera&logoColor=white"/>
+</p>
+
+---
+
+## ◈ Coding Profiles
+
+<p align="center">
+  <a href="https://leetcode.com/">
+    <img src="https://img.shields.io/badge/LeetCode-Problem%20Solver-FFA116?style=for-the-badge&logo=leetcode&logoColor=black"/>
+  </a>
+  &nbsp;
+  <a href="https://www.geeksforgeeks.org/">
+    <img src="https://img.shields.io/badge/GeeksforGeeks-DSA%20Practice-2F8D46?style=for-the-badge&logo=geeksforgeeks&logoColor=white"/>
+  </a>
+  &nbsp;
+  <a href="https://www.hackerrank.com/">
+    <img src="https://img.shields.io/badge/HackerRank-Challenges-00EA64?style=for-the-badge&logo=hackerrank&logoColor=black"/>
+  </a>
+  &nbsp;
+  <a href="https://www.codechef.com/">
+    <img src="https://img.shields.io/badge/CodeChef-Competitive-5B4638?style=for-the-badge&logo=codechef&logoColor=white"/>
+  </a>
+</p>
+
+---
+
+## ◈ GitHub Analytics
+
+<p align="center">
+  <img height="180em" src="https://github-readme-stats.vercel.app/api?username=Saravana071005&show_icons=true&theme=midnight-purple&include_all_commits=true&count_private=true&hide_border=true&bg_color=0D0D1A&title_color=9B59B6&icon_color=6A0DAD&text_color=C9D1D9"/>
+  &nbsp;
+  <img height="180em" src="https://github-readme-stats.vercel.app/api/top-langs/?username=Saravana071005&layout=compact&langs_count=8&theme=midnight-purple&hide_border=true&bg_color=0D0D1A&title_color=9B59B6&text_color=C9D1D9"/>
+</p>
+
+<p align="center">
+  <img src="https://github-readme-streak-stats.herokuapp.com/?user=Saravana071005&theme=midnight-purple&hide_border=true&background=0D0D1A&ring=6A0DAD&fire=9B59B6&currStreakLabel=C9D1D9" width="60%"/>
+</p>
+
+---
+
+## ◈ GitHub Trophies
+
+<p align="center">
+  <img src="https://github-profile-trophy.vercel.app/?username=Saravana071005&theme=darkhub&no-frame=true&no-bg=true&margin-w=6&column=7"/>
+</p>
+
+---
+
+## ◈ Contribution Activity
+
+<p align="center">
+  <img src="https://github-readme-activity-graph.vercel.app/graph?username=Saravana071005&bg_color=0D0D1A&color=9B59B6&line=6A0DAD&point=C9D1D9&area=true&hide_border=true" width="95%"/>
+</p>
+
+---
+
+## ◈ Contribution Snake
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Saravana071005/Saravana071005/output/github-contribution-grid-snake-dark.svg" width="95%"/>
+</p>
+
+---
+
+## ◈ Current Focus
+
+```yaml
+current_focus:
+  learning:
+    - Advanced SQL Query Optimization
+    - Power BI DAX & Data Modeling
+    - REST API Development with Python (FastAPI / Flask)
+    - Data Structures & Algorithms in Python
+
+  building:
+    - Analytics Dashboard for academic performance tracking
+    - Extending FSM Airline System with real-time notification module
+    - Personal portfolio site with project case studies
+
+  exploring:
+    - Machine Learning fundamentals (Scikit-learn)
+    - Cloud basics (AWS Free Tier)
+    - Open Source contribution opportunities
+
+  open_to:
+    - Data Analyst Internship
+    - Full-Stack Developer Role (Entry-Level)
+    - Python / Power BI Project Collaboration
+    - Research Assistantship in Data Engineering
 ```
-┌─────────────┐        ┌──────────────────────────────┐
-│  Your phone │──HTTPS─▶│  web  (nginx)                │
-│  / laptop   │        │   ├─ serves the built app    │
-└─────────────┘        │   └─ proxies /api ──────────┐│
-                       └──────────────────────────────┘│
-                                                        ▼
-                                        ┌──────────────────────────┐
-                                        │  api  (Node + WebAuthn)  │
-                                        │   └─ ./data (JSON files) │
-                                        └──────────────────────────┘
-```
 
-- **frontend/** — React + Vite (React Router + Zustand), built to static files **inside Docker**
-- **api/** — Node with no framework, one dependency (`@simplewebauthn/server`), storing everything as plain JSON files under `./data`
-- **web/** — a multi-stage image that builds the frontend and serves it with nginx, proxying `/api` to the backend so it's all on **one origin** (passkeys require this)
+---
 
-## Your data
+## ◈ Connect
 
-Lives in `./data` on your host: `db.json` (profiles + public passkeys), `state-<user>.json`
-(each user's plan, workouts, body weight, settings), and `secret` (the session-cookie key).
-**Back up `./data` and you've backed up everything.** Passkey private keys never touch the
-server — they stay in your phone's secure hardware / your password manager.
+<p align="center">
+  <a href="mailto:saravanakumar0701h@gmail.com">
+    <img src="https://img.shields.io/badge/Gmail-saravanakumar0701h%40gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white"/>
+  </a>
+</p>
+<p align="center">
+  <a href="https://www.linkedin.com/in/saravana-kumar-557ab2358/">
+    <img src="https://img.shields.io/badge/LinkedIn-saravana--kumar--557ab2358-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white"/>
+  </a>
+</p>
+<p align="center">
+  <a href="https://github.com/Saravana071005">
+    <img src="https://img.shields.io/badge/GitHub-Saravana071005-181717?style=for-the-badge&logo=github&logoColor=white"/>
+  </a>
+</p>
 
-## Configuration
+---
 
-All via `.env` (see `.env.example`):
+<p align="center">
+  <em>"Systems built with precision outlast those built with speed. Engineer for both."</em>
+</p>
 
-| Variable      | What it is                                           | Default                 |
-|---------------|------------------------------------------------------|-------------------------|
-| `RP_ID`       | Hostname passkeys are bound to                       | `localhost`             |
-| `ORIGIN`      | Full URL the app is served from                      | `http://localhost:8080` |
-| `WEB_PORT`    | Host port for the web UI                             | `8080`                  |
-| `RP_NAME`     | Name shown in the passkey prompt                     | `openGym`               |
-| `ADMIN_UIDS`  | User ids that get the admin dashboard (comma-separated) | *(none)*             |
-| `INVITE_ONLY` | Require an invite code to create a profile           | *(off)*                 |
-| `COACH_DISABLED` | Force the AI Coach off, whatever the admin dashboard says | *(unset)*        |
-
-Push notification keys are generated on first run and saved to `./data/vapid.json` — nothing to set.
-
-The **AI Coach** needs no `.env` at all: Claude's Agent SDK and a pinned OpenAI Codex CLI ship
-inside the api image. An admin can add a Claude Code setup token or complete Codex's ChatGPT
-device-code sign-in in the dashboard. See [the AI Coach guide](docs/AI_COACH.md),
-[the self-hosting guide](docs/SELF_HOSTING.md#8-the-ai-coach-optional), and the setup
-walkthroughs for [Claude](Claude-setup-instructions.md) and [ChatGPT/Codex](ChatGPT-setup-instructions.md).
-
-## Roadmap
-
-Rough, community-driven — ideas and PRs welcome:
-
-- [x] Standalone mobile app — Android APK to sideload ([download](https://opengym.duarte-santos.ch)); on iOS as a self-hosted PWA (no store listings planned)
-- [x] Automatic progression programs (linear, Greyskull LP, double progression) with stalls and deloads
-- [x] Estimated 1RM per exercise
-- [ ] Percentage / training-max programming (5/3/1-style) on top of the progression engine
-- [x] AI Coach — plan design and feedback-driven plan reviews, from a CLI agent running on your own server
-- [ ] More starter plans (upper/lower, full-body, 5×5)
-- [x] Importers from FitNotes / Strong / Hevy (including the RPE they record), and body weight from Apple Health
-- [x] Effort per set — RIR or RPE, whichever scale you think in
-- [ ] Body measurements (waist, arms…) alongside weight
-- [ ] Per-exercise notes & plate calculator
-- [ ] Exercise instructions in German & Portuguese (UI is translated; upstream dataset doesn't ship these yet)
-
-## Tech
-
-React 19 + Vite (React Router, Zustand) · Node (no framework) · nginx · Docker Compose ·
-WebAuthn · exercise data from [hasaneyldrm/exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset).
-No database server, no cloud dependencies — the frontend builds inside Docker, so self-hosting
-stays a one-command `docker compose up`.
-
-The training logic — progression rules, 1RM estimation, how a logged session is read back —
-lives in pure functions under `frontend/src/lib/` with tests next to them: `npm test` in
-`frontend/`. Vitest is a dev dependency; the app itself ships no runtime dependencies beyond
-React, the router and Zustand.
-
-## Community
-
-- **[Q&A](https://github.com/DuarteSantos8/openGym/discussions/categories/q-a)** — self-hosting
-  help, passkey/login trouble, "how do I…". Most login problems turn out to be an `RP_ID`/`ORIGIN`
-  mismatch.
-- **[Ideas](https://github.com/DuarteSantos8/openGym/discussions/categories/ideas)** — features
-  worth talking through before anyone writes code.
-- **[Show and tell](https://github.com/DuarteSantos8/openGym/discussions/categories/show-and-tell)**
-  — your setup, your plan templates, whatever you built on top.
-- **[Issues](https://github.com/DuarteSantos8/openGym/issues)** — bugs, and work that's already
-  been agreed on.
-
-## Contributing
-
-Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Good first issues: more starter
-plans, exercise-data languages, import from other trackers. **A ⭐ helps more people find it.**
-
-openGym is free and stays free: AGPL, no subscription, no paid tier, nothing held back for
-sponsors. If it replaced a paid tracker for you and you want to chip in, the Sponsor button at the
-top of the page is there — a star, a bug report or a PR is worth just as much.
-
-## License
-
-[GNU AGPL v3.0](LICENSE) — free and open source. You can self-host, use, modify and share it;
-if you run a modified version as a network service, you must offer that version's source under
-the same license. Nobody can turn openGym into a closed, proprietary product.
-
-Exercise images/GIFs are fetched from the upstream dataset and keep their own terms — see [NOTICE.md](NOTICE.md).
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=6A0DAD&height=120&section=footer" width="100%"/>
+</p>

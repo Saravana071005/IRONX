@@ -1,3 +1,68 @@
+
+function CoachIntelligenceCard({ S }) {
+  const report = generateWeeklyFitnessReport(S)
+  const overloadCandidates = (S.workouts || []).length > 0
+    ? [...new Set(S.workouts.flatMap(w => (w.entries || []).map(e => e.id)))]
+        .slice(0, 6)
+        .map(id => evaluateOverloadGuidance(S, id, {}))
+        .filter(g => g.shouldPrompt)
+    : []
+
+  return (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div className="row" style={{ gap: 8, alignItems: 'center', marginBottom: 10 }}>
+        <span className="lrow-i" style={{ background: 'var(--acc)', width: 28, height: 28, fontSize: 14 }}>
+          <Icon name="sparkles" />
+        </span>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '1.05rem' }}>{t('Fitness & Overload Intelligence')}</h2>
+          <div className="muted small">{t('Deterministic training analysis from your logged sessions')}</div>
+        </div>
+      </div>
+
+      <div className="grid2" style={{ marginBottom: 10 }}>
+        <div className="tile" style={{ padding: '8px 12px' }}>
+          <div className="l">{t('This Week')}</div>
+          <div className="v" style={{ fontSize: '1.15rem' }}>{report.training.workoutsCount} {t('sessions')}</div>
+        </div>
+        <div className="tile" style={{ padding: '8px 12px' }}>
+          <div className="l">{t('Sets Logged')}</div>
+          <div className="v" style={{ fontSize: '1.15rem' }}>{report.training.totalSets} {t('sets')}</div>
+        </div>
+      </div>
+
+      {overloadCandidates.length > 0 && (
+        <div style={{ marginBottom: 10, padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)' }}>
+          <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--acc)', marginBottom: 4 }}>
+            {t('Progressive Overload Signals ({0})', overloadCandidates.length)}
+          </div>
+          {overloadCandidates.map((c, i) => (
+            <div key={i} className="small muted" style={{ marginBottom: 2 }}>
+              • <b>{c.exName}</b>: {t('hit target reps')} ({c.currentWeight} {S.unit} &rarr; {c.suggestedWeight} {S.unit})
+            </div>
+          ))}
+        </div>
+      )}
+
+      {report.muscles.missed.length > 0 && report.training.workoutsCount > 0 && (
+        <div style={{ fontSize: 12, color: 'var(--label-2)', marginBottom: 8 }}>
+          <b>{t('Recovery / Balance')}:</b> {t('{0} muscle group(s) have not been trained this week ({1}).',
+            report.muscles.missed.length, report.muscles.missed.slice(0, 3).join(', '))}
+        </div>
+      )}
+
+      {report.nutrition.hasData && (
+        <div style={{ fontSize: 12, color: 'var(--label-2)' }}>
+          <b>{t('Nutrition')}:</b> {t('Averaging {0} kcal & {1}g protein across logged days.',
+            report.nutrition.avgCalories, report.nutrition.avgProtein)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+import { generateWeeklyFitnessReport } from '../lib/fitnessReport.js'
+import { evaluateOverloadGuidance } from '../lib/overload.js'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore, DEF } from '../store/useStore.js'
@@ -119,6 +184,7 @@ export default function Coach() {
           <Button variant="primary" icon="sparkles" onClick={() => nav('/coach/intake')}>{t('Let the Coach build my plan')}</Button>
         </div>}
 
+        <CoachIntelligenceCard S={S} />
         <CadenceCard coach={coach} update={update} />
 
         <Section title={t('Coach profile')} footer={t('Used by every proposal — keep limitations here up to date.')}>

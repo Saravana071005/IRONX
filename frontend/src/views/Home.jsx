@@ -1,3 +1,6 @@
+import { levelFromXP, calcWeeklyConsistency } from '../lib/gamification.js'
+import { calcTransformationProgress } from '../lib/transformation.js'
+import { getSyncStatus, subscribeSyncStatus } from '../lib/offlineQueue.js'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
@@ -73,6 +76,16 @@ export default function Home() {
   const plannedPerWeek = Object.keys(S.week).filter(k => S.week[k]).length
   const bwPoints = S.bodyweight.slice(-30).map(b => ({ t: b.t || new Date(b.d).getTime(), y: b.w, d: b.d }))
 
+  const [syncStatus, setSyncStatus] = useState(() => getSyncStatus(user?.id))
+  useEffect(() => {
+    return subscribeSyncStatus(st => setSyncStatus(st))
+  }, [user?.id])
+
+  const levelInfo = levelFromXP(S.xp || 0)
+  const consistency = calcWeeklyConsistency(S.workouts || [], S.weeklyTarget || 4)
+  const transf = calcTransformationProgress(S.bodyweight || [], S.targetW)
+  const latestPR = S.prVault && S.prVault.length > 0 ? S.prVault[S.prVault.length - 1] : null
+
   const todayMeals = (S.meals || []).filter(m => m.d === todayISO())
   const todayCalories = Math.round(todayMeals.reduce((acc, m) => acc + (m.nutrients?.calories || 0), 0))
   const targetCalories = S.nutritionTargets?.calories || 2000
@@ -86,7 +99,34 @@ export default function Home() {
   return <div className="narrow">
     <div className="hdr">
       <div><h1>{user ? t('Hi {0}', user.name) : 'openGym'}</h1><div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
-      <button className="iconbtn" onClick={() => nav('/settings')} aria-label={t('Settings')}><Icon name="gear" /></button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 99, background: 'var(--surface)', fontSize: 11, fontWeight: 500, color: 'var(--label-2)' }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: syncStatus.state === 'error' ? 'var(--red)' : syncStatus.state === 'offline' ? 'var(--grey)' : syncStatus.state === 'pending' ? 'var(--orange)' : 'var(--green)' }} />
+          <span>{syncStatus.state === 'offline' ? t('Offline') : syncStatus.pendingCount > 0 ? t('{0} pending', syncStatus.pendingCount) : t('Synced')}</span>
+        </div>
+        <button className="iconbtn" onClick={() => nav('/settings')} aria-label={t('Settings')}><Icon name="gear" /></button>
+      </div>
+    </div>
+
+    {/* Gamification Level & Athletic Tier Card */}
+    <div className="card" style={{ padding: '12px 14px', marginBottom: 12 }}>
+      <div className="row between" style={{ marginBottom: 6 }}>
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <span className="lrow-i" style={{ background: levelInfo.tierColor, color: '#000', width: 28, height: 28, fontSize: 14 }}>
+            <Icon name={levelInfo.tierBadge} />
+          </span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.1 }}>{t('Level {0}', levelInfo.level)} · <span style={{ color: levelInfo.tierColor }}>{levelInfo.tier}</span></div>
+            <div className="muted small" style={{ fontSize: 11 }}>{t('{0} total XP', levelInfo.totalXP.toLocaleString())}</div>
+          </div>
+        </div>
+        <div className="small dim" style={{ textAlign: 'right' }}>
+          {levelInfo.level >= 50 ? t('Max Tier reached') : t('{0} XP to next level', levelInfo.neededForNext)}
+        </div>
+      </div>
+      <div style={{ height: 5, borderRadius: 3, background: 'var(--surface-3)', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${levelInfo.progressPercent}%`, background: levelInfo.tierColor, borderRadius: 3, transition: 'width 0.4s ease' }} />
+      </div>
     </div>
 
     <div className="card">
@@ -111,6 +151,43 @@ export default function Home() {
           : <Icon name="plus" className="chev" />}
       </div>
     </div>
+
+    {/* Non-punitive Weekly Consistency Card */}
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div className="row between" style={{ marginBottom: 6 }}>
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <span className="lrow-i" style={{ background: 'var(--acc-soft)', color: 'var(--acc)', width: 28, height: 28, fontSize: 14 }}>
+            <Icon name="calendar" />
+          </span>
+          <h2 style={{ margin: 0, fontSize: '1.05rem' }}>{t('Weekly Consistency')}</h2>
+        </div>
+        <span className="tag" style={{ background: consistency.isTargetMet ? 'var(--acc-soft)' : 'var(--surface-3)', color: consistency.isTargetMet ? 'var(--acc)' : 'var(--label-2)' }}>
+          {consistency.isTargetMet ? t('Target reached!') : t('{0} of {1} sessions', consistency.completed, consistency.target)}
+        </span>
+      </div>
+      <div style={{ height: 6, borderRadius: 3, background: 'var(--surface-3)', margin: '8px 0', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${consistency.percent}%`, background: 'var(--acc)', borderRadius: 3, transition: 'width 0.3s' }} />
+      </div>
+      <div className="row between muted small">
+        <span>{consistency.isTargetMet ? t('Goal met! Take recovery as needed.') : t('{0} planned session(s) remaining this week', consistency.remaining)}</span>
+        <span>{consistency.weekDelta >= 0 ? `+${consistency.weekDelta}` : consistency.weekDelta} {t('vs last week')}</span>
+      </div>
+    </div>
+
+    {latestPR && (
+      <div className="card" style={{ padding: '10px 14px', marginBottom: 12, borderLeft: '3px solid var(--yellow)', cursor: 'pointer' }} onClick={() => nav('/stats')}>
+        <div className="row between">
+          <div className="row" style={{ gap: 8 }}>
+            <Icon name="star" style={{ color: 'var(--yellow)', fontSize: 16 }} />
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{t('Personal Record Vault')} · <span style={{ color: 'var(--yellow)' }}>{latestPR.exName}</span></div>
+              <div className="muted small">{latestPR.label}: <b>{latestPR.value} {latestPR.metric === 'duration' ? 's' : S.unit}</b> ({fmtDate(latestPR.date)})</div>
+            </div>
+          </div>
+          <Icon name="chevronRight" className="chev" />
+        </div>
+      </div>
+    )}
 
     {coachOn && <CoachCard nav={nav} />}
 

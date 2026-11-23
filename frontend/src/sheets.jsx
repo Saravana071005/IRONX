@@ -1,3 +1,4 @@
+import { awardXPEvent, detectPersonalRecords, calcWeeklyConsistency } from './lib/gamification.js'
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
@@ -97,6 +98,11 @@ function BwSheet({ required, onDone, close }) {
       const ex = s.bodyweight.find(b => b.d === iso)
       if (ex) { ex.w = n; ex.t = Date.now() } else s.bodyweight.push({ d: iso, w: n, t: Date.now() })
       s.bodyweight.sort((a, b) => (a.d < b.d ? -1 : 1))
+      const xRes = awardXPEvent(s.xp || 0, s.xpHistory || [], 'bw:' + iso, 'WEIGHT_LOGGED', 15, 'Logged weight: ' + n + ' ' + s.unit)
+      if (xRes.awarded) {
+        s.xp = xRes.newTotal
+        s.xpHistory = xRes.history
+      }
     })
     close()
     if (onDone) onDone(n); else toast(t('Weight saved'))
@@ -1018,6 +1024,34 @@ function doFinishWorkout() {
     })
     s.workouts.push(w)
     s.active = null
+
+    // 1. Award +100 XP for workout completion
+    const wRes = awardXPEvent(s.xp || 0, s.xpHistory || [], 'workout:' + w.id, 'WORKOUT_COMPLETE', 100, 'Completed ' + w.name)
+    if (wRes.awarded) {
+      s.xp = wRes.newTotal
+      s.xpHistory = wRes.history
+    }
+
+    // 2. Personal Record Vault scan
+    const { vault, newRecords } = detectPersonalRecords(s.workouts, s.prVault || [])
+    s.prVault = vault
+    for (const pr of newRecords) {
+      const pRes = awardXPEvent(s.xp || 0, s.xpHistory || [], 'pr:' + pr.exId + ':' + pr.metric + ':' + pr.value, 'NEW_PR', 75, `PR: ${pr.exName} (${pr.value})`)
+      if (pRes.awarded) {
+        s.xp = pRes.newTotal
+        s.xpHistory = pRes.history
+      }
+    }
+
+    // 3. Weekly consistency streak check
+    const consistency = calcWeeklyConsistency(s.workouts, s.weeklyTarget || 4)
+    if (consistency.isTargetMet) {
+      const cRes = awardXPEvent(s.xp || 0, s.xpHistory || [], 'weekly:' + consistency.currentWeek, 'WEEKLY_TARGET', 50, `Weekly target reached (${consistency.completed}/${consistency.target})`)
+      if (cRes.awarded) {
+        s.xp = cRes.newTotal
+        s.xpHistory = cRes.history
+      }
+    }
   })
   useUI.getState().stopRest()
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)

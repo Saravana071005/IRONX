@@ -139,3 +139,60 @@ export function rankOf(load) {
   const missed = MUSCLES.filter(m => !(load[m] > 0))
   return { worked, missed }
 }
+
+/**
+ * Detailed exercise-by-exercise breakdown for a selected muscle in the chosen workouts window.
+ * Returns: { muscle: slug, name: string, totalSets: number, exercises: [...] }
+ */
+export function muscleDetailsFor(muscleSlug, workouts, pick) {
+  if (!muscleSlug || !workouts || !workouts.length) {
+    return { muscle: muscleSlug, name: MUSCLE_NAME[muscleSlug] || muscleSlug, totalSets: 0, exercises: [] }
+  }
+
+  const exMap = new Map()
+  let totalEffSets = 0
+
+  for (const w of workouts) {
+    for (const en of (w.entries || [])) {
+      const ex = EXIDX[en.id]
+      const mWeights = musclesOf(ex)
+      const weightFactor = mWeights[muscleSlug] || 0
+      if (weightFactor <= 0) continue
+
+      const doneSets = (en.sets || []).filter(s => s.done && (!pick || pick(s)))
+      if (!doneSets.length) continue
+
+      const count = doneSets.length
+      totalEffSets += count * weightFactor
+
+      const repsList = doneSets.map(s => Number(s.r) || 0).filter(r => r > 0)
+      const minReps = repsList.length ? Math.min(...repsList) : 0
+      const maxReps = repsList.length ? Math.max(...repsList) : 0
+      const repRange = minReps === maxReps ? (minReps ? String(minReps) : '') : (minReps + '–' + maxReps)
+
+      const weightsList = doneSets.map(s => Number(s.w) || 0).filter(w => w > 0)
+      const topWeight = weightsList.length ? Math.max(...weightsList) : null
+
+      const key = en.id + '_' + (w.d || '')
+      exMap.set(key, {
+        id: en.id,
+        name: ex ? ex.n : (en.name || 'Exercise'),
+        sets: count,
+        repRange,
+        topWeight,
+        date: w.d,
+        routineName: w.name,
+        isPrimary: weightFactor >= 0.8,
+        factor: weightFactor
+      })
+    }
+  }
+
+  const list = Array.from(exMap.values()).sort((a, b) => (b.date > a.date ? 1 : -1))
+  return {
+    muscle: muscleSlug,
+    name: MUSCLE_NAME[muscleSlug] || muscleSlug,
+    totalSets: Math.round(totalEffSets * 10) / 10,
+    exercises: list
+  }
+}

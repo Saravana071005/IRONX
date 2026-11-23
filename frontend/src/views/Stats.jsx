@@ -1,3 +1,5 @@
+import { calcEWMA, calcTransformationProgress, compareMeasurements, MEASUREMENT_SITES } from '../lib/transformation.js'
+import { generateWeeklyFitnessReport } from '../lib/fitnessReport.js'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
@@ -10,7 +12,7 @@ import LineChart from '../components/LineChart.jsx'
 import Heatmap from '../components/Heatmap.jsx'
 import Icon from '../components/Icon.jsx'
 import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
-import { loadOfWorkouts, rankOf, MUSCLE_NAME } from '../lib/muscles.js'
+import { loadOfWorkouts, rankOf, MUSCLE_NAME, muscleDetailsFor } from '../lib/muscles.js'
 import { e1rmSeries, best1RM } from '../lib/onerm.js'
 import {
   hasEffort, displayScale, scaleName, toScale, avgRir, effortSummary, effortWeeks,
@@ -24,11 +26,17 @@ function MuscleBalance({ S }) {
   const [win, setWin] = useState(7)
   const [hard, setHard] = useState(false)
   const [sel, setSel] = useState(null)
+  const [dayOffset, setDayOffset] = useState(0)
   const now = Date.now()
-  const inWin = S.workouts.filter(w =>
-    win === 0 ? true
-      : win === 7 ? weekKey(w.d) === weekKey(todayISO())
-        : (w.start || new Date(w.d).getTime()) > now - win * 86400000)
+  const targetDate = new Date(now + dayOffset * 86400000).toISOString().slice(0, 10)
+
+  const inWin = S.workouts.filter(w => {
+    if (win === 0) return true
+    if (win === 1) return (w.d || '').slice(0, 10) === targetDate
+    if (win === 7) return weekKey(w.d) === weekKey(todayISO())
+    return (w.start || new Date(w.d).getTime()) > now - win * 86400000
+  })
+
   // Counting only the sets taken near failure turns the map from "where did the volume go"
   // into "where did the stimulus go" — a muscle can lead on sets and still never be trained
   // hard. Offered only when the window holds ratings at all, since with none the hard map
@@ -40,6 +48,7 @@ function MuscleBalance({ S }) {
   const top = worked.slice(0, 4)
   const max = worked.length ? load[worked[0]] : 0
   const sets = m => Math.round((load[m] || 0) * 10) / 10
+  const details = sel ? muscleDetailsFor(sel, inWin, on ? isHardSet : null) : null
 
   return <div className="card">
     <div className="row between" style={{ marginBottom: 8 }}>
@@ -47,16 +56,73 @@ function MuscleBalance({ S }) {
       {rated && <Button size="sm" icon="flame" style={on ? { color: 'var(--yellow)' } : undefined}
         onClick={() => { setHard(h => !h); setSel(null) }}>{on ? t('Hard') : t('All')}</Button>}
     </div>
-    <Segmented className="seg-range" value={win} onChange={v => { setWin(v); setSel(null) }}
-      options={[{ value: 7, label: t('Week') }, { value: 30, label: '30d' }, { value: 90, label: '90d' }, { value: 0, label: t('All') }]} />
+    <Segmented className="seg-range" value={win} onChange={v => { setWin(v); setSel(null); setDayOffset(0) }}
+      options={[{ value: 1, label: t('Day') }, { value: 7, label: t('Week') }, { value: 30, label: '30d' }, { value: 90, label: '90d' }, { value: 0, label: t('All') }]} />
+
+    {win === 1 && (
+      <div className="row between" style={{ margin: '8px 0', padding: '4px 8px', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)' }}>
+        <button className="iconbtn" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }} onClick={() => { setDayOffset(d => d - 1); setSel(null) }} aria-label={t('Previous day')}>
+          <Icon name="chevronLeft" />
+        </button>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>
+          {dayOffset === 0 ? t('Today') : dayOffset === -1 ? t('Yesterday') : targetDate}
+        </span>
+        <button className="iconbtn" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32, opacity: dayOffset >= 0 ? 0.3 : 1 }} disabled={dayOffset >= 0} onClick={() => { setDayOffset(d => d + 1); setSel(null) }} aria-label={t('Next day')}>
+          <Icon name="chevronRight" />
+        </button>
+      </div>
+    )}
+
     {inWin.length ? <>
       <BodyMap className="tappable" load={load} body={S.body} selected={sel}
         onMuscle={m => setSel(s => (s === m ? null : m))} />
       <BodyMapLegend />
-      {sel && <div className="mrow" style={{ borderTop: 'var(--hair) solid var(--sep)', marginTop: 4, paddingTop: 10 }}>
-        <span className="nm"><b>{t(MUSCLE_NAME[sel])}</b></span>
-        <span className="v">{sets(sel) ? t('{0} sets', sets(sel)) : on ? t('no hard sets') : t('not trained')}</span>
-      </div>}
+      {sel && details && (
+        <div className="m-drilldown">
+          <div className="m-drilldown-hdr">
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>{t(MUSCLE_NAME[sel] || sel)}</span>
+                <span className="badge-pill">{sets(sel) ? t('{0} sets', sets(sel)) : on ? t('0 hard sets') : t('0 sets')}</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 2 }}>
+                {on ? t('Showing stimulus from hard sets (near failure)') : t('Volume breakdown for selected period')}
+              </div>
+            </div>
+            <button className="iconbtn" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }} onClick={() => setSel(null)} aria-label={t('Close')}>
+              <Icon name="xmark" />
+            </button>
+          </div>
+          {details.exercises.length > 0 ? (
+            <div className="m-drilldown-list">
+              {details.exercises.map((exItem, idx) => (
+                <div key={idx} className="m-drilldown-item">
+                  <div>
+                    <div className="ex-name">
+                      <span>{exItem.name}</span>
+                      {exItem.isPrimary && <span className="badge-pill" style={{ background: 'var(--surface-3)', color: 'var(--label)' }}>{t('Primary')}</span>}
+                    </div>
+                    <div className="ex-meta">
+                      {exItem.routineName ? exItem.routineName + ' · ' : ''}{fmtDate(exItem.date)}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 600 }}>{t('{0} sets', exItem.sets)}</div>
+                    <div className="ex-meta">
+                      {exItem.repRange ? exItem.repRange + ' ' + t('reps') : ''}
+                      {exItem.topWeight ? ' · ' + fmtNum(exItem.topWeight) + ' ' + S.unit : ''}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="muted small" style={{ padding: '8px 4px' }}>
+              {on ? t('No hard sets targeted this muscle in this period.') : t('This muscle was not trained in this period.')}
+            </div>
+          )}
+        </div>
+      )}
       {!sel && top.map(m => <div key={m} className="mrow">
         <span className="nm">{t(MUSCLE_NAME[m])}</span>
         <span className="bar"><i style={{ width: Math.round(load[m] / max * 100) + '%', background: on ? 'var(--yellow)' : undefined }} /></span>
@@ -130,6 +196,124 @@ function EffortCard({ S }) {
 }
 
 // Stats = the analytics hub: all charts, progress and history live here.
+
+function WeeklyReportCard({ S }) {
+  const report = generateWeeklyFitnessReport(S)
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div className="row between" style={{ cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <span className="lrow-i" style={{ background: 'var(--acc)', width: 28, height: 28, fontSize: 14 }}>
+            <Icon name="sparkles" />
+          </span>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.05rem' }}>{t('Weekly Fitness Intelligence')}</h2>
+            <div className="muted small">{report.training.workoutsCount} {t('workouts')} · {fmtVol(report.training.totalVolumeKg)} {t('tonnage')}</div>
+          </div>
+        </div>
+        <Icon name={open ? 'chevronUp' : 'chevronDown'} className="chev" />
+      </div>
+
+      {open && (
+        <div style={{ marginTop: 14, borderTop: '1px solid var(--sep)', paddingTop: 12 }}>
+          <div className="grid2" style={{ marginBottom: 12 }}>
+            <div className="tile" style={{ padding: '8px 12px' }}>
+              <div className="l">{t('Completed Sets')}</div>
+              <div className="v" style={{ fontSize: '1.2rem' }}>{report.training.totalSets}</div>
+            </div>
+            <div className="tile" style={{ padding: '8px 12px' }}>
+              <div className="l">{t('New PRs')}</div>
+              <div className="v" style={{ fontSize: '1.2rem', color: 'var(--yellow)' }}>{report.training.newPRCount}</div>
+            </div>
+          </div>
+
+          {report.training.topExercises.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div className="small muted" style={{ fontWeight: 600, marginBottom: 6 }}>{t('Top Performing Exercises')}</div>
+              {report.training.topExercises.map(ex => (
+                <div key={ex.id} className="row between small" style={{ padding: '4px 0', borderBottom: 'var(--hair) solid var(--sep)' }}>
+                  <span>{ex.name}</span>
+                  <span><b>{fmtVol(ex.volume)}</b> · {ex.sets} sets</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {report.nutrition.hasData && (
+            <div style={{ marginBottom: 12 }}>
+              <div className="small muted" style={{ fontWeight: 600, marginBottom: 4 }}>{t('Nutrition Adherence')}</div>
+              <div className="small">
+                {t('Avg Calories')}: <b>{report.nutrition.avgCalories}</b> / {report.nutrition.targetCalorie} kcal · {t('Avg Protein')}: <b>{report.nutrition.avgProtein}g</b> / {report.nutrition.targetProtein}g
+              </div>
+            </div>
+          )}
+
+          {report.recommendations.length > 0 && (
+            <div>
+              <div className="small muted" style={{ fontWeight: 600, marginBottom: 6 }}>{t('Actionable Improvement Focus')}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {report.recommendations.map((rec, i) => (
+                  <div key={i} style={{ padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', fontSize: 12 }}>
+                    <div style={{ fontWeight: 600, color: 'var(--acc)', marginBottom: 2 }}>{rec.title}</div>
+                    <div className="muted">{rec.detail}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PRVaultCard({ S }) {
+  const [filter, setFilter] = useState('')
+  const vault = S.prVault || []
+  const filtered = filter ? vault.filter(p => p.exName.toLowerCase().includes(filter.toLowerCase())) : vault
+
+  return (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div className="row between" style={{ marginBottom: 8 }}>
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <span className="lrow-i" style={{ background: 'var(--yellow)', color: '#000', width: 28, height: 28, fontSize: 14 }}>
+            <Icon name="trophy" />
+          </span>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.05rem' }}>{t('Personal Record Vault')}</h2>
+            <div className="muted small">{vault.length} {t('verified personal records')}</div>
+          </div>
+        </div>
+      </div>
+
+      {vault.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+          {filtered.map(pr => (
+            <div key={pr.id} className="row between" style={{ padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)' }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>{pr.exName}</div>
+                <div className="small muted">{pr.label} · {fmtDate(pr.date)}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--yellow)' }}>
+                  {pr.value} {pr.metric === 'duration' ? 's' : S.unit}
+                </div>
+                {pr.prevValue && (
+                  <div className="small dim">was {pr.prevValue}</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="muted small">{t('No personal records verified yet. Complete workouts to automatically unlock records!')}</div>
+      )}
+    </div>
+  )
+}
+
 export default function Stats() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
@@ -210,6 +394,8 @@ export default function Stats() {
       <Heatmap S={S} onDay={iso => { const ws = S.workouts.filter(w => w.d === iso); if (ws.length === 1) workoutDetailSheet(ws[0]); else if (ws.length) calendarSheet(iso) }} />
     </div>
 
+    <WeeklyReportCard S={S} />
+    <PRVaultCard S={S} />
     {S.workouts.length > 0 && <MuscleBalance S={S} />}
     {anyEffort && <EffortCard S={S} />}
 

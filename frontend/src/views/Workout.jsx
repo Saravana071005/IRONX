@@ -1,3 +1,4 @@
+import { evaluateOverloadGuidance } from '../lib/overload.js'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
@@ -5,7 +6,7 @@ import { useUI } from '../store/useUI.js'
 import { exOr } from '../lib/exercises.js'
 import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, EFFORT, effortOf, stepEffort, capEffort } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, exCount, DAYN } from '../lib/format.js'
-import { beep, vibrate } from '../lib/sound.js'
+import { beep, vibrate, playHaptic } from '../lib/sound.js'
 import { t } from '../lib/i18n.js'
 import { api } from '../lib/api.js'
 import Media from '../components/Media.jsx'
@@ -285,7 +286,7 @@ function ActiveWorkout() {
     mutEntry(idx, e => {
       e.sets[i].done = !e.sets[i].done
       if (e.sets[i].done) {
-        beep(S.sound, 1040, 0.12); vibrate(30)
+        beep(S.sound, 1040, 0.12); playHaptic('setDone');
         const isLastExInUnit = idx === unit[unit.length - 1]
         const unitDone = unit.every(ui => (ui === idx ? e : A.entries[ui]).sets.every(x => x.done))
         if (isLastExInUnit && !unitDone) startRest(S.restSec)
@@ -294,7 +295,10 @@ function ActiveWorkout() {
         if (e.sets.every(x => x.done)) { exJustDone = true; if (m === 'reps' && !e.asked) { e.asked = true; askTop = true } }
       }
     })
-    if (askTop) topWeightSheet(idx)
+    if (askTop) {
+      if (S.stealthMode) useUI.getState().toast(t('Exercise completed'))
+      else topWeightSheet(idx)
+    }
     else if (workoutDone) workoutCompleteSheet()
     else if (exJustDone && cardioEntry) useUI.getState().toast(t('Cardio logged'))
     else if (exJustDone && m === 'time') useUI.getState().toast(t('Hold logged'))
@@ -355,11 +359,63 @@ function ActiveWorkout() {
     <div className="hdr">
       <button className="iconbtn" aria-label={t('Discard')} onClick={() => confirmSheet({ title: t('Discard workout?'), message: t('The sets you logged in this session will be lost.'), confirmText: t('Discard'), danger: true, onConfirm: () => { update(s => { s.active = null }); stopRest(); nav('/home') } })}><Icon name="xmark" /></button>
       <div style={{ textAlign: 'center' }}><div style={{ fontWeight: 600 }}>{A.name}</div><div className="sub"><Elapsed start={A.start} /> · {t('{0} sets', done + '/' + total)}</div></div>
-      <button className="iconbtn" style={{ color: 'var(--acc)' }} aria-label={t('Finish')} onClick={finishWorkout}><Icon name="check" /></button>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button
+          className="iconbtn"
+          aria-label={S.stealthMode ? t('Stealth mode on') : t('Stealth mode off')}
+          style={{ color: S.stealthMode ? 'var(--acc)' : 'var(--label-3)' }}
+          onClick={() => {
+            update(s => { s.stealthMode = !s.stealthMode })
+            useUI.getState().toast(S.stealthMode ? t('Stealth mode off') : t('Gym stealth mode on'))
+          }}
+          title={t('Toggle Stealth Mode')}
+        >
+          <Icon name={S.stealthMode ? 'bellSlash' : 'bell'} />
+        </button>
+        <button className="iconbtn" style={{ color: 'var(--acc)' }} aria-label={t('Finish')} onClick={finishWorkout}><Icon name="check" /></button>
+      </div>
     </div>
     <div className="wprog"><i style={{ width: (total ? done / total * 100 : 0) + '%' }} /></div>
 
     {A.entries.length ? <>
+      {(() => {
+        const curEntry = A.entries[cur]
+        const overload = (!isSuperset && curEntry) ? evaluateOverloadGuidance(S, curEntry.id, curEntry.target) : null
+        if (!overload || !overload.shouldPrompt) return null
+        return (
+          <div className="card" style={{ padding: '12px 14px', marginBottom: 12, border: '1px solid var(--acc-line)', background: 'var(--surface-2)', borderRadius: 'var(--r)' }}>
+            <div className="row between" style={{ marginBottom: 6 }}>
+              <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                <span className="badge-pill" style={{ background: 'var(--acc)', color: '#000' }}>{t('Overload')}</span>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>{t('Ready to advance?')}</span>
+              </div>
+              <button className="iconbtn" style={{ width: 26, height: 26, minWidth: 26, minHeight: 26, fontSize: 12 }} onClick={() => useStore.getState().recordOverloadDecision(overload.exId, 'dismiss')} aria-label={t('Dismiss')}>
+                <Icon name="xmark" />
+              </button>
+            </div>
+            <div className="small" style={{ color: 'var(--label)', marginBottom: 8, lineHeight: 1.35 }}>
+              {overload.message}
+            </div>
+            <div className="row" style={{ gap: 8 }}>
+              <Button size="sm" variant="primary" onClick={() => {
+                mutEntry(cur, e => {
+                  (e.sets || []).forEach(s => { if (!s.done) s.w = overload.suggestedWeight })
+                })
+                useStore.getState().recordOverloadDecision(overload.exId, 'increase')
+                useUI.getState().toast(t('Weight increased to {0} {1}', overload.suggestedWeight, S.unit))
+              }}>
+                {t('Increase to {0}', overload.suggestedWeight + ' ' + S.unit)}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => {
+                useStore.getState().recordOverloadDecision(overload.exId, 'maintain')
+                useUI.getState().toast(t('Keeping current weight'))
+              }}>
+                {t('Maintain')}
+              </Button>
+            </div>
+          </div>
+        )
+      })()}
       <div className="muted small" style={{ marginBottom: 6 }}>{isSuperset ? t('Superset {0} / {1}', unitIdx + 1, units.length) : t('Exercise {0} / {1}', unitIdx + 1, units.length)}</div>
       {isSuperset ? (
         <div className="ss-card">
