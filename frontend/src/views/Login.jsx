@@ -40,7 +40,7 @@ export default function Login() {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', margin: '20px 0 18px', background: 'transparent' }}>
       <IronHouseLogo size={80} variant="black" />
       <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '26px', fontWeight: 800, letterSpacing: '0.04em', margin: 0, color: 'var(--label)' }}>
-        IRON HOUSE
+        IRONX
       </h1>
     </div>
   )
@@ -54,7 +54,7 @@ export default function Login() {
         <div className="muted" style={{ marginBottom: 30 }}>{t('Live demo — everything stays in this browser.')}</div>
         <Button variant="primary" icon="sparkles" onClick={() => setGuest(true)}>{t('Start the demo')}</Button>
         <div className="card small muted" style={{ textAlign: 'left', marginTop: 16 }}>
-          {t('This demo runs entirely in your browser on example data — nothing is sent anywhere. Cloud sync and personal fitness profiles come with the IRON HOUSE server.')}
+          {t('This demo runs entirely in your browser on example data — nothing is sent anywhere. Cloud sync and personal fitness profiles come with the IRONX server.')}
         </div>
         <div className="dim small" style={{ marginTop: 22, lineHeight: 1.6 }}>
           <a href={REPO} target="_blank" rel="noopener">{t('Self-host it in a minute →')}</a>

@@ -131,7 +131,7 @@ function CoachCard({ nav }) {
           </div>
         </div>
         {ready ? (
-          <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 9999, background: 'var(--theme-accent, #E8B477)', color: '#12100E', fontWeight: 700 }}>
+          <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 9999, background: '#10B981', color: '#0F1115', fontWeight: 700 }}>
             {t('Review')}
           </span>
         ) : (
@@ -375,52 +375,87 @@ export default function Home() {
 
   return (
     <div className="dashboard-layout" style={{ maxWidth: 1240, margin: '0 auto', width: '100%' }}>
-      {/* 1. Main Dashboard Header */}
+      {/* 1. Main Dashboard Header & Greeting (Google Stitch Apex Athletic Dark) */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: 24,
+          marginBottom: 16,
           flexWrap: 'wrap',
           gap: 16
         }}
       >
         <div>
+          <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9CA3AF' }}>
+            {t('Welcome back')}
+          </span>
           <h1
             style={{
-              fontSize: 28,
-              fontWeight: 800,
-              margin: 0,
-              color: '#F5F1EB',
-              letterSpacing: '-0.025em',
+              fontSize: 24,
+              fontWeight: 700,
+              margin: '2px 0 0 0',
+              color: '#F9FAFB',
+              letterSpacing: '-0.02em',
               fontFamily: "var(--font-heading)"
             }}
           >
             {t('Hi, {0} 👋', userName)}
           </h1>
-          <div style={{ fontSize: 13, color: '#A9A19A', marginTop: 3, fontWeight: 500 }}>
-            {t('Ready to crush your goals today?')}
-          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* IRONX ELITE Tier Pill */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 12px',
+              borderRadius: 9999,
+              background: '#282A2E',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.25)'
+            }}
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: '#10B981',
+                boxShadow: '0 0 8px #10B981',
+                animation: 'ping 1.9s infinite'
+              }}
+            />
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 800,
+                color: '#10B981',
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase'
+              }}
+            >
+              IRONX ELITE
+            </span>
+          </div>
+
           <button
             className="iconbtn"
             onClick={() => nav('/exercise-library')}
             aria-label={t('Search')}
             title={t('Search exercises')}
             style={{
-              width: 40,
-              height: 40,
+              width: 38,
+              height: 38,
               borderRadius: '50%',
-              background: 'rgba(20, 20, 22, 0.75)',
-              border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.18))',
-              color: '#F5F1EB',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
+              background: '#161920',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              color: '#F9FAFB',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.25)'
             }}
           >
-            <Icon name="search" size={17} />
+            <Icon name="search" size={16} />
           </button>
           <button
             className="iconbtn"
@@ -428,37 +463,88 @@ export default function Home() {
             aria-label={t('Daily Health Log')}
             title={t('Daily Health Log')}
             style={{
-              width: 40,
-              height: 40,
+              width: 38,
+              height: 38,
               borderRadius: '50%',
-              background: 'rgba(20, 20, 22, 0.75)',
-              border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.18))',
-              color: '#F5F1EB',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
+              background: '#161920',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              color: '#F9FAFB',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+              position: 'relative'
             }}
           >
-            <Icon name="bell" size={17} />
+            <Icon name="bell" size={16} />
+            <span
+              style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: '#10B981'
+              }}
+            />
           </button>
           <div
             onClick={() => nav('/settings')}
             style={{
-              width: 42,
-              height: 42,
+              width: 38,
+              height: 38,
               borderRadius: '50%',
-              background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.16))',
-              border: '1.5px solid var(--theme-accent, #E8B477)',
-              color: 'var(--theme-accent, #E8B477)',
+              background: '#1E2024',
+              border: '1.5px solid rgba(16, 185, 129, 0.5)',
+              color: '#10B981',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
               fontWeight: 700,
               fontSize: 16,
-              boxShadow: '0 0 12px var(--theme-accent-glow, rgba(232, 180, 119, 0.3))'
+              boxShadow: '0 0 10px rgba(16, 185, 129, 0.25)'
             }}
             title={t('User Profile')}
           >
-            <Icon name="person" size={20} />
+            <Icon name="person" size={18} />
+          </div>
+        </div>
+      </div>
+
+      {/* Target & Streak Ticker Card (Google Stitch Design Transfer) */}
+      <div
+        className="card"
+        style={{
+          padding: '14px 18px',
+          borderRadius: 14,
+          background: '#161920',
+          border: '1px solid rgba(255, 255, 255, 0.07)',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+          marginBottom: 16
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ color: '#10B981' }}>🎯</span>
+            <span>{t('Target Today')}</span>
+          </span>
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#E8B477', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            {t('Day {0} of 30', Math.min(30, (streakCount || 1) + 1))}
+          </span>
+        </div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#F9FAFB' }}>
+          {S?.active?.name || scheduledTemplate?.name || (todayWorkout ? todayWorkout.name : t('Daily Workout Session'))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px solid rgba(255, 255, 255, 0.05)', fontSize: 13 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#F9FAFB' }}>
+            <span>🔥</span>
+            <span>{streakCount > 0 ? `${streakCount}-Day Streak` : 'Streak Active'}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#9CA3AF', fontWeight: 600 }}>
+            <Icon name="bolt" size={14} style={{ color: '#34D399' }} />
+            <span>{exerciseCaloriesBurned > 0 ? `${exerciseCaloriesBurned} kcal burned` : `${Math.round(loggedCalories || 380)} kcal burned`}</span>
           </div>
         </div>
       </div>
@@ -667,13 +753,12 @@ export default function Home() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  background: 'var(--theme-accent-gradient, linear-gradient(135deg, #FFD09A 0%, #E8B477 100%))',
-                  color: '#12100E',
+                  background: '#10B981', color: '#0F1115',
                   fontWeight: 800,
                   fontSize: 14,
                   border: 'none',
                   cursor: 'pointer',
-                  boxShadow: '0 8px 24px var(--theme-accent-glow, rgba(232, 180, 119, 0.35))',
+                  boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
@@ -690,13 +775,12 @@ export default function Home() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  background: 'var(--theme-accent-gradient, linear-gradient(135deg, #FFD09A 0%, #E8B477 100%))',
-                  color: '#12100E',
+                  background: '#10B981', color: '#0F1115',
                   fontWeight: 800,
                   fontSize: 14,
                   border: 'none',
                   cursor: 'pointer',
-                  boxShadow: '0 8px 24px var(--theme-accent-glow, rgba(232, 180, 119, 0.35))',
+                  boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
@@ -713,13 +797,12 @@ export default function Home() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  background: 'var(--theme-accent-gradient, linear-gradient(135deg, #FFD09A 0%, #E8B477 100%))',
-                  color: '#12100E',
+                  background: '#10B981', color: '#0F1115',
                   fontWeight: 800,
                   fontSize: 14,
                   border: 'none',
                   cursor: 'pointer',
-                  boxShadow: '0 8px 24px var(--theme-accent-glow, rgba(232, 180, 119, 0.35))',
+                  boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
@@ -736,13 +819,12 @@ export default function Home() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  background: 'var(--theme-accent-gradient, linear-gradient(135deg, #FFD09A 0%, #E8B477 100%))',
-                  color: '#12100E',
+                  background: '#10B981', color: '#0F1115',
                   fontWeight: 800,
                   fontSize: 14,
                   border: 'none',
                   cursor: 'pointer',
-                  boxShadow: '0 8px 24px var(--theme-accent-glow, rgba(232, 180, 119, 0.35))',
+                  boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
@@ -776,163 +858,215 @@ export default function Home() {
         </div>
       </WidgetBoundary>
 
-      {/* 3. Quick Actions (Positioned ABOVE Weekly Activity, Not Duplicated) */}
+      {/* 3. Quick Actions Grid (Google Stitch 4-Column Touch-Friendly Layout) */}
       <WidgetBoundary title={t('Quick Actions')}>
-        <div
-          className="card"
-          style={{
-            padding: '24px',
-            borderRadius: 22,
-            background: 'var(--surface)',
-            backgroundImage: 'var(--grad-glass-surface)',
-            backdropFilter: 'var(--glass-blur)',
-            WebkitBackdropFilter: 'var(--glass-blur)',
-            border: '1px solid var(--theme-accent-border, var(--border-gold))',
-            boxShadow: 'var(--card-shadow), var(--glass-highlight)',
-            marginBottom: 18
-          }}
-        >
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)', marginBottom: 16 }}>
-            {t('Quick Actions')}
-          </div>
-
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)', marginBottom: 12 }}>{t('Quick Actions')}</div>
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-              gap: 12
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: 8
             }}
             className="quick-actions-strip"
           >
             {/* Action 1: Log Workout */}
-            <div
+            <button
               onClick={handleStartTodayWorkout}
               style={{
-                padding: '16px 10px',
-                borderRadius: 16,
-                background: 'var(--surface-2)',
-                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
+                padding: '12px 6px',
+                borderRadius: 14,
+                background: '#161920',
+                border: '1px solid rgba(255, 255, 255, 0.07)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                gap: 6,
                 cursor: 'pointer',
                 textAlign: 'center',
-                transition: 'border-color 0.15s ease, transform 0.15s ease'
+                minHeight: 76,
+                transition: 'background 0.15s ease, transform 0.1s ease'
               }}
             >
-              <span style={{ color: 'var(--theme-accent, #E8B477)' }}>
-                <Icon name="dumbbell" size={20} />
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--label)' }}>
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: '#1E2024',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#10B981'
+                }}
+              >
+                <Icon name="dumbbell" size={18} />
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
                 {t('Log Workout')}
               </span>
-            </div>
+            </button>
 
             {/* Action 2: Log Food */}
-            <div
+            <button
               onClick={() => nav('/nutrition')}
               style={{
-                padding: '16px 10px',
-                borderRadius: 16,
-                background: 'var(--surface-2)',
-                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
+                padding: '12px 6px',
+                borderRadius: 14,
+                background: '#161920',
+                border: '1px solid rgba(255, 255, 255, 0.07)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                gap: 6,
                 cursor: 'pointer',
                 textAlign: 'center',
-                transition: 'border-color 0.15s ease, transform 0.15s ease'
+                minHeight: 76,
+                transition: 'background 0.15s ease, transform 0.1s ease'
               }}
             >
-              <span style={{ color: 'var(--theme-accent, #E8B477)' }}>
-                <Icon name="apple" size={20} />
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--label)' }}>
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: '#1E2024',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#059669'
+                }}
+              >
+                <Icon name="apple" size={18} />
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
                 {t('Log Food')}
               </span>
-            </div>
+            </button>
 
             {/* Action 3: Log Cardio */}
-            <div
+            <button
               onClick={() => cardioSheet(null, todayStr)}
               style={{
-                padding: '16px 10px',
-                borderRadius: 16,
-                background: 'var(--surface-2)',
-                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
+                padding: '12px 6px',
+                borderRadius: 14,
+                background: '#161920',
+                border: '1px solid rgba(255, 255, 255, 0.07)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                gap: 6,
                 cursor: 'pointer',
                 textAlign: 'center',
-                transition: 'border-color 0.15s ease, transform 0.15s ease'
+                minHeight: 76,
+                transition: 'background 0.15s ease, transform 0.1s ease'
               }}
             >
-              <span style={{ color: 'var(--theme-accent, #E8B477)' }}>
-                <Icon name="figureRun" size={20} />
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--label)' }}>
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: '#1E2024',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#34D399'
+                }}
+              >
+                <Icon name="figureRun" size={18} />
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
                 {t('Log Cardio')}
               </span>
-            </div>
+            </button>
 
             {/* Action 4: Body Stats */}
-            <div
+            <button
               onClick={() => bwSheet()}
               style={{
-                padding: '16px 10px',
-                borderRadius: 16,
-                background: 'var(--surface-2)',
-                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.15))',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
+                padding: '12px 6px',
+                borderRadius: 14,
+                background: '#161920',
+                border: '1px solid rgba(255, 255, 255, 0.07)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                gap: 6,
                 cursor: 'pointer',
                 textAlign: 'center',
-                transition: 'border-color 0.15s ease, transform 0.15s ease'
+                minHeight: 76,
+                transition: 'background 0.15s ease, transform 0.1s ease'
               }}
             >
-              <span style={{ color: 'var(--theme-accent, #E8B477)' }}>
-                <Icon name="scale" size={20} />
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--label)' }}>
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: '#1E2024',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#E8B477'
+                }}
+              >
+                <Icon name="scale" size={18} />
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
                 {t('Body Stats')}
               </span>
-            </div>
+            </button>
           </div>
         </div>
       </WidgetBoundary>
 
-      {/* 4. Weekly Activity Card */}
+      {/* 4. Weekly Activity Card (Google Stitch Design Transfer) */}
       <WidgetBoundary title={t('Weekly Activity')}>
         <div
           className="card"
           style={{
-            padding: '24px',
-            borderRadius: 22,
-            background: 'var(--surface)',
-            backgroundImage: 'var(--grad-glass-surface)',
-            backdropFilter: 'var(--glass-blur)',
-            WebkitBackdropFilter: 'var(--glass-blur)',
-            border: '1px solid var(--theme-accent-border, var(--border-gold))',
-            boxShadow: 'var(--card-shadow), var(--glass-highlight)',
+            padding: '20px',
+            borderRadius: 16,
+            background: '#161920',
+            border: '1px solid rgba(255, 255, 255, 0.07)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            minHeight: 200,
+            minHeight: 190,
             marginBottom: 18
           }}
         >
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)', letterSpacing: '-0.015em', marginBottom: 12 }}>
-            {t('Weekly Activity')}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#F9FAFB', letterSpacing: '-0.015em', margin: 0, textTransform: 'lowercase' }}>
+              {t('Weekly Activity')}
+            </h3>
+            <button
+              onClick={() => nav('/stats')}
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: '#10B981',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+            >
+              <span>{t('View All')}</span>
+              <Icon name="chevronRight" size={12} />
+            </button>
           </div>
 
           <div
@@ -940,9 +1074,9 @@ export default function Home() {
               display: 'flex',
               alignItems: 'flex-end',
               justifyContent: 'space-between',
-              height: 120,
-              paddingTop: 10,
-              paddingBottom: 4
+              height: 110,
+              paddingTop: 8,
+              paddingBottom: 2
             }}
           >
             {weekActivityDays.map((item, idx) => (
@@ -952,17 +1086,17 @@ export default function Home() {
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: 10,
+                  gap: 8,
                   flex: 1
                 }}
               >
-                {/* Vertical Pill Bar Track */}
+                {/* Vertical Pill Bar Track (#1E2024 Track with #10B981 Active Fill) */}
                 <div
                   style={{
-                    width: 14,
-                    height: 90,
+                    width: 12,
+                    height: 80,
                     borderRadius: 9999,
-                    background: 'var(--surface-3)',
+                    background: '#1E2024',
                     display: 'flex',
                     alignItems: 'flex-end',
                     overflow: 'hidden',
@@ -975,9 +1109,9 @@ export default function Home() {
                       height: `${item.fillH}%`,
                       borderRadius: 9999,
                       background: item.active
-                        ? 'var(--theme-accent-gradient, linear-gradient(180deg, #FFD09A 0%, #E8B477 100%))'
-                        : 'var(--label-4)',
-                      boxShadow: item.active ? '0 0 12px var(--theme-accent-glow, rgba(232, 180, 119, 0.45))' : 'none',
+                        ? '#10B981'
+                        : 'rgba(255, 255, 255, 0.08)',
+                      boxShadow: item.active ? '0 0 10px rgba(16, 185, 129, 0.45)' : 'none',
                       transition: 'height 0.4s ease'
                     }}
                   />
@@ -985,9 +1119,9 @@ export default function Home() {
                 {/* Day Label */}
                 <span
                   style={{
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: item.isToday ? 800 : 600,
-                    color: item.isToday ? 'var(--theme-accent, #E8B477)' : 'var(--label-2)'
+                    color: item.isToday ? '#10B981' : '#9CA3AF'
                   }}
                 >
                   {item.label}
@@ -1055,13 +1189,12 @@ export default function Home() {
                 style={{
                   padding: '8px 22px',
                   borderRadius: 9999,
-                  background: 'var(--theme-accent-gradient, linear-gradient(135deg, #FFD09A 0%, #E8B477 100%))',
-                  color: '#12100E',
+                  background: '#10B981', color: '#0F1115',
                   fontWeight: 800,
                   fontSize: 13,
                   border: 'none',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 14px var(--theme-accent-glow, rgba(232, 180, 119, 0.35))'
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.30)'
                 }}
               >
                 {t('Add Weight')}
@@ -1089,8 +1222,8 @@ export default function Home() {
                 <svg width={chartWidth} height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ overflow: 'visible' }}>
                   <defs>
                     <linearGradient id="chartAccentGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--theme-accent, #E8B477)" stopOpacity="0.35" />
-                      <stop offset="100%" stopColor="var(--theme-accent, #E8B477)" stopOpacity="0.0" />
+                      <stop offset="0%" stopColor="#10B981" stopOpacity="0.30" />
+                      <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
                   {/* Gradient Area under curve */}
@@ -1100,8 +1233,7 @@ export default function Home() {
                     <path
                       d={pathD}
                       fill="none"
-                      stroke="var(--theme-accent, #E8B477)"
-                      strokeWidth="2.5"
+                      stroke="#10B981" strokeWidth="2.5"
                       strokeLinecap="round"
                       style={{ filter: 'drop-shadow(0 2px 8px var(--theme-accent-glow, rgba(232, 180, 119, 0.4)))' }}
                     />
@@ -1141,19 +1273,16 @@ export default function Home() {
         }}
         className="home-lower-grid"
       >
-        {/* Calories Overview */}
+        {/* Daily Bio-Metrics Widget (Google Stitch Design Transfer) */}
         <WidgetBoundary title={t('Calories Overview')}>
           <div
             className="card"
             style={{
-              padding: '24px',
-              borderRadius: 22,
-              background: 'var(--surface)',
-              backgroundImage: 'var(--grad-glass-surface)',
-              backdropFilter: 'var(--glass-blur)',
-              WebkitBackdropFilter: 'var(--glass-blur)',
-              border: '1px solid var(--theme-accent-border, var(--border-gold))',
-              boxShadow: 'var(--card-shadow), var(--glass-highlight)',
+              padding: '20px',
+              borderRadius: 16,
+              background: '#161920',
+              border: '1px solid rgba(255, 255, 255, 0.07)',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
@@ -1161,94 +1290,147 @@ export default function Home() {
             }}
           >
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)' }}>
-                  {t('Calories Overview')}
-                </span>
-                <span style={{ fontSize: 12, color: 'var(--theme-accent, #E8B477)', fontWeight: 600 }}>
-                  {targetCalories.toLocaleString()} kcal {t('target')}
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Icon name="vital" size={18} style={{ color: '#10B981' }} />
+                  <span style={{ fontSize: 16, fontWeight: 700, color: '#F9FAFB' }}>
+                    {t('Daily Bio-Metrics')} · {t('Calories Overview')}
+                  </span>
+                </div>
+                <button
+                  onClick={() => nav('/nutrition')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: '#10B981',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Icon name="plus" size={13} />
+                  <span>{t('Log Meal')}</span>
+                </button>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
-                {/* Left Donut Ring */}
-                <div style={{ position: 'relative', width: 115, height: 115, flex: 'none' }}>
-                  <svg width="115" height="115" viewBox="0 0 115 115" style={{ transform: 'rotate(-90deg)' }}>
-                    {/* Track */}
-                    <circle
-                      cx="57.5"
-                      cy="57.5"
-                      r={donutR}
-                      fill="none"
-                      stroke="rgba(255, 255, 255, 0.08)"
-                      strokeWidth="10"
-                    />
-                    {/* Fill Arc */}
-                    <circle
-                      cx="57.5"
-                      cy="57.5"
-                      r={donutR}
-                      fill="none"
-                      stroke="var(--theme-accent, #E8B477)"
-                      strokeWidth="10"
-                      strokeDasharray={donutC}
-                      strokeDashoffset={donutOffset}
-                      strokeLinecap="round"
-                      style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-                    />
-                  </svg>
-                  {/* Center Label */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--label)', lineHeight: 1.1 }}>
-                      {loggedCalories.toLocaleString()}
+              {/* Biometric Metrics Trio (Protein, Calories, Hydration/Carbs) */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: 8,
+                  marginBottom: 14
+                }}
+              >
+                {/* Protein Ring Metric */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '10px 6px',
+                    borderRadius: 12,
+                    background: '#1E2024',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ position: 'relative', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                    <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 36 36">
+                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#161920" strokeWidth="3.5" />
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke="#10B981"
+                        strokeDasharray={`${Math.min(100, Math.round((proteinGrams / 180) * 100))}, 100`}
+                        strokeLinecap="round"
+                        strokeWidth="3.5"
+                      />
+                    </svg>
+                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: '#F9FAFB' }}>
+                      {`${Math.min(100, Math.round((proteinGrams / 180) * 100))}%`}
                     </span>
-                    <span style={{ fontSize: 11, color: 'var(--label-2)', fontWeight: 600 }}>kcal</span>
                   </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#F9FAFB', lineHeight: 1.1 }}>
+                    {proteinGrams} / 180g
+                  </span>
+                  <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
+                    {t('Protein')}
+                  </span>
                 </div>
 
-                {/* Right Macro Breakdown */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {/* Protein */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--theme-accent-highlight, #FFD09A)' }} />
-                      <span style={{ color: 'var(--label)', fontWeight: 500 }}>{t('Protein')}</span>
-                    </div>
-                    <span style={{ color: 'var(--label)', fontWeight: 600 }}>
-                      {proteinGrams} g <span style={{ color: 'var(--label-2)', fontSize: 11 }}>({proteinPct}%)</span>
+                {/* Calories Ring Metric */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '10px 6px',
+                    borderRadius: 12,
+                    background: '#1E2024',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ position: 'relative', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                    <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 36 36">
+                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#161920" strokeWidth="3.5" />
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke="#E8B477"
+                        strokeDasharray={`${Math.min(100, Math.round((loggedCalories / targetCalories) * 100))}, 100`}
+                        strokeLinecap="round"
+                        strokeWidth="3.5"
+                      />
+                    </svg>
+                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: '#F9FAFB' }}>
+                      {loggedCalories > 999 ? `${(loggedCalories / 1000).toFixed(1)}k` : loggedCalories}
                     </span>
                   </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#F9FAFB', lineHeight: 1.1 }}>
+                    {`${(loggedCalories / 1000).toFixed(1)}k / ${(targetCalories / 1000).toFixed(1)}k`}
+                  </span>
+                  <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
+                    {t('Calories')}
+                  </span>
+                </div>
 
-                  {/* Carbs */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--theme-accent, #E8B477)' }} />
-                      <span style={{ color: 'var(--label)', fontWeight: 500 }}>{t('Carbs')}</span>
-                    </div>
-                    <span style={{ color: 'var(--label)', fontWeight: 600 }}>
-                      {carbsGrams} g <span style={{ color: 'var(--label-2)', fontSize: 11 }}>({carbsPct}%)</span>
+                {/* Hydration / Carbs Ring Metric */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '10px 6px',
+                    borderRadius: 12,
+                    background: '#1E2024',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ position: 'relative', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                    <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 36 36">
+                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#161920" strokeWidth="3.5" />
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke="#34D399"
+                        strokeDasharray={`${Math.min(100, Math.round((carbsGrams / 250) * 100))}, 100`}
+                        strokeLinecap="round"
+                        strokeWidth="3.5"
+                      />
+                    </svg>
+                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: '#F9FAFB' }}>
+                      {`${Math.min(100, Math.round((carbsGrams / 250) * 100))}%`}
                     </span>
                   </div>
-
-                  {/* Fats */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--theme-accent-secondary, #C58A53)' }} />
-                      <span style={{ color: 'var(--label)', fontWeight: 500 }}>{t('Fats')}</span>
-                    </div>
-                    <span style={{ color: 'var(--label)', fontWeight: 600 }}>
-                      {fatsGrams} g <span style={{ color: 'var(--label-2)', fontSize: 11 }}>({fatsPct}%)</span>
-                    </span>
-                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#F9FAFB', lineHeight: 1.1 }}>
+                    {carbsGrams} / 250g
+                  </span>
+                  <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
+                    {t('Carbs')}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1281,8 +1463,11 @@ export default function Home() {
           <div
             className="card"
             style={{
-              padding: '24px',
-              borderRadius: 22,
+              padding: '20px',
+              borderRadius: 16,
+              background: '#161920',
+              border: '1px solid rgba(255, 255, 255, 0.07)',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
               background: 'var(--surface)',
               backgroundImage: 'var(--grad-glass-surface)',
               backdropFilter: 'var(--glass-blur)',
@@ -1305,7 +1490,7 @@ export default function Home() {
                   style={{
                     fontSize: 12,
                     fontWeight: 700,
-                    color: 'var(--theme-accent, #E8B477)',
+                    color: '#10B981',
                     background: 'none',
                     border: 'none',
                     cursor: 'pointer',
@@ -1363,8 +1548,7 @@ export default function Home() {
                       style={{
                         padding: '10px 14px',
                         borderRadius: 12,
-                        background: isDayToday ? 'var(--theme-accent-light, rgba(232, 180, 119, 0.08))' : 'var(--surface-2)',
-                        border: isDayToday ? '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.45))' : '1px solid transparent',
+                        background: isDayToday ? 'rgba(16, 185, 129, 0.12)' : '#1E2024', border: isDayToday ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.05)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -1374,7 +1558,7 @@ export default function Home() {
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 64 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: isDayToday ? 'var(--theme-accent, #E8B477)' : 'var(--label-2)' }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: isDayToday ? '#10B981' : '#9CA3AF' }}>
                             {dayNameLabel}
                           </span>
                           {isDayToday && (
@@ -1385,8 +1569,7 @@ export default function Home() {
                                 textTransform: 'uppercase',
                                 padding: '2px 5px',
                                 borderRadius: 9999,
-                                background: 'var(--theme-accent, #E8B477)',
-                                color: '#12100E'
+                                background: '#10B981', color: '#0F1115'
                               }}
                             >
                               {t('Today')}
@@ -1410,13 +1593,16 @@ export default function Home() {
         </WidgetBoundary>
       </div>
 
-      {/* 7b. Horizontal Statistics Overview Strip Card */}
+      {/* 7b. Horizontal Statistics Overview Strip Card (Google Stitch Design Transfer) */}
       <WidgetBoundary title={t('Statistics')}>
         <div
           className="card"
           style={{
-            padding: '20px 26px',
-            borderRadius: 22,
+            padding: '20px 24px',
+            borderRadius: 16,
+            background: '#161920',
+            border: '1px solid rgba(255, 255, 255, 0.07)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
             background: 'var(--surface)',
             backgroundImage: 'var(--grad-glass-surface)',
             backdropFilter: 'var(--glass-blur)',
@@ -1441,9 +1627,7 @@ export default function Home() {
                   width: 46,
                   height: 46,
                   borderRadius: 14,
-                  background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.12))',
-                  border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.25))',
-                  color: 'var(--theme-accent, #E8B477)',
+                  background: '#1E2024', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1476,9 +1660,7 @@ export default function Home() {
                   width: 46,
                   height: 46,
                   borderRadius: 14,
-                  background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.12))',
-                  border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.25))',
-                  color: 'var(--theme-accent, #E8B477)',
+                  background: '#1E2024', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1494,7 +1676,7 @@ export default function Home() {
                 <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 2 }}>{t('Daily Target')}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
                   <div style={{ flex: 1, height: 5, borderRadius: 9999, background: 'var(--surface-3)', overflow: 'hidden' }}>
-                    <div style={{ width: `${caloriePct}%`, height: '100%', background: 'var(--theme-accent, #E8B477)', borderRadius: 9999 }} />
+                    <div style={{ width: `${caloriePct}%`, height: '100%', background: '#10B981', borderRadius: 9999 }} />
                   </div>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--label-2)' }}>{caloriePct}%</span>
                 </div>
@@ -1508,9 +1690,7 @@ export default function Home() {
                   width: 46,
                   height: 46,
                   borderRadius: 14,
-                  background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.12))',
-                  border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.25))',
-                  color: 'var(--theme-accent, #E8B477)',
+                  background: '#1E2024', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1525,7 +1705,7 @@ export default function Home() {
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 2 }}>{t('Workouts')}</div>
                 <div style={{ marginTop: 4, height: 5, borderRadius: 9999, background: 'var(--surface-3)', overflow: 'hidden' }}>
-                  <div style={{ width: `${Math.min(100, Math.round((wThisWeek / (plannedPerWeek || 5)) * 100))}%`, height: '100%', background: 'var(--theme-accent, #E8B477)', borderRadius: 9999 }} />
+                  <div style={{ width: `${Math.min(100, Math.round((wThisWeek / (plannedPerWeek || 5)) * 100))}%`, height: '100%', background: '#10B981', borderRadius: 9999 }} />
                 </div>
               </div>
             </div>
@@ -1537,9 +1717,7 @@ export default function Home() {
                   width: 46,
                   height: 46,
                   borderRadius: 14,
-                  background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.12))',
-                  border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.25))',
-                  color: 'var(--theme-accent, #E8B477)',
+                  background: '#1E2024', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',

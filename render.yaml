@@ -1,7 +1,7 @@
 services:
   # OpenGym Backend API Service (Node.js Web Service on Free Tier)
   - type: web
-    name: opengym-backend
+    name: ironx-backend
     runtime: node
     plan: free
     region: oregon

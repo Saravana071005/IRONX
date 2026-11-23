@@ -2,6 +2,24 @@
 // Centralized theme presets, color ramps, ambient glow palettes, and DOM binder
 
 export const THEME_PRESETS = {
+  'apex-athletic-dark': {
+    id: 'apex-athletic-dark',
+    name: 'Apex Athletic Dark',
+    label: 'Apex Athletic Dark',
+    description: 'Electric emerald and deep graphite obsidian (Stitch Default)',
+    primary: '#10B981',
+    secondary: '#34D399',
+    highlight: '#68DBA9',
+    dark: '#059669',
+    rgb: '16, 185, 129',
+    bg: '#0F1115',
+    glow1: '#10B981',
+    glow2: '#34D399',
+    glow3: '#059669',
+    glow4: '#68DBA9',
+    heroGradient: 'linear-gradient(135deg, #34D399 0%, #10B981 50%, #059669 100%)',
+    surfaceTint: 'rgba(22, 25, 32, 0.85)'
+  },
   'warm-gold': {
     id: 'warm-gold',
     name: 'Warm Gold',
@@ -231,17 +249,33 @@ export function applyThemeToDocument(S = {}) {
     de.style.setProperty('--gold-glow', `rgba(${preset.rgb}, ${0.18 * glowInt})`)
   } else {
     // ---------------- Dark Mode Surfaces & Hierarchy ----------------
-    de.style.setProperty('--bg', bgDarkness)
-    de.style.setProperty('--bg-el', '#151210')
-    de.style.setProperty('--surface', `rgba(20, 20, 22, ${glassOpacity})`)
-    de.style.setProperty('--surface-2', `rgba(26, 26, 30, ${glassOpacity})`)
-    de.style.setProperty('--surface-3', `rgba(34, 34, 40, ${glassOpacity})`)
+    de.style.setProperty('--bg', preset.id === 'apex-athletic-dark' ? '#0F1115' : bgDarkness)
+    de.style.setProperty('--bg-el', preset.id === 'apex-athletic-dark' ? '#161920' : '#151210')
+    de.style.setProperty('--surface', preset.id === 'apex-athletic-dark' ? '#161920' : `rgba(20, 20, 22, ${glassOpacity})`)
+    de.style.setProperty('--surface-2', preset.id === 'apex-athletic-dark' ? '#1E2024' : `rgba(26, 26, 30, ${glassOpacity})`)
+    de.style.setProperty('--surface-3', preset.id === 'apex-athletic-dark' ? '#282A2E' : `rgba(34, 34, 40, ${glassOpacity})`)
 
     // Text Hierarchy (Warm white to smoky grey)
-    de.style.setProperty('--label', '#F5F1EB')
-    de.style.setProperty('--label-2', '#A9A19A')
-    de.style.setProperty('--label-3', '#716B64')
-    de.style.setProperty('--label-4', 'rgba(169, 161, 154, 0.22)')
+    de.style.setProperty('--label', preset.id === 'apex-athletic-dark' ? '#F9FAFB' : '#F5F1EB')
+    de.style.setProperty('--label-2', preset.id === 'apex-athletic-dark' ? '#E5E7EB' : '#A9A19A')
+    de.style.setProperty('--label-3', preset.id === 'apex-athletic-dark' ? '#9CA3AF' : '#716B64')
+    de.style.setProperty('--label-4', preset.id === 'apex-athletic-dark' ? '#4B5563' : 'rgba(169, 161, 154, 0.22)')
+
+    // Stitch Design Surfaces & Palette
+    de.style.setProperty('--surface-base', '#0F1115')
+    de.style.setProperty('--surface-raised', '#161920')
+    de.style.setProperty('--surface-container', '#1E2024')
+    de.style.setProperty('--surface-container-high', '#282A2E')
+    de.style.setProperty('--surface-elevated', '#282A2E')
+    de.style.setProperty('--surface-overlay', '#1E232E')
+    de.style.setProperty('--primary-emerald', '#10B981')
+    de.style.setProperty('--secondary-emerald', '#34D399')
+    de.style.setProperty('--tertiary-emerald', '#059669')
+    de.style.setProperty('--brand-gold', '#E8B477')
+    de.style.setProperty('--text-primary', '#F9FAFB')
+    de.style.setProperty('--text-secondary', '#E5E7EB')
+    de.style.setProperty('--text-muted', '#9CA3AF')
+    de.style.setProperty('--input-bg', '#0B0D10')
 
     // Borders & Glassmorphism
     de.style.setProperty('--sep', `rgba(${preset.rgb}, 0.12)`)

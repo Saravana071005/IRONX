@@ -32,7 +32,7 @@ export const DEF = {
   meals: [],
   workoutTemplates: [],
   cardioLogs: [],
-  bgTheme: 'warm-gold',
+  bgTheme: 'apex-athletic-dark',
   goldShade: '#E8B477',
   bronzeShade: '#C58A53',
   bgDarkness: '#090909',

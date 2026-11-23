@@ -1,20 +1,13 @@
 import React from 'react'
 
 /**
- * Official IRON HOUSE Logo Symbol Component
- * - Single official website logo: Glowing Orange Arc Reactor Emblem
- * - Exact supplied artwork preserved (original orange color, circular proportions)
- * - Displayed cleanly against black background
- * - STRICT RULES:
- *   - NO CSS glow
- *   - NO drop-shadow
- *   - NO gradient
- *   - NO borders or box-shadow
- *   - NO extra graphics or modifications
+ * Official IRONX Logo Component
+ * - Displays the official transparent brand logo (ironx-logo.png)
+ * - Transparent background, zero glow, no drop-shadow, no border
  */
 export default function IronHouseLogo({
   size = 'md',
-  variant = 'transparent', // 'transparent' | 'black'
+  variant = 'transparent',
   className = '',
   style = {}
 }) {
@@ -27,11 +20,11 @@ export default function IronHouseLogo({
   }
 
   const h = typeof size === 'number' ? size : heights[size] || heights.md
-  const logoSrc = variant === 'black' ? '/iron-house-logo-black.png?v=3' : '/iron-house-logo.png?v=3'
+  const logoSrc = '/ironx-logo.png?v=4'
 
   return (
     <span
-      className={`iron-house-logo ${className}`}
+      className={`ironx-logo iron-house-logo ${className}`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -45,26 +38,27 @@ export default function IronHouseLogo({
         ...style
       }}
       role="img"
-      aria-label="IRON HOUSE"
+      aria-label="IRONX"
     >
       <img
         src={logoSrc}
-        alt="IRON HOUSE"
+        alt="IRONX"
         style={{
           height: `${h}px`,
-          width: `${h}px`,
+          width: 'auto',
           maxWidth: '100%',
-          aspectRatio: '1 / 1',
           display: 'block',
           objectFit: 'contain',
           background: 'transparent',
-          border: 'none',
-          boxShadow: 'none',
           filter: 'none',
-          userSelect: 'none',
-          pointerEvents: 'none'
+          boxShadow: 'none',
+          border: 'none'
         }}
+        loading="eager"
+        decoding="async"
       />
     </span>
   )
 }
+
+export { IronHouseLogo as IronXLogo }

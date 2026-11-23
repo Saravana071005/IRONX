@@ -134,7 +134,7 @@ function Shell() {
               </button>
               <div className="mobile-header-brand" onClick={() => navigate('/home')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', background: 'transparent', border: 'none', boxShadow: 'none' }}>
                 <IronHouseLogo size={28} />
-                <span className="sidebar-brand-title" style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '0.04em', color: 'var(--label)' }}>IRON HOUSE</span>
+                <span className="sidebar-brand-title" style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '0.04em', color: 'var(--label)' }}>IRONX</span>
               </div>
               <div className="mobile-header-actions">
                 {S.active ? (

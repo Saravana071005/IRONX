@@ -105,12 +105,12 @@ export default function Sidebar({ onStart, mobileOpen = false, onClose }) {
           <div
             className="sidebar-brand"
             onClick={() => handleNav('/home')}
-            title="IRON HOUSE Home"
+            title="IRONX Home"
           >
             <IronHouseLogo size={collapsed ? 32 : 36} />
             {!collapsed && (
               <div className="sidebar-brand-text">
-                <span className="sidebar-brand-title">IRON HOUSE</span>
+                <span className="sidebar-brand-title">IRONX</span>
               </div>
             )}
           </div>

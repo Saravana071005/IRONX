@@ -1,13 +1,13 @@
 {
-  "name": "IRON HOUSE",
-  "short_name": "IRON HOUSE",
-  "description": "IRON HOUSE – Elite Strength, Conditioning & Health Intelligence",
+  "name": "IRONX",
+  "short_name": "IRONX",
+  "description": "IRONX – Elite Strength, Conditioning & Health Intelligence",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#0F1115",
+  "theme_color": "#0F1115",
   "icons": [
     { "src": "favicon-48x48.png", "sizes": "48x48", "type": "image/png", "purpose": "any" },
     { "src": "favicon-96x96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
