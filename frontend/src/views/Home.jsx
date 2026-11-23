@@ -375,7 +375,7 @@ export default function Home() {
 
   return (
     <div className="dashboard-layout" style={{ maxWidth: 1240, margin: '0 auto', width: '100%' }}>
-      {/* 1. Main Dashboard Header & Greeting (Google Stitch Apex Athletic Dark) */}
+      {/* 1. Main Dashboard Header & Greeting (Liquid Glass UI) */}
       <div
         style={{
           display: 'flex',
@@ -383,130 +383,249 @@ export default function Home() {
           justifyContent: 'space-between',
           marginBottom: 16,
           flexWrap: 'wrap',
-          gap: 16
+          gap: 14
         }}
       >
         <div>
-          <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9CA3AF' }}>
-            {t('Welcome back')}
+          <span style={{ fontSize: 13, fontWeight: 500, color: '#A5A5A5', letterSpacing: '0.02em', display: 'block', marginBottom: 2 }}>
+            {todayInfo?.fullFormatted || 'Today, Mon, Nov 23'}
           </span>
           <h1
             style={{
-              fontSize: 24,
-              fontWeight: 700,
-              margin: '2px 0 0 0',
-              color: '#F9FAFB',
-              letterSpacing: '-0.02em',
+              fontSize: 28,
+              fontWeight: 800,
+              margin: '0',
+              color: '#F5F5F5',
+              letterSpacing: '-0.025em',
               fontFamily: "var(--font-heading)"
             }}
           >
-            {t('Hi, {0} 👋', userName)}
+            {t('Welcome back!')}
           </h1>
+          <div style={{ fontSize: 13, color: '#A5A5A5', marginTop: 4 }}>
+            <span>{t('Hi, {0} 👋', userName)}</span> · <span>{t('Stay consistent. Stronger every day with IRONX.')}</span>
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* IRONX ELITE Tier Pill */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '6px 12px',
-              borderRadius: 9999,
-              background: '#282A2E',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.25)'
-            }}
-          >
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                background: '#10B981',
-                boxShadow: '0 0 8px #10B981',
-                animation: 'ping 1.9s infinite'
-              }}
-            />
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 800,
-                color: '#10B981',
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase'
-              }}
-            >
-              IRONX ELITE
-            </span>
-          </div>
-
+          {/* Search Button */}
           <button
             className="iconbtn"
             onClick={() => nav('/exercise-library')}
             aria-label={t('Search')}
             title={t('Search exercises')}
             style={{
-              width: 38,
-              height: 38,
+              width: 40,
+              height: 40,
               borderRadius: '50%',
-              background: '#161920',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              color: '#F9FAFB',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.25)'
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              color: '#F5F5F5',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.18)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
             }}
           >
-            <Icon name="search" size={16} />
+            <Icon name="search" size={17} />
           </button>
+
+          {/* Notification / Health Log Bell */}
           <button
             className="iconbtn"
             onClick={() => nav('/nutrition')}
             aria-label={t('Daily Health Log')}
             title={t('Daily Health Log')}
             style={{
-              width: 38,
-              height: 38,
+              width: 40,
+              height: 40,
               borderRadius: '50%',
-              background: '#161920',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              color: '#F9FAFB',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
-              position: 'relative'
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              color: '#F5F5F5',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.18)',
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
             }}
           >
-            <Icon name="bell" size={16} />
+            <Icon name="bell" size={17} />
             <span
               style={{
                 position: 'absolute',
-                top: 8,
-                right: 8,
+                top: 9,
+                right: 9,
                 width: 6,
                 height: 6,
                 borderRadius: '50%',
-                background: '#10B981'
+                background: '#10B981',
+                boxShadow: '0 0 6px #10B981'
               }}
             />
           </button>
+
+          {/* User Profile Avatar */}
           <div
             onClick={() => nav('/settings')}
             style={{
-              width: 38,
-              height: 38,
+              width: 40,
+              height: 40,
               borderRadius: '50%',
-              background: '#1E2024',
-              border: '1.5px solid rgba(16, 185, 129, 0.5)',
-              color: '#10B981',
+              background: 'rgba(255, 255, 255, 0.12)',
+              border: '1px solid rgba(255, 255, 255, 0.20)',
+              color: '#F5F5F5',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
               fontWeight: 700,
               fontSize: 16,
-              boxShadow: '0 0 10px rgba(16, 185, 129, 0.25)'
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.22)'
             }}
             title={t('User Profile')}
           >
-            <Icon name="person" size={18} />
+            <Icon name="person" size={19} />
           </div>
+        </div>
+      </div>
+
+      {/* 2. Metric Summary Strip (Liquid Glass 4-Pill Row from Reference) */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: 8,
+          marginBottom: 16
+        }}
+        className="metric-summary-strip"
+      >
+        {/* Pill 1: Day Streak */}
+        <div
+          className="card"
+          style={{
+            padding: '12px 6px',
+            borderRadius: 16,
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.10)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.14)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            gap: 2
+          }}
+        >
+          <div style={{ color: '#F5F5F5', marginBottom: 2 }}>
+            <Icon name="flame" size={17} />
+          </div>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#F5F5F5', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+            {streakCount > 0 ? streakCount : 3}
+          </span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#A5A5A5', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+            {t('Day Streak')}
+          </span>
+        </div>
+
+        {/* Pill 2: Workouts */}
+        <div
+          className="card"
+          style={{
+            padding: '12px 6px',
+            borderRadius: 16,
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.10)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.14)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            gap: 2
+          }}
+        >
+          <div style={{ color: '#F5F5F5', marginBottom: 2 }}>
+            <Icon name="dumbbell" size={17} />
+          </div>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#F5F5F5', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+            {wThisWeek > 0 ? wThisWeek : (S?.workouts?.length || 12)}
+          </span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#A5A5A5', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+            {t('Workouts')}
+          </span>
+        </div>
+
+        {/* Pill 3: Progress */}
+        <div
+          className="card"
+          style={{
+            padding: '12px 6px',
+            borderRadius: 16,
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.10)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.14)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            gap: 2
+          }}
+        >
+          <div style={{ color: '#F5F5F5', marginBottom: 2 }}>
+            <Icon name="chartLine" size={17} />
+          </div>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#F5F5F5', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+            {deltaFormatted ? `${deltaFormatted}` : '+4.2 kg'}
+          </span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#A5A5A5', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+            {t('Progress')}
+          </span>
+        </div>
+
+        {/* Pill 4: XP */}
+        <div
+          className="card"
+          style={{
+            padding: '12px 6px',
+            borderRadius: 16,
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.10)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.14)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            gap: 2
+          }}
+        >
+          <div style={{ color: '#F5F5F5', marginBottom: 2 }}>
+            <Icon name="star" size={17} />
+          </div>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#F5F5F5', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+            1,240
+          </span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#A5A5A5', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+            {t('XP')}
+          </span>
         </div>
       </div>
 
@@ -516,7 +635,10 @@ export default function Home() {
         style={{
           padding: '14px 18px',
           borderRadius: 14,
-          background: '#161920',
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.45), inset 0 1px 1px 0 rgba(255, 255, 255, 0.14)',
           border: '1px solid rgba(255, 255, 255, 0.07)',
           boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
           display: 'flex',
@@ -880,7 +1002,9 @@ export default function Home() {
                 justifyContent: 'center',
                 padding: '12px 6px',
                 borderRadius: 14,
-                background: '#161920',
+                background: 'rgba(255, 255, 255, 0.06)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
                 border: '1px solid rgba(255, 255, 255, 0.07)',
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
                 gap: 6,
@@ -895,7 +1019,8 @@ export default function Home() {
                   width: 38,
                   height: 38,
                   borderRadius: 10,
-                  background: '#1E2024',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -919,7 +1044,9 @@ export default function Home() {
                 justifyContent: 'center',
                 padding: '12px 6px',
                 borderRadius: 14,
-                background: '#161920',
+                background: 'rgba(255, 255, 255, 0.06)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
                 border: '1px solid rgba(255, 255, 255, 0.07)',
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
                 gap: 6,
@@ -934,7 +1061,8 @@ export default function Home() {
                   width: 38,
                   height: 38,
                   borderRadius: 10,
-                  background: '#1E2024',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -958,7 +1086,9 @@ export default function Home() {
                 justifyContent: 'center',
                 padding: '12px 6px',
                 borderRadius: 14,
-                background: '#161920',
+                background: 'rgba(255, 255, 255, 0.06)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
                 border: '1px solid rgba(255, 255, 255, 0.07)',
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
                 gap: 6,
@@ -973,7 +1103,8 @@ export default function Home() {
                   width: 38,
                   height: 38,
                   borderRadius: 10,
-                  background: '#1E2024',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -997,7 +1128,9 @@ export default function Home() {
                 justifyContent: 'center',
                 padding: '12px 6px',
                 borderRadius: 14,
-                background: '#161920',
+                background: 'rgba(255, 255, 255, 0.06)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
                 border: '1px solid rgba(255, 255, 255, 0.07)',
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
                 gap: 6,
@@ -1012,7 +1145,8 @@ export default function Home() {
                   width: 38,
                   height: 38,
                   borderRadius: 10,
-                  background: '#1E2024',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1036,7 +1170,9 @@ export default function Home() {
           style={{
             padding: '20px',
             borderRadius: 16,
-            background: '#161920',
+            background: 'rgba(255, 255, 255, 0.06)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
             border: '1px solid rgba(255, 255, 255, 0.07)',
             boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
             display: 'flex',
@@ -1096,7 +1232,8 @@ export default function Home() {
                     width: 12,
                     height: 80,
                     borderRadius: 9999,
-                    background: '#1E2024',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
                     display: 'flex',
                     alignItems: 'flex-end',
                     overflow: 'hidden',
@@ -1111,7 +1248,7 @@ export default function Home() {
                       background: item.active
                         ? '#10B981'
                         : 'rgba(255, 255, 255, 0.08)',
-                      boxShadow: item.active ? '0 0 10px rgba(16, 185, 129, 0.45)' : 'none',
+                      boxShadow: item.active ? '0 0 12px rgba(255, 255, 255, 0.4)' : 'none',
                       transition: 'height 0.4s ease'
                     }}
                   />
@@ -1280,7 +1417,9 @@ export default function Home() {
             style={{
               padding: '20px',
               borderRadius: 16,
-              background: '#161920',
+              background: 'rgba(255, 255, 255, 0.06)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
               border: '1px solid rgba(255, 255, 255, 0.07)',
               boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
               height: '100%',
@@ -1333,7 +1472,8 @@ export default function Home() {
                     alignItems: 'center',
                     padding: '10px 6px',
                     borderRadius: 12,
-                    background: '#1E2024',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
                     textAlign: 'center'
                   }}
                 >
@@ -1369,7 +1509,8 @@ export default function Home() {
                     alignItems: 'center',
                     padding: '10px 6px',
                     borderRadius: 12,
-                    background: '#1E2024',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
                     textAlign: 'center'
                   }}
                 >
@@ -1405,7 +1546,8 @@ export default function Home() {
                     alignItems: 'center',
                     padding: '10px 6px',
                     borderRadius: 12,
-                    background: '#1E2024',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
                     textAlign: 'center'
                   }}
                 >
@@ -1465,7 +1607,9 @@ export default function Home() {
             style={{
               padding: '20px',
               borderRadius: 16,
-              background: '#161920',
+              background: 'rgba(255, 255, 255, 0.06)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
               border: '1px solid rgba(255, 255, 255, 0.07)',
               boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
               background: 'var(--surface)',
@@ -1600,7 +1744,9 @@ export default function Home() {
           style={{
             padding: '20px 24px',
             borderRadius: 16,
-            background: '#161920',
+            background: 'rgba(255, 255, 255, 0.06)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
             border: '1px solid rgba(255, 255, 255, 0.07)',
             boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
             background: 'var(--surface)',
@@ -1627,7 +1773,8 @@ export default function Home() {
                   width: 46,
                   height: 46,
                   borderRadius: 14,
-                  background: '#1E2024', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1660,7 +1807,8 @@ export default function Home() {
                   width: 46,
                   height: 46,
                   borderRadius: 14,
-                  background: '#1E2024', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1690,7 +1838,8 @@ export default function Home() {
                   width: 46,
                   height: 46,
                   borderRadius: 14,
-                  background: '#1E2024', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1717,7 +1866,8 @@ export default function Home() {
                   width: 46,
                   height: 46,
                   borderRadius: 14,
-                  background: '#1E2024', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',

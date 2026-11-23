@@ -2,6 +2,24 @@
 // Centralized theme presets, color ramps, ambient glow palettes, and DOM binder
 
 export const THEME_PRESETS = {
+  'liquid-glass': {
+    id: 'liquid-glass',
+    name: 'Liquid Glass Dark',
+    label: 'Liquid Glass Dark',
+    description: 'Deep black background with frosted liquid-glass panels and monochrome elegance',
+    primary: '#F5F5F5',
+    secondary: '#A5A5A5',
+    highlight: '#FFFFFF',
+    dark: '#737373',
+    rgb: '245, 245, 245',
+    bg: '#050505',
+    glow1: 'rgba(255, 255, 255, 0.04)',
+    glow2: 'rgba(255, 255, 255, 0.02)',
+    glow3: 'rgba(20, 22, 28, 0.03)',
+    glow4: 'rgba(255, 255, 255, 0.03)',
+    heroGradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.04) 100%)',
+    surfaceTint: 'rgba(255, 255, 255, 0.07)'
+  },
   'apex-athletic-dark': {
     id: 'apex-athletic-dark',
     name: 'Apex Athletic Dark',
@@ -249,17 +267,25 @@ export function applyThemeToDocument(S = {}) {
     de.style.setProperty('--gold-glow', `rgba(${preset.rgb}, ${0.18 * glowInt})`)
   } else {
     // ---------------- Dark Mode Surfaces & Hierarchy ----------------
-    de.style.setProperty('--bg', preset.id === 'apex-athletic-dark' ? '#0F1115' : bgDarkness)
-    de.style.setProperty('--bg-el', preset.id === 'apex-athletic-dark' ? '#161920' : '#151210')
-    de.style.setProperty('--surface', preset.id === 'apex-athletic-dark' ? '#161920' : `rgba(20, 20, 22, ${glassOpacity})`)
-    de.style.setProperty('--surface-2', preset.id === 'apex-athletic-dark' ? '#1E2024' : `rgba(26, 26, 30, ${glassOpacity})`)
-    de.style.setProperty('--surface-3', preset.id === 'apex-athletic-dark' ? '#282A2E' : `rgba(34, 34, 40, ${glassOpacity})`)
+    const isLiquid = preset.id === 'liquid-glass'
+    const isApex = preset.id === 'apex-athletic-dark'
+    de.style.setProperty('--bg', isLiquid ? '#050505' : (isApex ? '#0F1115' : bgDarkness))
+    de.style.setProperty('--bg-secondary', isLiquid ? '#0A0A0C' : (isApex ? '#161920' : '#151210'))
+    de.style.setProperty('--bg-el', isLiquid ? '#0A0A0C' : (isApex ? '#161920' : '#151210'))
+    de.style.setProperty('--surface', isLiquid ? 'rgba(255, 255, 255, 0.07)' : (isApex ? '#161920' : `rgba(20, 20, 22, ${glassOpacity})`))
+    de.style.setProperty('--surface-2', isLiquid ? 'rgba(255, 255, 255, 0.11)' : (isApex ? '#1E2024' : `rgba(26, 26, 30, ${glassOpacity})`))
+    de.style.setProperty('--surface-3', isLiquid ? 'rgba(255, 255, 255, 0.15)' : (isApex ? '#282A2E' : `rgba(34, 34, 40, ${glassOpacity})`))
 
-    // Text Hierarchy (Warm white to smoky grey)
-    de.style.setProperty('--label', preset.id === 'apex-athletic-dark' ? '#F9FAFB' : '#F5F1EB')
-    de.style.setProperty('--label-2', preset.id === 'apex-athletic-dark' ? '#E5E7EB' : '#A9A19A')
-    de.style.setProperty('--label-3', preset.id === 'apex-athletic-dark' ? '#9CA3AF' : '#716B64')
-    de.style.setProperty('--label-4', preset.id === 'apex-athletic-dark' ? '#4B5563' : 'rgba(169, 161, 154, 0.22)')
+    // Text Hierarchy
+    de.style.setProperty('--label', isLiquid ? '#F5F5F5' : (isApex ? '#F9FAFB' : '#F5F1EB'))
+    de.style.setProperty('--label-2', isLiquid ? '#A5A5A5' : (isApex ? '#E5E7EB' : '#A9A19A'))
+    de.style.setProperty('--label-3', isLiquid ? '#737373' : (isApex ? '#9CA3AF' : '#716B64'))
+    de.style.setProperty('--label-4', isLiquid ? '#525252' : (isApex ? '#4B5563' : 'rgba(169, 161, 154, 0.22)'))
+
+    // Liquid Glass Specification
+    de.style.setProperty('--subtle-accent', '#D9D9D9')
+    de.style.setProperty('--border-glass', isLiquid ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.08)')
+    de.style.setProperty('--border-glass-subtle', isLiquid ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.04)')
 
     // Stitch Design Surfaces & Palette
     de.style.setProperty('--surface-base', '#0F1115')

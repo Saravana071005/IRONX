@@ -41,42 +41,46 @@
   --font-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-sans:    'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-  /* Surfaces — Stitch Apex Athletic Dark Palette */
-  --bg:        #0F1115;
-  --bg-el:     #161920;
-  --surface:   #161920;
-  --surface-2: #1E2024;
-  --surface-3: #282A2E;
-  --surface-base: #0F1115;
-  --surface-raised: #161920;
-  --surface-container: #1E2024;
-  --surface-container-high: #282A2E;
-  --surface-overlay: #1E232E;
+  /* Surfaces — Liquid Glass Dark Palette */
+  --bg:        #050505;
+  --bg-secondary: #0A0A0C;
+  --bg-el:     #0A0A0C;
+  --surface:   rgba(255, 255, 255, 0.07);
+  --surface-2: rgba(255, 255, 255, 0.11);
+  --surface-3: rgba(255, 255, 255, 0.15);
+  --surface-base: #050505;
+  --surface-raised: rgba(255, 255, 255, 0.07);
+  --surface-container: rgba(255, 255, 255, 0.11);
+  --surface-container-high: rgba(255, 255, 255, 0.15);
+  --surface-overlay: rgba(12, 14, 18, 0.88);
 
-  /* Emerald & Energy Accents */
-  --primary:    #10B981;
-  --secondary:  #34D399;
-  --tertiary:   #059669;
+  /* Minimal Monochrome & Accent Hierarchy */
+  --primary:    #F5F5F5;
+  --secondary:  #A5A5A5;
+  --tertiary:   #737373;
+  --subtle-accent: #D9D9D9;
   --brand-gold: #E8B477;
 
-  /* Primary text & secondary text (Stitch Specification) */
-  --label:     #F9FAFB;
-  --label-2:   #E5E7EB;
-  --label-3:   #9CA3AF;
-  --label-4:   #4B5563;
+  /* Primary text & secondary text (Liquid Glass Specification) */
+  --label:     #F5F5F5;
+  --label-2:   #A5A5A5;
+  --label-3:   #737373;
+  --label-4:   #525252;
 
   /* Lines & separators */
-  --sep:       rgba(255, 255, 255, 0.07);
+  --sep:       rgba(255, 255, 255, 0.08);
   --sep-op:    rgba(255, 255, 255, 0.04);
   --hair:      1px;
-  --border-specular: rgba(255, 255, 255, 0.08);
-  --border-gold: rgba(232, 180, 119, 0.20);
-  --border-gold-hover: rgba(232, 180, 119, 0.40);
+  --border-specular: rgba(255, 255, 255, 0.12);
+  --border-gold: rgba(255, 255, 255, 0.12);
+  --border-gold-hover: rgba(255, 255, 255, 0.22);
+  --border-glass: rgba(255, 255, 255, 0.12);
+  --border-glass-subtle: rgba(255, 255, 255, 0.08);
 
-  /* Primary Accent maps to Emerald #10B981 */
+  /* Primary Accent maps to Emerald #10B981 for body fat & active states */
   --acc:        #10B981;
   --acc-2:      #059669;
-  --on-acc:     #0F1115;
+  --on-acc:     #050505;
   --acc-soft:   rgba(16, 185, 129, 0.14);
   --acc-line:   rgba(16, 185, 129, 0.35);
 
@@ -242,7 +246,7 @@ button,.chip,.tile,.item,.wday,.cal-d,.swatch,.hm-c,.lrow,.seg button,.stp butto
   z-index: -1;
   overflow: hidden;
   pointer-events: none;
-  background: var(--bg, #0F1115);
+  background: radial-gradient(circle at 85% 5%, rgba(255, 255, 255, 0.03) 0%, rgba(10, 10, 12, 0.5) 45%, #050505 85%);
 }
 .aurora-glow {
   display: none !important;
@@ -1115,32 +1119,97 @@ h4.sec{
 .btn:disabled{opacity:.35;pointer-events:none}
 
 /* ----------------------------------------------------------- tab bar (Liquid Glass Dock) ----- */
-#tabbar{
-  position:fixed;left:0;right:0;bottom:0;z-index:50;
-  display:flex;justify-content:space-around;align-items:center;
-  padding:8px 8px calc(8px + var(--sab));
-  background:rgba(22, 25, 32, 0.90);
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border-top:1px solid rgba(255, 255, 255, 0.08);
-  box-shadow:0 -4px 20px rgba(0, 0, 0, 0.4);
+#tabbar.liquid-glass-tabbar, #tabbar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(10px + var(--sab, 0px));
+  z-index: 50;
+  width: calc(100% - 20px);
+  max-width: 620px;
+  border-radius: 9999px;
+  background: rgba(10, 10, 12, 0.78);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.16);
+  padding: 5px 6px;
+  overflow: hidden;
 }
-:root[data-theme="light"] #tabbar{
-  background:rgba(255,255,255,.88);
-  border-top:1px solid rgba(0, 0, 0, 0.08);
+:root[data-theme="light"] #tabbar {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
-#tabbar button{
-  flex:1;min-height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-  color:var(--label-3, #9CA3AF);font-size:11px;font-weight:500;letter-spacing:0.01em;
+.tabbar-scroll-track {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  padding: 2px;
+  width: 100%;
+}
+.tabbar-scroll-track::-webkit-scrollbar {
+  display: none;
+}
+.tabbar-scroll-track .tab-btn {
+  flex-shrink: 0;
+  min-width: 68px;
+  min-height: 48px;
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: transparent;
+  border: 1px solid transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: #737373;
+  font-size: 11px;
+  font-weight: 500;
   font-family: var(--font-heading);
-  transition:color var(--fast),transform var(--fast);
-  position:relative;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-#tabbar button .icn{font-size:22px;--icon-stroke:1.75;color:currentColor}
-#tabbar button.on{color:#10B981;font-weight:700}
-#tabbar button.on .icn{--icon-stroke:2.1;transform:scale(1.05);filter:drop-shadow(0 0 8px rgba(78, 222, 163, 0.4))}
-#tabbar button.on::after{
-  content:'';position:absolute;bottom:0px;width:4px;height:4px;border-radius:50%;
-  background:#10B981;box-shadow:0 0 6px #10B981;
+.tabbar-scroll-track .tab-btn:hover {
+  color: #A5A5A5;
+  background: rgba(255, 255, 255, 0.04);
+}
+.tabbar-scroll-track .tab-btn.on,
+.tabbar-scroll-track .tab-btn.active {
+  color: #F5F5F5;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.22), 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.tabbar-scroll-track .tab-btn .tab-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tabbar-scroll-track .tab-btn .icn {
+  font-size: 20px;
+  --icon-stroke: 1.8;
+  color: currentColor;
+  transition: transform 0.2s ease;
+}
+.tabbar-scroll-track .tab-btn.on .icn {
+  --icon-stroke: 2.1;
+  transform: scale(1.06);
+  color: #F5F5F5;
+}
+.tabbar-scroll-track .tab-label {
+  white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 .tab-badge {
   position: absolute;

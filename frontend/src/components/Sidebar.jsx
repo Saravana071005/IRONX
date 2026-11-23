@@ -187,6 +187,17 @@ export default function Sidebar({ onStart, mobileOpen = false, onClose }) {
 
         {/* User profile footer */}
         <div className="sidebar-footer">
+          {!collapsed && (
+            <div style={{ padding: '0 4px 12px 4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, marginBottom: 5 }}>
+                <span style={{ fontWeight: 700, color: 'var(--label)' }}>Level 28</span>
+                <span style={{ color: 'var(--label-3)', fontSize: 10, fontVariantNumeric: 'tabular-nums' }}>XP 7,420 / 8,000</span>
+              </div>
+              <div style={{ height: 4, borderRadius: 9999, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
+                <div style={{ width: '92%', height: '100%', background: 'linear-gradient(90deg, #A5A5A5, #F5F5F5)', borderRadius: 9999 }} />
+              </div>
+            </div>
+          )}
           <div
             className={`sidebar-user-card ${collapsed ? 'icon-only' : ''}`}
             onClick={() => handleNav('/settings')}

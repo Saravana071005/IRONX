@@ -34,7 +34,7 @@ export const DEF = {
   meals: [],
   workoutTemplates: [],
   cardioLogs: [],
-  bgTheme: 'apex-athletic-dark',
+  bgTheme: 'liquid-glass',
   goldShade: '#E8B477',
   bronzeShade: '#C58A53',
   bgDarkness: '#090909',

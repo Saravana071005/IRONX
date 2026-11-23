@@ -1,7 +1,6 @@
+import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
-import { effectiveRoutine } from '../lib/history.js'
-import { todayISO } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import Icon from './Icon.jsx'
 
@@ -11,44 +10,106 @@ export default function TabBar({ onStart }) {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const isGuest = useStore(s => s.isGuest())
+  const scrollRef = useRef(null)
+  const activeBtnRef = useRef(null)
+
   if (!user && !isGuest) return null
 
   const cur = loc.pathname.split('/')[1] || 'home'
-  const isTabActive = k => {
-    if (k === 'home') return cur === 'home'
-    if (k === 'workouts') return cur === 'plan' || cur === 'planner' || cur === 'workout' || cur === 'library' || cur === 'exercise-library'
-    if (k === 'activity') return cur === 'stats' || cur === 'history'
-    if (k === 'nutrition') return cur === 'nutrition'
-    if (k === 'profile') return cur === 'settings' || cur === 'admin' || cur === 'coach'
-    return false
-  }
 
-  const Tab = ({ k, icon, to, label, badge }) => (
-    <button
-      className={isTabActive(k) ? 'on' : ''}
-      onClick={() => nav(to)}
-      aria-label={label}
-      aria-current={isTabActive(k) ? 'page' : undefined}
-    >
-      <Icon name={icon} />
-      <span>{label}</span>
-      {badge && <span className="tab-badge" />}
-    </button>
-  )
+  // The 7 official destinations as specified in Section 6
+  const destinations = [
+    {
+      id: 'home',
+      label: t('Home'),
+      icon: 'house',
+      to: '/home',
+      active: cur === 'home' || cur === ''
+    },
+    {
+      id: 'weekly',
+      label: t('Weekly'),
+      icon: 'calendar',
+      to: '/planner',
+      active: cur === 'planner'
+    },
+    {
+      id: 'exercises',
+      label: t('Exercise Library'),
+      icon: 'book',
+      to: '/exercise-library',
+      active: cur === 'exercise-library' || cur === 'library'
+    },
+    {
+      id: 'workout',
+      label: t('Workout'),
+      icon: 'dumbbell',
+      to: '/workout',
+      active: cur === 'workout' || cur === 'plan',
+      badge: !!S?.active
+    },
+    {
+      id: 'health',
+      label: t('Health Logs'),
+      icon: 'nutrition',
+      to: '/nutrition',
+      active: cur === 'nutrition'
+    },
+    {
+      id: 'stats',
+      label: t('Stats'),
+      icon: 'chart',
+      to: '/stats',
+      active: cur === 'stats'
+    },
+    {
+      id: 'history',
+      label: t('History'),
+      icon: 'history',
+      to: '/history',
+      active: cur === 'history'
+    }
+  ]
+
+  // Automatically scroll the active tab smoothly into view when active tab changes
+  useEffect(() => {
+    if (activeBtnRef.current && scrollRef.current) {
+      activeBtnRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center'
+      })
+    }
+  }, [cur])
 
   return (
-    <nav id="tabbar" role="navigation" aria-label="Main Navigation">
-      <Tab k="home" icon="house" to="/home" label={t('Home')} />
-      <Tab
-        k="workouts"
-        icon={S.active ? 'play' : 'calendar'}
-        to={S.active ? '/workout' : '/planner'}
-        label={S.active ? t('Resume') : t('Planner')}
-        badge={!!S.active}
-      />
-      <Tab k="activity" icon="chart" to="/stats" label={t('Activity')} />
-      <Tab k="nutrition" icon="nutrition" to="/nutrition" label={t('Health Log')} />
-      <Tab k="profile" icon="person" to="/settings" label={t('Profile')} />
+    <nav
+      id="tabbar"
+      className="liquid-glass-tabbar"
+      role="navigation"
+      aria-label="Main Navigation"
+    >
+      <div className="tabbar-scroll-track" ref={scrollRef}>
+        {destinations.map(dest => {
+          const isActive = dest.active
+          return (
+            <button
+              key={dest.id}
+              ref={isActive ? activeBtnRef : null}
+              className={`tab-btn ${isActive ? 'on active' : ''}`}
+              onClick={() => nav(dest.to)}
+              aria-label={dest.label}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <div className="tab-icon-wrap">
+                <Icon name={dest.icon} />
+                {dest.badge && <span className="tab-badge" />}
+              </div>
+              <span className="tab-label">{dest.label}</span>
+            </button>
+          )
+        })}
+      </div>
     </nav>
   )
 }

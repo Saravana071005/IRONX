@@ -35,6 +35,7 @@ const P = {
   clock: <><circle cx="12" cy="12" r="8.2" /><path d="M12 7.4V12l3.1 1.9" /></>,
   nutrition: <><path d="M4 11a8 8 0 0 0 16 0H4Z" /><path d="M12 19v2.5M7 21.5h10" /><path d="M12 4v4M9 6l3-2 3 2" /></>,
   apple: <><path d="M12 20.9c3.8 0 7-3.1 7-7 0-3.6-2.5-6.6-6-7.3V3.5h-2v3.1C7.5 7.3 5 10.3 5 13.9c0 3.9 3.2 7 7 7Z" /></>,
+  book: <><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" /><path d="M6 2v20" /></>,
 
   /* ---- status / achievement ---- */
   trophy: <><path d="M7.6 4h8.8v4.6a4.4 4.4 0 0 1-8.8 0Z" /><path d="M7.6 5.6H4.9v1.5a3 3 0 0 0 2.9 3M16.4 5.6h2.7v1.5a3 3 0 0 1-2.9 3M12 13v3.4M8.6 20.4h6.8l-.7-4H9.3Z" /></>,
@@ -129,6 +130,7 @@ const P = {
 P.search = P.magnifier
 P.settings = P.gear
 P.exercises = P.magnifier
+P.library = P.book
 P.weight = P.scale
 P.streak = P.flame
 P.done = P.check
