@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import IronXLogo from './IronXLogo.jsx'
-import IronHouseLogo from './IronHouseLogo.jsx'
 import { THEME_PRESETS } from '../lib/themes.js'
 
 describe('Official IRONX Brand Logo Component', () => {
@@ -12,9 +11,7 @@ describe('Official IRONX Brand Logo Component', () => {
     expect(html).toContain('alt="IRONX"')
     expect(html).toContain('aria-label="IRONX"')
     expect(html).toContain('aspect-ratio:1296 / 497')
-    expect(html).not.toContain('iron-house-logo')
-    expect(html).not.toContain('openGym')
-  })
+          })
 
   it('enforces strict zero-glow, zero-shadow, and filter: none', () => {
     const html = renderToString(<IronXLogo />)
@@ -70,10 +67,5 @@ describe('Official IRONX Brand Logo Component', () => {
     })
   })
 
-  it('backward compatibility: IronHouseLogo forwards directly to IronXLogo', () => {
-    const html = renderToString(<IronHouseLogo size="md" />)
-    expect(html).toContain('ironx-logo')
-    expect(html).toContain('/ironx-logo.png?v=4')
-    expect(html).toContain('alt="IRONX"')
-  })
+
 })

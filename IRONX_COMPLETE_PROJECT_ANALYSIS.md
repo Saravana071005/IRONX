@@ -1,9 +1,9 @@
-# OPEN GYM — COMPLETE PROJECT UNDERSTANDING & CODEBASE ANALYSIS
+# IRONX — COMPLETE PROJECT UNDERSTANDING & CODEBASE ANALYSIS
 
 **Document:** Complete Technical Architecture & Codebase Analysis Report  
-**Project Path:** `c:\Users\Admin\.gemini\antigravity-ide\scratch\opengym`  
-**Git Repository Origin:** `https://github.com/Saravana071005/Open-Gym.git`  
-**Git Upstream Remote:** `https://github.com/alexpcosta/opengym.git`  
+**Project Path:** `c:\Users\Admin\.gemini\antigravity-ide\scratch\IRONX`  
+**Git Repository Origin:** `https://github.com/Saravana071005/ironx.git`  
+**Git Upstream Remote:** `https://github.com/alexpcosta/IRONX.git`  
 **Current Branch:** `main` (Clean working tree, up to date with `origin/main`)  
 **Application Version:** `1.2.3`  
 **Analysis Date:** November 13, 2026  
@@ -13,7 +13,7 @@
 
 ## 1. Project Overview
 
-**OpenGym** is a privacy-first, open-source, mobile-ready progressive overload gym tracker and comprehensive daily health application. It is engineered with a strict local-first philosophy, offline capabilities, hardware-backed biometric passkey authentication (WebAuthn), deterministic progressive overload calculation, Indian & global nutrition intelligence, water and cardiovascular tracking, PDF reporting, and local-agent-driven AI Coaching.
+**IRONX** is a privacy-first, open-source, mobile-ready progressive overload gym tracker and comprehensive daily health application. It is engineered with a strict local-first philosophy, offline capabilities, hardware-backed biometric passkey authentication (WebAuthn), deterministic progressive overload calculation, Indian & global nutrition intelligence, water and cardiovascular tracking, PDF reporting, and local-agent-driven AI Coaching.
 
 ### Core Paradigms & Architectural Highlights
 1. **Local-First & Multi-Runtime Execution:**
@@ -33,7 +33,7 @@
 ## 2. Complete Folder Structure
 
 ```
-opengym/
+IRONX/
 ├── .dockerignore
 ├── .env                              # Local environment configuration
 ├── .env.example                      # Template documentation for environment variables
@@ -45,7 +45,7 @@ opengym/
 ├── docker-compose.yml                # Multi-container orchestration (media, api, web)
 ├── LICENSE                           # AGPL-3.0 License
 ├── NOTICE.md
-├── openGym_AI_Strategy.pdf           # Strategic design & architecture document
+├── IRONX_AI_Strategy.pdf           # Strategic design & architecture document
 ├── package.json                      # Root workspace & backend dependencies
 ├── README.md                         # Comprehensive project documentation
 ├── SECURITY.md                       # Security policies & vulnerability reporting
@@ -299,8 +299,8 @@ opengym/
 ## 4. Frontend Architecture
 
 ### Entry Point & Component Bootstrap
-- **Entry Point:** [`frontend/src/main.jsx`](file:///c:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/main.jsx) mounts `App` into `document.getElementById('root')`.
-- **Root Shell:** [`frontend/src/App.jsx`](file:///c:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/App.jsx) establishes:
+- **Entry Point:** [`frontend/src/main.jsx`](file:///c:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/main.jsx) mounts `App` into `document.getElementById('root')`.
+- **Root Shell:** [`frontend/src/App.jsx`](file:///c:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/App.jsx) establishes:
   1. `<HashRouter>`: Ensures routes function smoothly across static GitHub Pages, Capacitor webviews, and standard web servers without deep-linking rewrite failures.
   2. `useStore.boot()`: Fires on initial mount. Determines environment (Native Mobile vs. Static Demo vs. Self-Hosted Serverless), fetches `/api/config`, checks authentication via `/api/me`, and pulls state via `/api/data`.
   3. Visual System & Themes: Binds theme (`dark` / `light`) and accent color (`mint`, `coral`, `indigo`, `teal`, etc.) to `document.documentElement.dataset`.
@@ -429,7 +429,7 @@ The backend does not use Express, Fastify, or Koa. It implements a native reques
 - Reads `process.env.MONGODB_URI`.
 - Implements a connection cache on `global._mongoClientPromise` to prevent connection leaks across serverless function re-invocations on Vercel.
 - Connection Pool Configuration: `maxPoolSize: 10`, `serverSelectionTimeoutMS: 5000`, `connectTimeoutMS: 10000`.
-- Database Name: Derived from `process.env.MONGODB_DB || 'opengym'`.
+- Database Name: Derived from `process.env.MONGODB_DB || 'IRONX'`.
 - Connectivity verification: `pingMongo()` executes an admin command `{ ping: 1 }` surfaced through `/api/health`.
 
 ### Collections and Schemas
@@ -504,7 +504,7 @@ The backend does not use Express, Fastify, or Koa. It implements a native reques
 
 ## 8. Authentication & Passkey Implementation
 
-OpenGym implements WebAuthn / FIDO2 authentication via `@simplewebauthn/server` and browser `navigator.credentials`. Passkeys are bound to the domain hostname (`RP_ID`).
+IRONX implements WebAuthn / FIDO2 authentication via `@simplewebauthn/server` and browser `navigator.credentials`. Passkeys are bound to the domain hostname (`RP_ID`).
 
 ```mermaid
 sequenceDiagram
@@ -542,7 +542,7 @@ sequenceDiagram
 ## 9. Feature-by-Feature Deep Dive & Data Flows
 
 ### A. Workout Tracking & Progression
-- **Frontend Components:** [`views/Workout.jsx`](file:///c:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/views/Workout.jsx), `ExerciseBlock`, `RestTimer.jsx`, `Media.jsx`.
+- **Frontend Components:** [`views/Workout.jsx`](file:///c:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/views/Workout.jsx), `ExerciseBlock`, `RestTimer.jsx`, `Media.jsx`.
 - **Data Flow:**
   1. Lifter taps "Start Routine" or "Freestyle".
   2. `startFlow(routineId)` loads target loads from previous session history (`lastEntryFor`) or baseline weights.
@@ -556,7 +556,7 @@ sequenceDiagram
   6. `finishWorkout()` clears `S.active`, saves to `localStorage`, and triggers debounced `pushState()` to `/api/data`.
 
 ### B. Food & Daily Health Logging
-- **Frontend Components:** [`views/Nutrition.jsx`](file:///c:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/views/Nutrition.jsx), `MealSection`.
+- **Frontend Components:** [`views/Nutrition.jsx`](file:///c:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/views/Nutrition.jsx), `MealSection`.
 - **Data Flow:**
   1. User selects date and inputs food item under Breakfast, Lunch, Dinner, or Snacks.
   2. Simplified input requires only food name, quantity, unit, and optional notes (e.g., "100 g rolled oats, overnight soaked").
@@ -568,7 +568,7 @@ sequenceDiagram
      Displays whether lifter is below, exact, or above target.
 
 ### C. Water Intake Tracking
-- **Frontend Component:** [`views/Nutrition.jsx`](file:///c:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/views/Nutrition.jsx) (Hydration Card).
+- **Frontend Component:** [`views/Nutrition.jsx`](file:///c:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/views/Nutrition.jsx) (Hydration Card).
 - **Data Flow:**
   1. User taps quick add buttons (+250 ml, +500 ml, +750 ml, +1000 ml) or submits custom volume.
   2. Frontend sends `POST /api/nutrition/water/save` with `{ date, amount_ml, unit: 'ml', notes }`.
@@ -576,7 +576,7 @@ sequenceDiagram
   4. Daily total in ml and litres is returned, rendered against user's daily goal (default: 2.5 L) with progress indicators.
 
 ### D. Cardio & Strength Activity Tracking
-- **Frontend Component:** [`views/Nutrition.jsx`](file:///c:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/views/Nutrition.jsx) (Cardio & Strength Sections).
+- **Frontend Component:** [`views/Nutrition.jsx`](file:///c:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/views/Nutrition.jsx) (Cardio & Strength Sections).
 - **Cardio Flow:**
   1. User logs activity (walking, running, cycling, treadmill, HIIT) with duration (min), distance (km), steps, and optional calories burned.
   2. Sent via `POST /api/nutrition/cardio/save` to SQLite `cardio_logs`.
@@ -586,7 +586,7 @@ sequenceDiagram
   3. Backend sums total exercise duration and calories burned, returning unified totals.
 
 ### E. PDF Generation & ChatGPT Prompt Export
-- **Module:** [`frontend/src/lib/exportDailyReportPdf.js`](file:///c:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/lib/exportDailyReportPdf.js).
+- **Module:** [`frontend/src/lib/exportDailyReportPdf.js`](file:///c:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/lib/exportDailyReportPdf.js).
 - **Process:**
   1. Lifter taps "Export PDF Report" on the Nutrition screen.
   2. Function `buildDailyReportDoc(data)` initializes a formatted A4 document using `jsPDF`.
@@ -598,7 +598,7 @@ sequenceDiagram
      - Section 3: Cardio & Physical Activity Table (duration, distance, steps, calories).
      - Section 4: Strength Training Table (exercises, sets, reps, load).
      - Section 5: **Dedicated ChatGPT Nutrition and Activity Analysis Prompt**. Contains a detailed 6-part prompt instruction directing ChatGPT to analyze food items using reputable references, estimate macros, compare with 1,900 kcal target, calculate walking steps equivalent to excess calories, and review activity without double-counting.
-  4. Triggers automatic client download: `openGym_daily_report_YYYY-MM-DD.pdf`.
+  4. Triggers automatic client download: `IRONX_daily_report_YYYY-MM-DD.pdf`.
 
 ### F. AI Coach Plan Generation & Feedback Review
 - **Modules:** `api/coach/jobs.js`, `api/coach/payload.js`, `api/coach/validate.js`, `api/coach/adapters/claude.js`, `api/coach/adapters/codex-cli.js`.
@@ -632,12 +632,12 @@ sequenceDiagram
 
 | Variable Name | Required By | Description & Security Expectations |
 | :--- | :--- | :--- |
-| `RP_ID` | WebAuthn Auth | The relying party ID (domain name without protocol or port, e.g. `localhost`, `opengym.vercel.app`). Must match browser host. |
-| `ORIGIN` | WebAuthn Auth | Full frontend origin URL (e.g. `http://localhost:8080`, `https://opengym.vercel.app`). |
-| `RP_NAME` | WebAuthn Auth | Display name shown during passkey prompts (default: `openGym`). |
+| `RP_ID` | WebAuthn Auth | The relying party ID (domain name without protocol or port, e.g. `localhost`, `IRONX.vercel.app`). Must match browser host. |
+| `ORIGIN` | WebAuthn Auth | Full frontend origin URL (e.g. `http://localhost:8080`, `https://IRONX.vercel.app`). |
+| `RP_NAME` | WebAuthn Auth | Display name shown during passkey prompts (default: `IRONX`). |
 | `SECRET` | Session Security | 32-byte secret used to HMAC-sign session cookies and encrypt Coach tokens. If omitted, generates `data/secret` or uses fallback. |
 | `MONGODB_URI` | MongoDB Atlas | MongoDB Atlas connection string (`mongodb+srv://...`). When set, enables cloud state synchronization and user persistence. |
-| `MONGODB_DB` | MongoDB Atlas | Database name in MongoDB Atlas (defaults to `opengym`). |
+| `MONGODB_DB` | MongoDB Atlas | Database name in MongoDB Atlas (defaults to `IRONX`). |
 | `ADMIN_UIDS` | Access Control | Comma-separated list of user IDs granted administrative dashboard permissions. |
 | `INVITE_ONLY` | Access Control | Set to `1`, `true`, or `yes` to require a valid invite code to register a passkey. |
 | `SESSION_DAYS` | Session Lifetime| Cookie lifetime in days (default: `90`). |
@@ -655,8 +655,8 @@ sequenceDiagram
 ## 12. Deployment Configuration: GitHub & Vercel
 
 ### Git Configuration
-- **Repository Remote Origin:** `https://github.com/Saravana071005/Open-Gym.git`
-- **Repository Remote Upstream:** `https://github.com/alexpcosta/opengym.git`
+- **Repository Remote Origin:** `https://github.com/Saravana071005/ironx.git`
+- **Repository Remote Upstream:** `https://github.com/alexpcosta/IRONX.git`
 - **Current Branch:** `main`
 - **Working Tree Status:** Clean, up to date with `origin/main`.
 
@@ -716,7 +716,7 @@ During this comprehensive code analysis, the following structural risks, file mi
 ### 3. Vercel Serverless Ephemeral Filesystem vs. SQLite Nutrition DB
 - **Issue:**
   - While user profiles, WebAuthn credentials, invites, and workout state blobs are synchronized to MongoDB Atlas via `api/server.js`, the **Nutrition and Daily Health subsystem (`api/nutrition/db.js`) writes directly to SQLite (`node:sqlite`)**.
-  - In Vercel environments (`isVercel = true`), the SQLite database is placed in `os.tmpdir()/opengym-data/nutrition.db`.
+  - In Vercel environments (`isVercel = true`), the SQLite database is placed in `os.tmpdir()/IRONX-data/nutrition.db`.
 - **Consequence:** On Vercel, the `/tmp` directory is ephemeral and isolated to each lambda invocation container. Food logs, water records, and cardio logs created in one session may disappear when the serverless container recycles or when queries hit different lambda instances, unless backed by persistent storage.
 
 ### 4. Background Cadence & CLI Process Limitations on Serverless
@@ -752,5 +752,5 @@ During this comprehensive code analysis, the following structural risks, file mi
 
 ---
 
-*Report prepared and saved to project root directory as `OPENGYM_COMPLETE_PROJECT_ANALYSIS.md`.*  
+*Report prepared and saved to project root directory as `IRONX_COMPLETE_PROJECT_ANALYSIS.md`.*  
 *Ready for user review and next instructions.*

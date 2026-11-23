@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-openGym AI Nutrition Engine - ML/NLP Model Development & Evaluation
+IRONX AI Nutrition Engine - ML/NLP Model Development & Evaluation
 Phase 9: Alias & Food Matching Model Training, Evaluation, and Comparison
 
 This script:
@@ -9,7 +9,7 @@ This script:
 2. Compares:
    - Baseline Rule-Based Exact/Substring Matcher
    - ML TF-IDF + Classifier (MultinomialNB / SGDClassifier)
-   - openGym Hybrid Parser (NLP Regex Entity Extractor + Multi-Alias Inverted Index)
+   - IRONX Hybrid Parser (NLP Regex Entity Extractor + Multi-Alias Inverted Index)
 3. Evaluates Precision, Recall, F1, Unit Extraction Accuracy, and Ambiguity Detection.
 4. Serializes the trained ML model artifact and exports a comprehensive metrics report.
 """
@@ -183,9 +183,9 @@ def rule_based_baseline_matcher(query, foods):
                 return fid
     return None
 
-def open_gym_hybrid_matcher(query, foods):
+def ironx_hybrid_matcher(query, foods):
     """
-    Simulates openGym api/nutrition/parser.js + db.js search logic:
+    Simulates IRONX api/nutrition/parser.js + db.js search logic:
     Entity stripping, staple alias mapping, and exact/partial matching.
     """
     import re
@@ -328,7 +328,7 @@ def train_and_evaluate_ml_model():
         # Matching evaluation
         rule_pred = rule_based_baseline_matcher(query, foods)
         ml_p = ml_pipeline.predict([query])[0]
-        hybrid_pred = open_gym_hybrid_matcher(query, foods)
+        hybrid_pred = ironx_hybrid_matcher(query, foods)
 
         is_rule_ok = (rule_pred == true_id)
         is_ml_ok = (ml_p == true_id)
@@ -364,7 +364,7 @@ def train_and_evaluate_ml_model():
     print(f"Total Test Queries:        {n}")
     print(f"Rule-Based Baseline Acc:   {rule_acc:.2%} ({rule_correct}/{n})")
     print(f"ML Classifier Acc:         {ml_bench_acc:.2%} ({ml_correct}/{n})")
-    print(f"openGym Hybrid Engine Acc: {hybrid_acc:.2%} ({hybrid_correct}/{n})")
+    print(f"IRONX Hybrid Engine Acc: {hybrid_acc:.2%} ({hybrid_correct}/{n})")
     print(f"Unit Extraction Acc:       {unit_acc:.2%} ({unit_correct}/{n})")
     print(f"Ambiguity Detection Acc:   {ambig_acc:.2%} ({ambig_correct}/{n})")
 
@@ -376,7 +376,7 @@ def train_and_evaluate_ml_model():
 
     # Export report
     report = {
-        "model_version": "openGym-NLP-v1.0.0",
+        "model_version": "IRONX-NLP-v1.0.0",
         "dataset_split": {
             "train_samples": len(X_train),
             "val_samples": len(X_val),
@@ -393,7 +393,7 @@ def train_and_evaluate_ml_model():
             "total_benchmark_queries": n,
             "rule_based_accuracy": float(rule_acc),
             "ml_classifier_accuracy": float(ml_bench_acc),
-            "opengym_hybrid_accuracy": float(hybrid_acc),
+            "ironx_hybrid_accuracy": float(hybrid_acc),
             "unit_extraction_accuracy": float(unit_acc),
             "ambiguity_detection_accuracy": float(ambig_acc)
         },

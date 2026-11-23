@@ -114,7 +114,7 @@ if (typeof window !== 'undefined') {
   window.__IH_TIMINGS.localHydration = Math.round(performance.now() - start)
   window.__IH_TIMINGS.authRestored = Math.round(performance.now() - start)
   window.__IH_TIMINGS.dashboardReady = Math.round(performance.now() - start)
-  window.__IRON_HOUSE_STARTUP_TIMINGS__ = () => ({
+  window.__IRONX_STARTUP_TIMINGS__ = window.__IRON_HOUSE_STARTUP_TIMINGS__ = () => ({
     htmlDocumentLoad: (window.__IH_TIMINGS.htmlLoad || 14) + ' ms',
     jsDownloadExecution: (window.__IH_TIMINGS.jsExecution || 22) + ' ms',
     reactAppMount: (window.__IH_TIMINGS.reactMountStart || 26) + ' ms',

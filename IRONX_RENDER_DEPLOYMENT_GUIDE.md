@@ -1,7 +1,7 @@
-# OpenGym — Render Free Tier Deployment Guide
+# IRONX — Render Free Tier Deployment Guide
 ## Complete Step-by-Step Operator Manual for Zero-Cost Production Hosting
 
-This guide outlines how to deploy OpenGym to **Render** using exclusively the **Free Tier**. It covers database network access, automated Blueprint deployment, environment variable configuration, operational expectations (cold starts), verification procedures, and zero-downtime rollback to Vercel.
+This guide outlines how to deploy IRONX to **Render** using exclusively the **Free Tier**. It covers database network access, automated Blueprint deployment, environment variable configuration, operational expectations (cold starts), verification procedures, and zero-downtime rollback to Vercel.
 
 ---
 
@@ -9,8 +9,8 @@ This guide outlines how to deploy OpenGym to **Render** using exclusively the **
 
 Before beginning deployment, ensure you have:
 1. A **Render account** (free to create at [render.com](https://render.com) — no credit card required for free services).
-2. Connected your **GitHub account** to Render with access to repository [Saravana071005/Open-Gym](https://github.com/Saravana071005/Open-Gym).
-3. Access to your existing **MongoDB Atlas** account holding the OpenGym cluster.
+2. Connected your **GitHub account** to Render with access to repository [Saravana071005/ironx](https://github.com/Saravana071005/ironx).
+3. Access to your existing **MongoDB Atlas** account holding the IRONX cluster.
 4. Your existing MongoDB Atlas connection URI (`mongodb+srv://...`).
 
 ---
@@ -31,22 +31,22 @@ Because Render Free Web Services use **dynamic outbound IPs** that rotate betwee
 > **Security Posture:** Even with `0.0.0.0/0`, your MongoDB Atlas cluster is protected by:
 > - TLS 1.3 encrypted transport on port 27017.
 > - SCRAM-SHA-256 database authentication requiring your complex username and password.
-> - Role-based scoping (ensure your database user only has `readWrite` permission on the `opengym` database).
+> - Role-based scoping (ensure your database user only has `readWrite` permission on the `IRONX` database).
 
 ---
 
 ## 3. Step 2: Deploy Using Render Blueprint (`render.yaml`) — Recommended
 
-OpenGym includes a committed `render.yaml` Blueprint file that configures both the Backend Web Service and Frontend Static Site with zero manual guesswork.
+IRONX includes a committed `render.yaml` Blueprint file that configures both the Backend Web Service and Frontend Static Site with zero manual guesswork.
 
 ### Blueprint Steps:
 1. Go to the [Render Dashboard](https://dashboard.render.com/).
 2. Click **New +** in the top navigation bar and select **Blueprint**.
-3. Select your repository: `Saravana071005/Open-Gym`.
+3. Select your repository: `Saravana071005/ironx`.
 4. Branch: select `main`.
 5. Render will detect `render.yaml` and display two services:
-   - **`opengym-backend`** (Web Service, Node runtime, Free plan)
-   - **`opengym-frontend`** (Static Site, Static runtime, Free plan)
+   - **`IRONX-backend`** (Web Service, Node runtime, Free plan)
+   - **`IRONX-frontend`** (Static Site, Static runtime, Free plan)
 6. Under **Environment Variables**, fill in the required prompt:
    - `MONGODB_URI`: Paste your full MongoDB Atlas connection string (e.g. `mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/opengym?retryWrites=true&w=majority`).
 7. Click **Apply**.
@@ -57,26 +57,26 @@ OpenGym includes a committed `render.yaml` Blueprint file that configures both t
 ## 4. Step 3: Link Frontend & Backend Subdomains
 
 Once Render creates both services, they will each receive an `*.onrender.com` URL:
-- Backend: `https://opengym-backend.onrender.com` (or similar)
-- Frontend: `https://opengym-frontend.onrender.com` (or similar)
+- Backend: `https://IRONX-backend.onrender.com` (or similar)
+- Frontend: `https://IRONX-frontend.onrender.com` (or similar)
 
 To finalize cross-service communication:
 
 ### A. Update Frontend Environment Variable:
-1. In Render Dashboard, click into the **`opengym-frontend`** Static Site.
+1. In Render Dashboard, click into the **`IRONX-frontend`** Static Site.
 2. Go to **Environment** in the left menu.
 3. Click **Add Environment Variable**:
    - **Key:** `VITE_API_BASE_URL`
-   - **Value:** `https://opengym-backend.onrender.com` (use your actual backend URL from step 8, without trailing slash).
+   - **Value:** `https://IRONX-backend.onrender.com` (use your actual backend URL from step 8, without trailing slash).
 4. Click **Save Changes**. This triggers an automatic rebuild of the static site.
 
 ### B. Update Backend Environment Variables:
-1. In Render Dashboard, click into the **`opengym-backend`** Web Service.
+1. In Render Dashboard, click into the **`IRONX-backend`** Web Service.
 2. Go to **Environment** in the left menu.
 3. Verify or add the following keys:
-   - `ORIGIN`: `https://opengym-frontend.onrender.com` (your frontend URL).
-   - `RP_ID`: `opengym-frontend.onrender.com` (your frontend hostname, no `https://`).
-   - `ORIGINS`: `https://opengym-frontend.onrender.com`
+   - `ORIGIN`: `https://IRONX-frontend.onrender.com` (your frontend URL).
+   - `RP_ID`: `IRONX-frontend.onrender.com` (your frontend hostname, no `https://`).
+   - `ORIGINS`: `https://IRONX-frontend.onrender.com`
 4. Click **Save Changes**. The backend service will restart automatically with the updated config.
 
 ---
@@ -89,7 +89,7 @@ If you prefer to configure the services manually via the Render UI:
 | Field | Value |
 | :--- | :--- |
 | **Service Type** | Web Service |
-| **Name** | `opengym-backend` |
+| **Name** | `IRONX-backend` |
 | **Region** | Oregon (US West) or Frankfurt |
 | **Branch** | `main` |
 | **Runtime** | `Node` |
@@ -104,13 +104,13 @@ If you prefer to configure the services manually via the Render UI:
 | `NODE_ENV` | Yes | `production` |
 | `PORT` | Auto | (Set automatically by Render, usually `10000`) |
 | `MONGODB_URI` | Yes | `mongodb+srv://<user>:<password>@cluster0.xxxx.mongodb.net/opengym` |
-| `MONGODB_DB` | Yes | `opengym` |
+| `MONGODB_DB` | Yes | `IRONX` |
 | `SECRET` | Yes | 64-character random hex string (or click "Generate") |
-| `RP_NAME` | Yes | `openGym` |
-| `RP_ID` | Yes | `opengym-frontend.onrender.com` |
-| `ORIGIN` | Yes | `https://opengym-frontend.onrender.com` |
-| `ORIGINS` | Yes | `https://opengym-frontend.onrender.com` |
-| `DATA_DIR` | Yes | `/tmp/opengym-data` |
+| `RP_NAME` | Yes | `IRONX` |
+| `RP_ID` | Yes | `IRONX-frontend.onrender.com` |
+| `ORIGIN` | Yes | `https://IRONX-frontend.onrender.com` |
+| `ORIGINS` | Yes | `https://IRONX-frontend.onrender.com` |
+| `DATA_DIR` | Yes | `/tmp/IRONX-data` |
 
 ---
 
@@ -118,7 +118,7 @@ If you prefer to configure the services manually via the Render UI:
 | Field | Value |
 | :--- | :--- |
 | **Service Type** | Static Site |
-| **Name** | `opengym-frontend` |
+| **Name** | `IRONX-frontend` |
 | **Region** | Global CDN (automatically served globally; no region required) |
 | **Branch** | `main` |
 | **Build Command** | `npm install && npm --prefix frontend run build` |
@@ -128,7 +128,7 @@ If you prefer to configure the services manually via the Render UI:
 #### Frontend Environment Variables:
 | Variable Name | Required | Value / Description |
 | :--- | :---: | :--- |
-| `VITE_API_BASE_URL` | Yes | `https://opengym-backend.onrender.com` |
+| `VITE_API_BASE_URL` | Yes | `https://IRONX-backend.onrender.com` |
 
 ---
 
@@ -137,16 +137,16 @@ If you prefer to configure the services manually via the Render UI:
 ### 6.1 Cold Starts (Spin Down on Inactivity)
 - **Behavior:** Render Free Web Services spin down to 0 instances after **15 minutes of inactivity**.
 - **Wake-up Latency:** When a user visits after the service has spun down, the first API request (`/api/config` or `/api/health`) will take **30 to 50 seconds** to boot.
-- **Client Handling:** The OpenGym frontend handles offline/slow states gracefully and displays standard connection status.
+- **Client Handling:** The IRONX frontend handles offline/slow states gracefully and displays standard connection status.
 - **Free Keep-Alive Optimization (Optional):**
   If you want to prevent cold starts during waking hours without paying:
   1. Create a free account on [UptimeRobot](https://uptimerobot.com/) or [cron-job.org](https://cron-job.org/).
-  2. Create an HTTP monitor that pings `https://opengym-backend.onrender.com/api/health` once every **10 minutes**.
+  2. Create an HTTP monitor that pings `https://IRONX-backend.onrender.com/api/health` once every **10 minutes**.
   3. *Note on Quotas:* Render Free tier provides **750 free instance hours per month** across all free web services. Running 1 web service continuously (24/7 for 31 days) consumes ~744 hours, staying just within the 750-hour monthly limit.
 
 ### 6.2 Ephemeral Container Filesystem
 - Render Free Web Services run in ephemeral containers. Any files written locally to disk (e.g. `/tmp`) are discarded on restarts.
-- Because OpenGym persists all user state, workouts, passkeys, invites, and daily health logs to **MongoDB Atlas**, no data is lost during restarts.
+- Because IRONX persists all user state, workouts, passkeys, invites, and daily health logs to **MongoDB Atlas**, no data is lost during restarts.
 
 ---
 
@@ -181,7 +181,7 @@ Once both services show **Live** in Render:
 
 3. **Verify Frontend Access:**
    Visit: `https://<frontend-url>`
-   - The OpenGym UI loads with responsive styling.
+   - The IRONX UI loads with responsive styling.
    - SPA page navigation (e.g. `#/planner`, `#/nutrition`, `#/history`) works without 404s.
 
 4. **Verify Authentication & Passkeys:**
@@ -208,6 +208,6 @@ If at any point you wish to revert to Vercel:
 1. Your existing Vercel project has **not** been modified or deleted.
 2. The repository still retains `vercel.json` and the `/api` serverless handler adapters (`api/index.js`, `api/[...path].js`).
 3. To switch traffic back:
-   - If using custom domains (e.g. `opengym.app`): Update DNS CNAME record from Render (`<app>.onrender.com`) back to Vercel (`cname.vercel-dns.com`).
-   - If using platform domains: Users can immediately access the active Vercel deployment at `https://open-gym-g3m5.vercel.app/`.
+   - If using custom domains (e.g. `IRONX.app`): Update DNS CNAME record from Render (`<app>.onrender.com`) back to Vercel (`cname.vercel-dns.com`).
+   - If using platform domains: Users can immediately access the active Vercel deployment at `https://ironx-g3m5.vercel.app/`.
 4. Because all data is stored centrally in MongoDB Atlas, both Vercel and Render share the exact same database with zero synchronization gap.

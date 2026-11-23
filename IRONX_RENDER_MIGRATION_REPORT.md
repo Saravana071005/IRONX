@@ -1,8 +1,8 @@
-# OpenGym — Complete Migration from Vercel to Render (Free Tier)
+# IRONX — Complete Migration from Vercel to Render (Free Tier)
 ## Architecture, Security, Persistence, and Verification Report
 
-**Project:** OpenGym  
-**Repository:** [github.com/Saravana071005/Open-Gym](https://github.com/Saravana071005/Open-Gym)  
+**Project:** IRONX  
+**Repository:** [github.com/Saravana071005/ironx](https://github.com/Saravana071005/ironx)  
 **Branch:** `main`  
 **Target Platform:** Render (Free Tier Only)  
 **Database:** MongoDB Atlas (Retained M0 Cluster)  
@@ -12,7 +12,7 @@
 
 ## 1. Executive Summary
 
-This report documents the architectural migration of the **OpenGym** fitness tracking and health logging application from **Vercel** serverless functions to **Render Free Tier** hosting. 
+This report documents the architectural migration of the **IRONX** fitness tracking and health logging application from **Vercel** serverless functions to **Render Free Tier** hosting. 
 
 The primary objectives achieved in this migration:
 1. **Zero Cost:** Uses only Render's Free tier services (Render Web Service for the backend API and Render Static Site for the frontend client). No paid add-ons, static IP proxies, or upgraded tiers are required.
@@ -35,7 +35,7 @@ The primary objectives achieved in this migration:
 | **Backend Entry Point** | Serverless adapters calling `handleRequest` | Standalone Node.js HTTP server (`node api/server.js`) |
 | **Network Binding** | Ephemeral AWS Lambda sandbox | Explicit bind to `0.0.0.0` and dynamic `process.env.PORT` |
 | **Health Check Probe** | Implicit function invocation | Explicit HTTP GET `/api/health` with 200 OK expectation |
-| **Domain Topology** | Single domain (e.g. `open-gym-g3m5.vercel.app`) | Two distinct subdomains (e.g. `frontend.onrender.com` & `backend.onrender.com`) |
+| **Domain Topology** | Single domain (e.g. `ironx-g3m5.vercel.app`) | Two distinct subdomains (e.g. `frontend.onrender.com` & `backend.onrender.com`) |
 | **CORS Policy** | Same-origin requests by default | Explicit CORS with origin mirroring, preflight caching, & `Vary: Origin` |
 | **Session Cookies** | `SameSite=Lax` | `SameSite=None; Secure; HttpOnly` over HTTPS for cross-subdomain fetch |
 | **WebAuthn RP ID** | Hostname of single domain | Prioritizes `RP_ID` env or caller's frontend origin domain |
@@ -50,11 +50,11 @@ flowchart TD
 
     subgraph Render["Render Cloud (Free Tier)"]
         subgraph StaticSite["Render Static Site (Free)"]
-            CDN["Global CDN\nSPA Rewrite: /* -> /index.html\n(opengym-frontend.onrender.com)"]
+            CDN["Global CDN\nSPA Rewrite: /* -> /index.html\n(IRONX-frontend.onrender.com)"]
         end
 
         subgraph WebService["Render Web Service (Free)"]
-            NodeApp["Node.js 22 HTTP Server\nBinds 0.0.0.0:PORT\nHealth Check: /api/health\n(opengym-backend.onrender.com)"]
+            NodeApp["Node.js 22 HTTP Server\nBinds 0.0.0.0:PORT\nHealth Check: /api/health\n(IRONX-backend.onrender.com)"]
             CookieAuth["Session Engine\nHMAC-SHA256 (gymsid)\nSameSite=None; Secure"]
             WebAuthn["WebAuthn RP Handler\nRP_ID derived from Origin"]
             SQLite["Staple Foods SQLite\n(data/nutrition.db)"]
@@ -78,7 +78,7 @@ flowchart TD
 ## 3. Security, Authentication, & Cross-Domain Engineering
 
 ### 3.1 Cross-Domain Session Cookie Handling
-On Vercel, the frontend and API shared the same domain (`open-gym-g3m5.vercel.app`), allowing `SameSite=Lax` cookies to be sent on every relative `/api/*` call.
+On Vercel, the frontend and API shared the same domain (`ironx-g3m5.vercel.app`), allowing `SameSite=Lax` cookies to be sent on every relative `/api/*` call.
 
 On Render, the frontend runs as a **Static Site** (`https://<app>-frontend.onrender.com`) and the API runs as a **Web Service** (`https://<app>-backend.onrender.com`). Because `onrender.com` is listed on the **Public Suffix List (PSL)**, modern web browsers treat these subdomains as separate sites (cross-site). 
 - A cookie set with `SameSite=Lax` is dropped by browsers during cross-site AJAX/fetch calls.
@@ -90,10 +90,10 @@ On Render, the frontend runs as a **Static Site** (`https://<app>-frontend.onren
 
 ### 3.2 WebAuthn / Passkey Relying Party ID (`RP_ID`)
 WebAuthn specifications mandate that the `rp.id` passed to `navigator.credentials.create()` and `navigator.credentials.get()` must match the effective domain of the document that initiated the request.
-- If the backend used its own hostname (`opengym-backend.onrender.com`) as `rp.id`, the browser executing on `opengym-frontend.onrender.com` would reject the passkey with a `SecurityError`.
+- If the backend used its own hostname (`IRONX-backend.onrender.com`) as `rp.id`, the browser executing on `IRONX-frontend.onrender.com` would reject the passkey with a `SecurityError`.
 - We updated `getRpId(req)` in `api/server.js`:
   1. Priority 1: `process.env.RP_ID` (if set to an explicit production domain other than `localhost`).
-  2. Priority 2: Extract hostname from `req.headers.origin` (e.g. `opengym-frontend.onrender.com`).
+  2. Priority 2: Extract hostname from `req.headers.origin` (e.g. `IRONX-frontend.onrender.com`).
   3. Priority 3: Extract from `x-forwarded-host` or `host`.
   4. Fallback: `'localhost'`.
 This allows seamless passkey registration and verification both in cross-subdomain Render production and in local developer environments.
@@ -109,7 +109,7 @@ In `api/server.js`:
 ## 4. Database Persistence & MongoDB Atlas Network Access
 
 ### 4.1 Persistence Model
-OpenGym employs a dual-tier persistence model:
+IRONX employs a dual-tier persistence model:
 1. **Primary Production Store:** MongoDB Atlas. All user profiles, WebAuthn credentials, invite codes, lifter state snapshots, and Daily Health Logs (foods, water, cardio) are upserted into Atlas.
 2. **Offline Staple Foods Dataset:** Stored in SQLite (`data/nutrition.db`). In previous commits, `data/` was broadly ignored by `.gitignore`. We surgically configured `.gitignore` (`data/*` + `!data/nutrition.db`) so the 3.7MB staple foods database is tracked in git and present on clean Render git clones.
 
@@ -120,7 +120,7 @@ OpenGym employs a dual-tier persistence model:
   - Network opening `0.0.0.0/0` is fully secured at the application and database layer by:
     - TLS 1.3 encryption in transit for all MongoDB driver connections.
     - SCRAM-SHA-256 database user authentication with high-entropy passwords.
-    - Role-based database user scoping restricted exclusively to the `opengym` database (`readWrite@opengym`).
+    - Role-based database user scoping restricted exclusively to the `IRONX` database (`readWrite@IRONX`).
     - HMAC-SHA256 authenticated sessions with versioned revocation counters (`sv`).
 
 ---
@@ -128,8 +128,8 @@ OpenGym employs a dual-tier persistence model:
 ## 5. Summary of Code & Configuration Changes
 
 1. **`render.yaml` (Created):**
-   - Declares `opengym-backend` (Node.js web service, free tier, `/api/health` probe).
-   - Declares `opengym-frontend` (Static site, free tier, SPA rewrites).
+   - Declares `IRONX-backend` (Node.js web service, free tier, `/api/health` probe).
+   - Declares `IRONX-frontend` (Static site, free tier, SPA rewrites).
 2. **`api/server.js` (Updated):**
    - Configured `server.listen(PORT, '0.0.0.0')` with support for `process.env.RENDER`.
    - Updated `getRpId(req)` for cross-domain WebAuthn origin discovery.

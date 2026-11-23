@@ -40,7 +40,7 @@ test('GET / returns 200 informational payload', async () => {
   const data = JSON.parse(res.body);
   assert.deepEqual(data, {
     status: 'ok',
-    service: 'OpenGym API',
+    service: 'IRONX API',
     message: 'Backend server is running'
   });
 });

@@ -42,7 +42,7 @@ self.addEventListener('push', (event) => {
       body: data.body || '',
       icon: 'icon-512.png',
       badge: 'icon-180.png',
-      tag: data.tag || 'ironhouse',
+      tag: data.tag || 'ironx',
       renotify: true
     })
   );

@@ -437,6 +437,6 @@ export function buildDailyReportDoc(data) {
 export function exportDailyReportPdf(data) {
   const doc = buildDailyReportDoc(data);
   const date = data?.date || new Date().toISOString().slice(0, 10);
-  doc.save(`IRON_HOUSE_daily_report_${date}.pdf`);
+  doc.save(`IRONX_daily_report_${date}.pdf`);
   return doc;
 }

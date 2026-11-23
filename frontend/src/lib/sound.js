@@ -1,4 +1,4 @@
-// OpenGym Audio & Notification Subsystem
+// IRONX Audio & Notification Subsystem
 // Dual-engine architecture: Native HTML5 Audio (primary for iOS headphone routing & PWA reliability)
 // + WebAudio Synthesizer (zero-latency in-memory fallback) + Haptics + Notification integration.
 
@@ -235,7 +235,7 @@ export function triggerRestNotification(title, body, options = {}) {
       body: body || 'Your rest period has ended. Time to crush the next set!',
       icon: '/icon-180.png',
       badge: '/icon-180.png',
-      tag: 'opengym-rest-timer'
+      tag: 'ironx-rest-timer'
     })
     return true
   } catch (e) {

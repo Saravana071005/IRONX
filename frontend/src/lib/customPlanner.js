@@ -1,7 +1,7 @@
 /**
  * customPlanner.js
  * Comprehensive Custom Workout Planning, Predefined Exercise Library,
- * and 6-Day Weekly Schedule (4 Strength + 2 Cardio + 1 Rest) for OpenGym.
+ * and 6-Day Weekly Schedule (4 Strength + 2 Cardio + 1 Rest) for IRONX.
  */
 
 import { uid } from './format.js'
@@ -848,8 +848,8 @@ export function getExerciseLibrary(S) {
 
   const list = Array.from(initialMap.values())
 
-  // Also register into OpenGym's EXIDX so standard OpenGym tools (exOr) recognize them
-  const openGymCustom = list.map(e => ({
+  // Also register into IRONX's EXIDX so standard IRONX tools (exOr) recognize them
+  const IRONXCustom = list.map(e => ({
     id: e.id,
     n: e.name,
     bp: e.category?.toLowerCase() || 'other',
@@ -858,7 +858,7 @@ export function getExerciseLibrary(S) {
     desc: e.description || '',
     isCustom: true
   }))
-  registerCustom(openGymCustom)
+  registerCustom(IRONXCustom)
 
   return list
 }

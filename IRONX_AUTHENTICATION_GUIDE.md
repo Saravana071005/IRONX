@@ -1,7 +1,7 @@
-# OpenGym — Google Sign-In & Personal Fitness Profile System Migration Guide
+# IRONX — Google Sign-In & Personal Fitness Profile System Migration Guide
 
 ## Executive Summary
-This document provides the complete technical specification, migration architecture, Google Cloud Console setup guide, and verification report for migrating OpenGym from WebAuthn/Passkey authentication to **Google OAuth 2.0 Sign-In ONLY** with a dedicated **Guest Mode** and individual **Personal Fitness Profiles** stored in MongoDB Atlas.
+This document provides the complete technical specification, migration architecture, Google Cloud Console setup guide, and verification report for migrating IRONX from WebAuthn/Passkey authentication to **Google OAuth 2.0 Sign-In ONLY** with a dedicated **Guest Mode** and individual **Personal Fitness Profiles** stored in MongoDB Atlas.
 
 ---
 
@@ -26,8 +26,8 @@ This document provides the complete technical specification, migration architect
 sequenceDiagram
     autonumber
     actor Lifter as User
-    participant Front as OpenGym Frontend (Vite SPA)
-    participant Back as OpenGym Backend (Node.js API)
+    participant Front as IRONX Frontend (Vite SPA)
+    participant Back as IRONX Backend (Node.js API)
     participant Google as Google OAuth 2.0
     participant DB as MongoDB Atlas
 
@@ -62,16 +62,16 @@ sequenceDiagram
 
 | File | Status | Description |
 | :--- | :--- | :--- |
-| [`api/auth/google.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/api/auth/google.js) | **Created** | Core Google OAuth 2.0 engine: CSRF state signing/verification, token exchange, tokeninfo validation, profile validation, dynamic age calculation, and non-destructive guest progress merging. |
-| [`api/test/google_auth.test.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/api/test/google_auth.test.js) | **Created** | Comprehensive test suite (8 tests) covering age calculation, profile data validation, OAuth state tampering detection, token validation, unverified email rejection, guest merging, and API endpoint guards. |
-| [`api/server.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/api/server.js) | **Modified** | Added routes `GET /api/auth/google`, `GET /api/auth/google/callback`, `PUT /api/profile`, `POST /api/auth/import-guest`. Enhanced `GET /api/me` with personal profile and dynamic age. Enhanced `readSession` to accept both cookies and `Authorization: Bearer` tokens. Added `Partitioned` cookie support. |
-| [`frontend/src/views/Login.jsx`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/views/Login.jsx) | **Modified** | Replaced all passkey options with **Continue with Google** (Primary) and **Continue as Guest** (Secondary). Removed passkey registration sheets. |
-| [`frontend/src/views/ProfileSetup.jsx`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/views/ProfileSetup.jsx) | **Created** | Dedicated Personal Fitness Profile view for new user onboarding and profile editing, featuring dynamic age calculation, mobile-friendly inputs, and required field validation. |
-| [`frontend/src/views/AuthCallback.jsx`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/views/AuthCallback.jsx) | **Created** | Handles OAuth redirection, session storage, guest progress detection, and prompts for seamless guest data merging. |
-| [`frontend/src/views/Settings.jsx`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/views/Settings.jsx) | **Modified** | Replaced passkey account UI with Google account display (name, email, avatar). Added link to Personal Fitness Profile. Added "Save My Progress with Google" in Guest mode. |
-| [`frontend/src/lib/api.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/lib/api.js) | **Modified** | Added `startGoogleLogin()`, `updateProfile()`, and `importGuestProgress()`. Enhanced `api()` with dual cookie/bearer token headers. |
-| [`frontend/src/store/useStore.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/store/useStore.js) | **Modified** | Updated session clearance on sign out to purge `gym_auth_token`. |
-| [`frontend/src/App.jsx`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/App.jsx) | **Modified** | Registered routes `/profile-setup` and `/auth-callback`. Allowed `/auth-callback` accessibility during initial OAuth return. |
+| [`api/auth/google.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/api/auth/google.js) | **Created** | Core Google OAuth 2.0 engine: CSRF state signing/verification, token exchange, tokeninfo validation, profile validation, dynamic age calculation, and non-destructive guest progress merging. |
+| [`api/test/google_auth.test.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/api/test/google_auth.test.js) | **Created** | Comprehensive test suite (8 tests) covering age calculation, profile data validation, OAuth state tampering detection, token validation, unverified email rejection, guest merging, and API endpoint guards. |
+| [`api/server.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/api/server.js) | **Modified** | Added routes `GET /api/auth/google`, `GET /api/auth/google/callback`, `PUT /api/profile`, `POST /api/auth/import-guest`. Enhanced `GET /api/me` with personal profile and dynamic age. Enhanced `readSession` to accept both cookies and `Authorization: Bearer` tokens. Added `Partitioned` cookie support. |
+| [`frontend/src/views/Login.jsx`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/views/Login.jsx) | **Modified** | Replaced all passkey options with **Continue with Google** (Primary) and **Continue as Guest** (Secondary). Removed passkey registration sheets. |
+| [`frontend/src/views/ProfileSetup.jsx`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/views/ProfileSetup.jsx) | **Created** | Dedicated Personal Fitness Profile view for new user onboarding and profile editing, featuring dynamic age calculation, mobile-friendly inputs, and required field validation. |
+| [`frontend/src/views/AuthCallback.jsx`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/views/AuthCallback.jsx) | **Created** | Handles OAuth redirection, session storage, guest progress detection, and prompts for seamless guest data merging. |
+| [`frontend/src/views/Settings.jsx`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/views/Settings.jsx) | **Modified** | Replaced passkey account UI with Google account display (name, email, avatar). Added link to Personal Fitness Profile. Added "Save My Progress with Google" in Guest mode. |
+| [`frontend/src/lib/api.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/lib/api.js) | **Modified** | Added `startGoogleLogin()`, `updateProfile()`, and `importGuestProgress()`. Enhanced `api()` with dual cookie/bearer token headers. |
+| [`frontend/src/store/useStore.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/store/useStore.js) | **Modified** | Updated session clearance on sign out to purge `gym_auth_token`. |
+| [`frontend/src/App.jsx`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/App.jsx) | **Modified** | Registered routes `/profile-setup` and `/auth-callback`. Allowed `/auth-callback` accessibility during initial OAuth return. |
 
 ---
 
@@ -83,19 +83,19 @@ Follow these exact steps in the [Google Cloud Console](https://console.cloud.goo
 1. Log in to [Google Cloud Console](https://console.cloud.google.com/).
 2. Click the project dropdown at the top of the console.
 3. Click **New Project**.
-4. Name the project (e.g. `OpenGym-Production`) and click **Create**.
+4. Name the project (e.g. `IRONX-Production`) and click **Create**.
 
 ### Step 2: Configure OAuth Consent Screen
 1. In the left navigation menu, go to **APIs & Services** > **OAuth consent screen**.
 2. Select User Type: **External** (allows any Google user to sign in). Click **Create**.
 3. **App information**:
-   - **App name:** `openGym`
+   - **App name:** `IRONX`
    - **User support email:** Select your Gmail address.
    - **App logo:** Optional.
 4. **App domain**:
-   - **Application home page:** `https://opengym-frontend-229c.onrender.com`
-   - **Application privacy policy link:** `https://opengym-frontend-229c.onrender.com`
-   - **Application terms of service link:** `https://opengym-frontend-229c.onrender.com`
+   - **Application home page:** `https://IRONX-frontend-229c.onrender.com`
+   - **Application privacy policy link:** `https://IRONX-frontend-229c.onrender.com`
+   - **Application terms of service link:** `https://IRONX-frontend-229c.onrender.com`
    - **Authorized domains:**
      - Add `onrender.com`
 5. **Developer contact information**:
@@ -115,13 +115,13 @@ Follow these exact steps in the [Google Cloud Console](https://console.cloud.goo
 1. In the left navigation menu, go to **APIs & Services** > **Credentials**.
 2. Click **+ Create Credentials** at the top and select **OAuth client ID**.
 3. **Application type:** Select **Web application**.
-4. **Name:** `OpenGym Web Client`.
+4. **Name:** `IRONX Web Client`.
 5. **Authorized JavaScript origins:**
-   - `https://opengym-frontend-229c.onrender.com`
-   - `https://opengym-backend-ikdi.onrender.com`
+   - `https://IRONX-frontend-229c.onrender.com`
+   - `https://IRONX-backend-ikdi.onrender.com`
    - *(Optional for local development)*: `http://localhost:5173`, `http://localhost:8080`, `http://localhost:3000`
 6. **Authorized redirect URIs** (**CRITICAL**):
-   - `https://opengym-backend-ikdi.onrender.com/api/auth/google/callback`
+   - `https://IRONX-backend-ikdi.onrender.com/api/auth/google/callback`
    - *(Optional for local development)*: `http://localhost:3000/api/auth/google/callback`
 7. Click **Create**.
 8. Copy the generated **Client ID** and **Client Secret**.
@@ -130,23 +130,23 @@ Follow these exact steps in the [Google Cloud Console](https://console.cloud.goo
 
 ## 4. Production Environment Variables (Render)
 
-### Backend Web Service (`opengym-backend`)
-Configure these environment variables in your Render Dashboard (`opengym-backend` > **Environment**):
+### Backend Web Service (`IRONX-backend`)
+Configure these environment variables in your Render Dashboard (`IRONX-backend` > **Environment**):
 
 | Key | Example / Exact Value | Description |
 | :--- | :--- | :--- |
 | `GOOGLE_CLIENT_ID` | `1234567890-abcdef.apps.googleusercontent.com` | From Google Cloud Console |
 | `GOOGLE_CLIENT_SECRET` | `GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx` | From Google Cloud Console (Keep Secret!) |
-| `GOOGLE_CALLBACK_URL` | `https://opengym-backend-ikdi.onrender.com/api/auth/google/callback` | Exact OAuth callback URL |
-| `FRONTEND_ORIGIN` | `https://opengym-frontend-229c.onrender.com` | Production Frontend Origin |
-| `ORIGIN` | `https://opengym-frontend-229c.onrender.com` | CORS and session reference origin |
+| `GOOGLE_CALLBACK_URL` | `https://IRONX-backend-ikdi.onrender.com/api/auth/google/callback` | Exact OAuth callback URL |
+| `FRONTEND_ORIGIN` | `https://IRONX-frontend-229c.onrender.com` | Production Frontend Origin |
+| `ORIGIN` | `https://IRONX-frontend-229c.onrender.com` | CORS and session reference origin |
 | `MONGODB_URI` | *[Existing Atlas URI]* | Your persistent MongoDB Atlas connection string |
 | `SECRET` | *[Existing or Generated Secret]* | Session and OAuth CSRF state signing secret |
 
-### Frontend Static Site (`opengym-frontend`)
+### Frontend Static Site (`IRONX-frontend`)
 | Key | Value | Description |
 | :--- | :--- | :--- |
-| `VITE_API_BASE_URL` | `https://opengym-backend-ikdi.onrender.com` | Backend API URL (no trailing slash) |
+| `VITE_API_BASE_URL` | `https://IRONX-backend-ikdi.onrender.com` | Backend API URL (no trailing slash) |
 
 ---
 
@@ -225,7 +225,7 @@ $$\text{Age} = \text{Current Year} - \text{Birth Year} - [1 \text{ if birthday h
    - No collections or records in MongoDB Atlas have been dropped.
    - Existing workout records, exercise libraries, custom exercises, daily health logs, nutrition entries, and body weight logs remain stored under their respective internal user IDs (`userId`).
 2. **Safe Account Linking:**
-   - When an existing OpenGym user signs in with Google, if their Google-verified email address matches an existing account that has no `googleSub`, the system automatically links the `googleSub` to that existing account.
+   - When an existing IRONX user signs in with Google, if their Google-verified email address matches an existing account that has no `googleSub`, the system automatically links the `googleSub` to that existing account.
    - Their entire history of workouts and states is immediately accessible upon Google sign-in.
 3. **Passkey Fallback:**
    - Passkey models and backend verification functions are preserved in the codebase for verification continuity while removing all passkey UI and replacing active authentication with Google OAuth.

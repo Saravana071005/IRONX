@@ -1,7 +1,7 @@
-# OpenGym — Database Architecture, Connection Diagnostics, and HTTP 500 Root Cause Report
+# IRONX — Database Architecture, Connection Diagnostics, and HTTP 500 Root Cause Report
 
-**Backend URL:** `https://opengym-backend-ikdi.onrender.com/`  
-**Frontend URL:** `https://opengym-frontend-229c.onrender.com/`  
+**Backend URL:** `https://IRONX-backend-ikdi.onrender.com/`  
+**Frontend URL:** `https://IRONX-frontend-229c.onrender.com/`  
 **Date:** 2026-11-14  
 **Status:** Diagnosed, Hardened, and Verified (319/319 Tests Passing)
 
@@ -9,7 +9,7 @@
 
 ## 1. Actual Database Currently Used
 
-MongoDB Atlas is the **primary persistent cloud database** for OpenGym in production. Every piece of user-generated data, authentication credentials, and tracking history is persisted directly to MongoDB Atlas.
+MongoDB Atlas is the **primary persistent cloud database** for IRONX in production. Every piece of user-generated data, authentication credentials, and tracking history is persisted directly to MongoDB Atlas.
 
 | Application Domain | Primary Persistent Database | Collection / Mechanism | Fallback / Local Cache Role |
 | :--- | :--- | :--- | :--- |
@@ -19,7 +19,7 @@ MongoDB Atlas is the **primary persistent cloud database** for OpenGym in produc
 | **Workout Records** | **MongoDB Atlas** | `states` collection (`workouts` array) | Local filesystem `stateFile` acts as local cache |
 | **Weekly Planner & Schedules** | **MongoDB Atlas** | `states` collection (`routines`, `week`, `dayPlan`) | Saved via `PUT /api/data` into MongoDB Atlas |
 | **Custom Exercises** | **MongoDB Atlas** | `states` collection (`customEx` array) | Merged with predefined library client-side |
-| **Exercise Library** | **Client-side Static Bundle** | [`frontend/src/lib/exercises-data.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/frontend/src/lib/exercises-data.js) | Predefined library (100+ movements) bundled in SPA for 0ms offline access |
+| **Exercise Library** | **Client-side Static Bundle** | [`frontend/src/lib/exercises-data.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/frontend/src/lib/exercises-data.js) | Predefined library (100+ movements) bundled in SPA for 0ms offline access |
 | **Daily Food Logs** | **MongoDB Atlas** | `meal_logs` collection | Read-through cache in local SQLite table `meal_logs` |
 | **Water Intake** | **MongoDB Atlas** | `water_logs` collection | Mirrored to local SQLite `water_logs` cache |
 | **Cardio Records** | **MongoDB Atlas** | `cardio_logs` collection | Mirrored to local SQLite `cardio_logs` cache |
@@ -30,14 +30,14 @@ MongoDB Atlas is the **primary persistent cloud database** for OpenGym in produc
 
 ## 2. SQLite References and Their Purpose
 
-There is only one SQLite database file in the project: [`data/nutrition.db`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/data/nutrition.db) (3.7 MB).
+There is only one SQLite database file in the project: [`data/nutrition.db`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/data/nutrition.db) (3.7 MB).
 
 ### Purpose:
 1. **Static Reference Dataset:** Contains over 8,000 verified Indian food compositions, ICMR-NIN nutritional values, portion conversions, raw-versus-cooked yields, and recipe ingredients. This reference dataset is static and read-only.
-2. **Local Read-Through Cache:** In [`api/nutrition/db.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/api/nutrition/db.js), SQLite provides fast queries for meal logs, water, and cardio on the local container.
+2. **Local Read-Through Cache:** In [`api/nutrition/db.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/api/nutrition/db.js), SQLite provides fast queries for meal logs, water, and cardio on the local container.
 3. **Synchronization with MongoDB Atlas:**
    - Every write operation (`addMealLog`, `updateMealLog`, `deleteMealLog`, `addWaterLog`, `addCardioLog`, `setDailyHealthSettings`) explicitly updates **MongoDB Atlas** via `getMongoDb().then(...)`.
-   - On container restart or cache miss, [`syncHealthLogsFromMongo(userId, date)`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/api/nutrition/db.js#L561) fetches records directly from MongoDB Atlas and seeds the local cache.
+   - On container restart or cache miss, [`syncHealthLogsFromMongo(userId, date)`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/api/nutrition/db.js#L561) fetches records directly from MongoDB Atlas and seeds the local cache.
 
 ### The Node.js ExperimentalWarning:
 When Node.js 22/26 imports `node:sqlite` (`import { DatabaseSync } from 'node:sqlite'`), it emits:
@@ -50,10 +50,10 @@ This is a standard informational warning from the Node.js runtime indicating tha
 
 ## 3. MongoDB Connection Status
 
-The MongoDB Atlas configuration on your production Render service (`https://opengym-backend-ikdi.onrender.com/`) is **active and connected**.
+The MongoDB Atlas configuration on your production Render service (`https://IRONX-backend-ikdi.onrender.com/`) is **active and connected**.
 
 ### Live Production Probe Results:
-Live test against `https://opengym-backend-ikdi.onrender.com/api/health`:
+Live test against `https://IRONX-backend-ikdi.onrender.com/api/health`:
 ```http
 HTTP/1.1 200 OK
 Content-Type: application/json
@@ -70,7 +70,7 @@ Content-Type: application/json
 }
 ```
 
-Live test against `https://opengym-backend-ikdi.onrender.com/api/health/db`:
+Live test against `https://IRONX-backend-ikdi.onrender.com/api/health/db`:
 ```http
 HTTP/1.1 200 OK
 Content-Type: application/json
@@ -82,7 +82,7 @@ Content-Type: application/json
 
 ### Verification:
 * `MONGODB_URI` is correctly read from the environment.
-* `MONGODB_DB` is correctly resolved (`opengym`).
+* `MONGODB_DB` is correctly resolved (`IRONX`).
 * The official MongoDB driver (`mongodb` v7.7.0) is installed and active.
 * MongoDB connection pool (`maxPoolSize: 10`, `serverSelectionTimeoutMS: 5000`) is active.
 * The Atlas cluster responded to `db.command({ ping: 1 })` with latency under 150ms.
@@ -94,7 +94,7 @@ Content-Type: application/json
 Investigation into the source code revealed **two distinct root causes** that caused the intermittent HTTP 500 error:
 
 ### Root Cause A: Unhandled Promise Rejection in Global Request Middleware
-1. In [`api/server.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/api/server.js#L846), `handleRequest(req, res)` was executing:
+1. In [`api/server.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/api/server.js#L846), `handleRequest(req, res)` was executing:
    ```javascript
    await ensureMongoSync();
    ```
@@ -122,7 +122,7 @@ Investigation into the source code revealed **two distinct root causes** that ca
 ### Additional Discovery: Tab Character in `RP_ID`
 During our live diagnostic curl of `POST /api/register/options`, the server returned:
 ```json
-"rp": { "name": "openGym", "id": "\topengym-frontend.onrender.com" }
+"rp": { "name": "IRONX", "id": "\topengym-frontend.onrender.com" }
 ```
 Notice the `\t` character. When `RP_ID` was entered into the Render Dashboard, an accidental leading tab was pasted. This causes WebAuthn passkey registration in browsers to reject with a `SecurityError`.
 
@@ -130,7 +130,7 @@ Notice the `\t` character. When `RP_ID` was entered into the Render Dashboard, a
 
 ## 5. Files Changed & Technical Fixes
 
-### 1. [`api/server.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/api/server.js)
+### 1. [`api/server.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/api/server.js)
 * **Separated Process Liveness and Database Readiness:**
   * `GET /api/health` is now a dedicated **Process Liveness Probe**. It returns **HTTP 200 OK** indicating the Node.js HTTP server is alive and functioning, while reporting the real-time database connection status in its JSON payload without failing the container.
   * `GET /api/health/db` is the dedicated **Database Readiness Probe**. It returns HTTP 200 when MongoDB Atlas is connected and HTTP 503 when unavailable.
@@ -143,7 +143,7 @@ Notice the `\t` character. When `RP_ID` was entered into the Render Dashboard, a
 * **Environment Variable Trimming:**
   * Added `.trim()` to `process.env.RP_ID`, `process.env.ORIGIN`, and `process.env.MONGODB_DB`, sanitizing any accidental tabs or whitespace.
 
-### 2. [`api/db/mongo.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/opengym/api/db/mongo.js)
+### 2. [`api/db/mongo.js`](file:///C:/Users/Admin/.gemini/antigravity-ide/scratch/IRONX/api/db/mongo.js)
 * Wrapped `new MongoClient(...)` and `getMongoDb(...)` in synchronous try/catch guards to ensure malformed connection strings or initialization faults are safely caught and logged rather than causing unhandled process exceptions.
 
 ---
@@ -156,10 +156,10 @@ Notice the `\t` character. When `RP_ID` was entered into the Render Dashboard, a
 * **Total Automated Tests:** **319 / 319 passing (100%)**.
 
 ### Production Live Probe Verification:
-* `GET https://opengym-backend-ikdi.onrender.com/api/health`: **HTTP 200 OK** (`type: mongodb, connected: true`).
-* `GET https://opengym-backend-ikdi.onrender.com/api/health/db`: **HTTP 200 OK** (`database: connected`).
-* `OPTIONS https://opengym-backend-ikdi.onrender.com/api/health`: **HTTP 204 No Content** (CORS verified with `Access-Control-Allow-Origin: https://opengym-frontend-229c.onrender.com` and `credentials: true`).
-* `GET https://opengym-backend-ikdi.onrender.com/api/nutrition/search?q=banana`: **HTTP 200 OK** (queried staple foods database, 20 results returned).
+* `GET https://IRONX-backend-ikdi.onrender.com/api/health`: **HTTP 200 OK** (`type: mongodb, connected: true`).
+* `GET https://IRONX-backend-ikdi.onrender.com/api/health/db`: **HTTP 200 OK** (`database: connected`).
+* `OPTIONS https://IRONX-backend-ikdi.onrender.com/api/health`: **HTTP 204 No Content** (CORS verified with `Access-Control-Allow-Origin: https://IRONX-frontend-229c.onrender.com` and `credentials: true`).
+* `GET https://IRONX-backend-ikdi.onrender.com/api/nutrition/search?q=banana`: **HTTP 200 OK** (queried staple foods database, 20 results returned).
 
 ---
 
@@ -168,16 +168,16 @@ Notice the `\t` character. When `RP_ID` was entered into the Render Dashboard, a
 To ensure your production environment is 100% clean:
 
 1. **Clean up `RP_ID` in Render Dashboard:**
-   - In Render Dashboard, click into service **`opengym-backend`**.
+   - In Render Dashboard, click into service **`IRONX-backend`**.
    - Go to **Environment**.
    - Check the `RP_ID` key. Delete the existing value and re-type:
-     `opengym-frontend-229c.onrender.com`
+     `IRONX-frontend-229c.onrender.com`
      *(Ensure there are no leading tabs or spaces)*.
    - Click **Save Changes**.
 
 2. **Verify Frontend `VITE_API_BASE_URL`:**
-   - In Render Dashboard, click into **`opengym-frontend`**.
+   - In Render Dashboard, click into **`IRONX-frontend`**.
    - Go to **Environment**.
    - Verify `VITE_API_BASE_URL` is set to:
-     `https://opengym-backend-ikdi.onrender.com`
+     `https://IRONX-backend-ikdi.onrender.com`
      *(Without trailing slash)*.
