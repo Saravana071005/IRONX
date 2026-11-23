@@ -156,20 +156,38 @@ export default function Nutrition() {
     setWaterGoalDraft(String(num))
     setEditingWaterGoal(false)
 
-      const entryWithId = { ...entry, id: entry.id || ('loc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)) }
-      update(s => {
-        if (!s.meals) s.meals = []
-        s.meals.push(entryWithId)
-      })
-      addedCount++
-      if (user) {
-        try {
-          await api('/api/nutrition/log', {
-            method: 'POST',
-            body: JSON.stringify(entryWithId)
-          })
-        } catch (e) { /* preserved locally */ }
-      }
+    try {
+      localStorage.setItem('opengym_health_settings', JSON.stringify({ water_goal_litres: num, calorie_target: 1900 }))
+    } catch (e) {}
+
+    if (user) {
+      try {
+        await api('/api/nutrition/health-settings', {
+          method: 'POST',
+          body: JSON.stringify({ water_goal_litres: num, calorie_target: 1900 })
+        })
+      } catch (e) {}
+    }
+    toast(t('Water goal updated to {0} L', num))
+  }
+
+  // --- Calculations for Daily Summary ---
+  const totals = useMemo(() => {
+    const realFoods = foods.filter(f => !f.is_example)
+
+    const waterTotalMl = water.reduce((acc, w) => acc + (Number(w.amount_ml) || 0), 0)
+    const waterLitres = Math.round((waterTotalMl / 1000) * 100) / 100
+
+    let cardioDurationMin = 0
+    let cardioSteps = 0
+    let cardioDistanceKm = 0
+    let cardioCaloriesBurned = 0
+
+    for (const c of cardio) {
+      cardioDurationMin += Number(c.duration_min) || 0
+      cardioSteps += Number(c.steps) || 0
+      cardioDistanceKm += Number(c.distance_km) || 0
+      cardioCaloriesBurned += Number(c.calories_burned) || 0
     }
 
     let strengthDurationMin = 0
