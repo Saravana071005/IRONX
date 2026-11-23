@@ -30,7 +30,7 @@ services:
 
   # OpenGym Frontend Application (Static Site on Free Tier)
   - type: web
-    name: opengym-frontend
+    name: ironx-frontend
     runtime: static
     buildCommand: npm install && npm --prefix frontend run build
     staticPublishPath: frontend/dist
