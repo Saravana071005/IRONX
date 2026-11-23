@@ -7,8 +7,15 @@ import { t } from '../lib/i18n.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { exportDailyReportPdf } from '../lib/exportDailyReportPdf.js'
-import { cardioSheet } from '../sheets.jsx'
+import { cardioSheet, confirmSheet } from '../sheets.jsx'
 import { EXIDX } from '../lib/exercises.js'
+import {
+  RepeatPreviousMealModal,
+  SaveAsMyMealModal,
+  MySavedMealsModal,
+  RawRecipeBuilderModal,
+  AICoachView
+} from './NutritionModals.jsx'
 
 const MEAL_TYPES = [
   { id: 'breakfast', label: 'Breakfast', icon: 'sun', color: 'var(--orange)' },
@@ -48,7 +55,8 @@ const EXAMPLE_ENTRIES = [
 export default function Nutrition() {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
-  const { openSheet, toast, confirmSheet } = useUI()
+  const { openSheet, toast } = useUI()
+  const [activeTab, setActiveTab] = useState('log') // 'log' | 'coach' | 'saved'
 
   const userCalorieTarget = Number(S?.nutritionTargets?.calorie || S?.nutritionTargets?.calories || user?.calorie_target || user?.nutritionTargets?.calorie) || 1900
 
@@ -135,37 +143,27 @@ export default function Nutrition() {
       try {
         const res = await api(`/api/nutrition/health-log?date=${d}`)
         if (res.ok) {
-          const fetchedFoods = res.foods || []
-          const foodMap = new Map()
-          storeDayMeals.forEach(f => foodMap.set(f.id, f))
-          fetchedFoods.forEach(f => {
-            const unified = {
-              id: f.id,
-              user_id: f.user_id,
-              meal_type: f.meal_type || f.type || 'breakfast',
-              food_name: f.food_name || f.name || 'Food entry',
-              serving_quantity: Number(f.serving_quantity || f.qty) || 100,
-              serving_unit: f.serving_unit || f.unit || 'g',
-              energy_kcal: Number(f.energy_kcal || f.calories || f.calorie) || 0,
-              calories: Number(f.energy_kcal || f.calories || f.calorie) || 0,
-              protein_g: Number(f.protein_g || f.protein) || 0,
-              protein: Number(f.protein_g || f.protein) || 0,
-              carb_g: Number(f.carb_g || f.carbs || f.carb) || 0,
-              carbs: Number(f.carb_g || f.carbs || f.carb) || 0,
-              fat_g: Number(f.fat_g || f.fat) || 0,
-              fat: Number(f.fat_g || f.fat) || 0,
-              notes: f.notes || null,
-              date: f.date || f.d || d,
-              created_at: f.created_at || f.createdAt || null
-            }
-            foodMap.set(f.id, unified)
-            const curInStore = (useStore.getState().S.meals || []).find(m => m.id === f.id)
-            if (!curInStore) {
-              useStore.getState().logMeal(unified)
-            }
-          })
-          const mergedFoods = Array.from(foodMap.values())
-          setFoods(mergedFoods)
+          const fetchedFoods = (res.foods || []).map(f => ({
+            id: f.id,
+            user_id: f.user_id,
+            meal_type: f.meal_type || f.type || 'breakfast',
+            food_name: f.food_name || f.name || 'Food entry',
+            serving_quantity: Number(f.serving_quantity || f.qty) || 100,
+            serving_unit: f.serving_unit || f.unit || 'g',
+            energy_kcal: Number(f.energy_kcal != null ? f.energy_kcal : (f.calories != null ? f.calories : 0)),
+            calories: Number(f.energy_kcal != null ? f.energy_kcal : (f.calories != null ? f.calories : 0)),
+            protein_g: Number(f.protein_g != null ? f.protein_g : (f.protein != null ? f.protein : 0)),
+            protein: Number(f.protein_g != null ? f.protein_g : (f.protein != null ? f.protein : 0)),
+            carb_g: Number(f.carb_g != null ? f.carb_g : (f.carbs != null ? f.carbs : 0)),
+            carbs: Number(f.carb_g != null ? f.carb_g : (f.carbs != null ? f.carbs : 0)),
+            fat_g: Number(f.fat_g != null ? f.fat_g : (f.fat != null ? f.fat : 0)),
+            fat: Number(f.fat_g != null ? f.fat_g : (f.fat != null ? f.fat : 0)),
+            notes: f.notes || null,
+            date: f.date || f.d || d,
+            created_at: f.created_at || f.createdAt || null
+          }))
+
+          setFoods(fetchedFoods)
           setWater(res.water || [])
           setCardio(res.cardio || [])
           setStrength(res.strength || [])
@@ -173,7 +171,13 @@ export default function Nutrition() {
             setWaterGoalL(res.settings.water_goal_litres)
             setWaterGoalDraft(String(res.settings.water_goal_litres))
           }
-          saveToLocalStorage(d, mergedFoods, res.water || [], res.cardio || [], res.strength || [])
+          saveToLocalStorage(d, fetchedFoods, res.water || [], res.cardio || [], res.strength || [])
+
+          // Synchronize store so deleted items are strictly removed and cross-device sync matches authoritative server state
+          useStore.getState().update(s => {
+            const otherDayMeals = (s.meals || []).filter(m => m && m.date !== d && m.d !== d)
+            s.meals = [...otherDayMeals, ...fetchedFoods]
+          }, false)
         }
       } catch (e) {
         loadFromLocalStorage(d)
@@ -464,21 +468,39 @@ export default function Nutrition() {
       toast(t('Example entries cannot be deleted; toggle "Show Examples" to hide them.'))
       return
     }
-    confirmSheet(t('Delete {0}?', food.food_name || food.name), async () => {
-      useStore.getState().deleteMeal(food.id)
-      const updatedFoods = foods.filter(f => f.id !== food.id)
-      setFoods(updatedFoods)
-      saveToLocalStorage(date, updatedFoods, water, cardio, strength)
+    confirmSheet({
+      title: t('Delete Food Entry?'),
+      message: t('Are you sure you want to delete "{0}" from {1}?', food.food_name || food.name, food.meal_type || 'today\'s meal'),
+      confirmText: t('Delete'),
+      danger: true,
+      onConfirm: async () => {
+        const prevFoods = [...foods]
+        useStore.getState().deleteMeal(food.id)
+        const updatedFoods = foods.filter(f => f.id !== food.id)
+        setFoods(updatedFoods)
+        saveToLocalStorage(date, updatedFoods, water, cardio, strength)
 
-      if (user) {
-        try {
-          await api('/api/nutrition/food/delete', {
-            method: 'POST',
-            body: JSON.stringify({ id: food.id })
-          })
-        } catch (e) {}
+        if (user) {
+          try {
+            const res = await api('/api/nutrition/food/delete', {
+              method: 'POST',
+              body: JSON.stringify({ id: food.id })
+            })
+            if (res && res.ok === false) {
+              setFoods(prevFoods)
+              saveToLocalStorage(date, prevFoods, water, cardio, strength)
+              toast(t('Failed to delete on server. Restored entry.'))
+              return
+            }
+          } catch (e) {
+            setFoods(prevFoods)
+            saveToLocalStorage(date, prevFoods, water, cardio, strength)
+            toast(t('Failed to delete: {0}', e.message))
+            return
+          }
+        }
+        toast(t('Food entry permanently deleted'))
       }
-      toast(t('Food entry deleted'))
     })
   }
 
@@ -513,20 +535,26 @@ export default function Nutrition() {
   }
 
   const handleDeleteWater = (id) => {
-    confirmSheet(t('Delete this water entry?'), async () => {
-      const updatedWater = water.filter(w => w.id !== id)
-      setWater(updatedWater)
-      saveToLocalStorage(date, foods, updatedWater, cardio, strength)
+    confirmSheet({
+      title: t('Delete Water Entry?'),
+      message: t('Delete this water log entry?'),
+      confirmText: t('Delete'),
+      danger: true,
+      onConfirm: async () => {
+        const updatedWater = water.filter(w => w.id !== id)
+        setWater(updatedWater)
+        saveToLocalStorage(date, foods, updatedWater, cardio, strength)
 
-      if (user) {
-        try {
-          await api('/api/nutrition/water/delete', {
-            method: 'POST',
-            body: JSON.stringify({ id })
-          })
-        } catch (e) {}
+        if (user) {
+          try {
+            await api('/api/nutrition/water/delete', {
+              method: 'POST',
+              body: JSON.stringify({ id })
+            })
+          } catch (e) {}
+        }
+        toast(t('Water entry removed'))
       }
-      toast(t('Water entry removed'))
     })
   }
 
@@ -538,20 +566,26 @@ export default function Nutrition() {
   }
 
   const handleDeleteCardio = (session) => {
-    confirmSheet(t('Delete {0} cardio session?', session.activity_type || session.activity || 'cardio'), async () => {
-      useStore.getState().deleteCardio(session.id)
-      setCardio(prev => prev.filter(c => c.id !== session.id))
-      const updated = allCardioForDay.filter(c => c.id !== session.id)
-      saveToLocalStorage(date, foods, water, updated, strength)
-      if (user) {
-        try {
-          await api('/api/nutrition/cardio/delete', {
-            method: 'POST',
-            body: JSON.stringify({ id: session.id })
-          })
-        } catch (e) {}
+    confirmSheet({
+      title: t('Delete Cardio Session?'),
+      message: t('Delete {0} session from your activity history?', session.activity_type || session.activity || 'cardio'),
+      confirmText: t('Delete'),
+      danger: true,
+      onConfirm: async () => {
+        useStore.getState().deleteCardio(session.id)
+        setCardio(prev => prev.filter(c => c.id !== session.id))
+        const updated = allCardioForDay.filter(c => c.id !== session.id)
+        saveToLocalStorage(date, foods, water, updated, strength)
+        if (user) {
+          try {
+            await api('/api/nutrition/cardio/delete', {
+              method: 'POST',
+              body: JSON.stringify({ id: session.id })
+            })
+          } catch (e) {}
+        }
+        toast(t('Cardio session deleted'))
       }
-      toast(t('Cardio session deleted'))
     })
   }
 
@@ -587,21 +621,193 @@ export default function Nutrition() {
   }
 
   const handleDeleteStrength = (exercise) => {
-    confirmSheet(t('Delete {0} exercise entry?', exercise.exercise_name), async () => {
-      const updatedStrength = strength.filter(s => s.id !== exercise.id)
-      setStrength(updatedStrength)
-      saveToLocalStorage(date, foods, water, cardio, updatedStrength)
+    confirmSheet({
+      title: t('Delete Strength Entry?'),
+      message: t('Delete {0} exercise entry?', exercise.exercise_name),
+      confirmText: t('Delete'),
+      danger: true,
+      onConfirm: async () => {
+        const updatedStrength = strength.filter(s => s.id !== exercise.id)
+        setStrength(updatedStrength)
+        saveToLocalStorage(date, foods, water, cardio, updatedStrength)
 
-      if (user) {
-        try {
-          await api('/api/nutrition/strength/delete', {
-            method: 'POST',
-            body: JSON.stringify({ id: exercise.id })
-          })
-        } catch (e) {}
+        if (user) {
+          try {
+            await api('/api/nutrition/strength/delete', {
+              method: 'POST',
+              body: JSON.stringify({ id: exercise.id })
+            })
+          } catch (e) {}
+        }
+        toast(t('Strength exercise deleted'))
       }
-      toast(t('Strength exercise deleted'))
     })
+  }
+
+  // --- Action Handlers for Repeat Meal, Custom Meal, Recipe Builder & Saved Meals ---
+  const handleOpenRepeatMealModal = (defaultMealType = 'breakfast') => {
+    openSheet(close => (
+      <RepeatPreviousMealModal
+        defaultMealType={defaultMealType}
+        onSaveBatch={async (newEntries) => {
+          const unifiedList = newEntries.map(e => ({
+            id: 'food_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            user_id: user?.id || null,
+            meal_type: e.meal_type || defaultMealType,
+            type: e.meal_type || defaultMealType,
+            food_name: e.food_name || e.name,
+            name: e.food_name || e.name,
+            serving_quantity: Number(e.serving_quantity || e.qty) || 1,
+            qty: Number(e.serving_quantity || e.qty) || 1,
+            serving_unit: e.serving_unit || e.unit || 'g',
+            unit: e.serving_unit || e.unit || 'g',
+            energy_kcal: Number(e.energy_kcal || e.calories) || 0,
+            calories: Number(e.energy_kcal || e.calories) || 0,
+            protein_g: Number(e.protein_g || e.protein) || 0,
+            protein: Number(e.protein_g || e.protein) || 0,
+            carb_g: Number(e.carb_g || e.carbs) || 0,
+            carbs: Number(e.carb_g || e.carbs) || 0,
+            fat_g: Number(e.fat_g || e.fat) || 0,
+            fat: Number(e.fat_g || e.fat) || 0,
+            notes: e.notes || null,
+            date: date,
+            d: date,
+            created_at: new Date().toISOString()
+          }))
+
+          unifiedList.forEach(u => useStore.getState().logMeal(u))
+          const updatedFoods = [...foods, ...unifiedList]
+          setFoods(updatedFoods)
+          saveToLocalStorage(date, updatedFoods, water, cardio, strength)
+
+          if (user) {
+            try {
+              await api('/api/nutrition/food/save-batch', {
+                method: 'POST',
+                body: JSON.stringify({ entries: unifiedList, date })
+              })
+            } catch (err) {}
+          }
+          toast(t('Added {0} items from previous meal', unifiedList.length))
+        }}
+        close={close}
+        toast={toast}
+      />
+    ))
+  }
+
+  const handleOpenSaveAsMyMeal = (defaultMealType = 'breakfast') => {
+    const mealFoods = foods.filter(f => !f.is_example && (f.meal_type === defaultMealType || f.type === defaultMealType))
+    openSheet(close => (
+      <SaveAsMyMealModal
+        defaultMealType={defaultMealType}
+        currentFoods={mealFoods.length > 0 ? mealFoods : foods.filter(f => !f.is_example)}
+        onSaved={() => {
+          toast(t('Meal template saved'))
+        }}
+        close={close}
+        toast={toast}
+      />
+    ))
+  }
+
+  const handleOpenRecipeBuilder = () => {
+    openSheet(close => (
+      <RawRecipeBuilderModal
+        onLogRecipePortion={async (portionEntry) => {
+          const unified = {
+            id: 'food_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            user_id: user?.id || null,
+            meal_type: portionEntry.meal_type || 'lunch',
+            type: portionEntry.meal_type || 'lunch',
+            food_name: portionEntry.food_name,
+            name: portionEntry.food_name,
+            serving_quantity: portionEntry.serving_quantity || 1,
+            qty: portionEntry.serving_quantity || 1,
+            serving_unit: portionEntry.serving_unit || 'serving',
+            unit: portionEntry.serving_unit || 'serving',
+            energy_kcal: Number(portionEntry.energy_kcal) || 0,
+            calories: Number(portionEntry.energy_kcal) || 0,
+            protein_g: Number(portionEntry.protein_g) || 0,
+            protein: Number(portionEntry.protein_g) || 0,
+            carb_g: Number(portionEntry.carb_g) || 0,
+            carbs: Number(portionEntry.carb_g) || 0,
+            fat_g: Number(portionEntry.fat_g) || 0,
+            fat: Number(portionEntry.fat_g) || 0,
+            notes: portionEntry.notes || null,
+            date: date,
+            d: date,
+            created_at: new Date().toISOString()
+          }
+
+          useStore.getState().logMeal(unified)
+          const updatedFoods = [...foods, unified]
+          setFoods(updatedFoods)
+          saveToLocalStorage(date, updatedFoods, water, cardio, strength)
+
+          if (user) {
+            try {
+              await api('/api/nutrition/food/save', {
+                method: 'POST',
+                body: JSON.stringify(unified)
+              })
+            } catch (err) {}
+          }
+        }}
+        close={close}
+        toast={toast}
+      />
+    ))
+  }
+
+  const handleOpenMySavedMeals = () => {
+    openSheet(close => (
+      <MySavedMealsModal
+        onAddTemplateToToday={async (template, targetMealType) => {
+          const unifiedList = (template.items || []).map(it => ({
+            id: 'food_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            user_id: user?.id || null,
+            meal_type: targetMealType || template.meal_type || 'breakfast',
+            type: targetMealType || template.meal_type || 'breakfast',
+            food_name: it.food_name || it.name,
+            name: it.food_name || it.name,
+            serving_quantity: Number(it.serving_quantity || it.qty) || 1,
+            qty: Number(it.serving_quantity || it.qty) || 1,
+            serving_unit: it.serving_unit || it.unit || 'g',
+            unit: it.serving_unit || it.unit || 'g',
+            energy_kcal: Number(it.energy_kcal || it.calories) || 0,
+            calories: Number(it.energy_kcal || it.calories) || 0,
+            protein_g: Number(it.protein_g || it.protein) || 0,
+            protein: Number(it.protein_g || it.protein) || 0,
+            carb_g: Number(it.carb_g || it.carbs) || 0,
+            carbs: Number(it.carb_g || it.carbs) || 0,
+            fat_g: Number(it.fat_g || it.fat) || 0,
+            fat: Number(it.fat_g || it.fat) || 0,
+            notes: it.notes || null,
+            date: date,
+            d: date,
+            created_at: new Date().toISOString()
+          }))
+
+          unifiedList.forEach(u => useStore.getState().logMeal(u))
+          const updatedFoods = [...foods, ...unifiedList]
+          setFoods(updatedFoods)
+          saveToLocalStorage(date, updatedFoods, water, cardio, strength)
+
+          if (user) {
+            try {
+              await api('/api/nutrition/food/save-batch', {
+                method: 'POST',
+                body: JSON.stringify({ entries: unifiedList, date })
+              })
+            } catch (err) {}
+          }
+          toast(t('Added template "{0}" to {1}', template.name, targetMealType))
+        }}
+        close={close}
+        toast={toast}
+      />
+    ))
   }
 
   // --- Export PDF ---
@@ -677,6 +883,51 @@ export default function Nutrition() {
         </Button>
       </div>
 
+      {/* View Switcher: Daily Log, AI Nutrition Coach, Saved Meals & Recipes */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 10, overflowX: 'auto' }}>
+        <button
+          type="button"
+          className={`btn small ${activeTab === 'log' ? 'primary' : ''}`}
+          onClick={() => setActiveTab('log')}
+          style={{ fontWeight: 700, borderRadius: 9999, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <Icon name="apple" />
+          {t("Daily Log")}
+        </button>
+        <button
+          type="button"
+          className={`btn small ${activeTab === 'coach' ? 'primary' : ''}`}
+          onClick={() => setActiveTab('coach')}
+          style={{ fontWeight: 700, borderRadius: 9999, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <Icon name="sparkles" />
+          {t("AI Nutrition Coach")}
+        </button>
+        <button
+          type="button"
+          className={`btn small ${activeTab === 'saved' ? 'primary' : ''}`}
+          onClick={handleOpenMySavedMeals}
+          style={{ fontWeight: 700, borderRadius: 9999, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <Icon name="bookmark" />
+          {t("My Saved Meals")}
+        </button>
+      </div>
+
+      {activeTab === 'coach' ? (
+        <AICoachView
+          user={user}
+          foods={foods}
+          currentTargets={{ calorie_target: userCalorieTarget }}
+          onTargetsUpdated={(newTargets) => {
+            if (newTargets?.calorie_target) {
+              useStore.getState().setNutritionTargets(newTargets)
+            }
+          }}
+          toast={toast}
+        />
+      ) : (
+        <>
       {/* Date Selector Strip */}
       <div className="card" style={{ padding: '12px 16px', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
@@ -800,18 +1051,44 @@ export default function Nutrition() {
 
       {/* Today's Meals Section — Grouped cards matching Phone 6 in reference image */}
       <div style={{ marginBottom: 20 }}>
-        <div className="row between" style={{ marginBottom: 12, padding: '0 4px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12, padding: '0 4px' }}>
           <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: 'var(--label)' }}>
             {t("Today's Meals")}
           </h2>
-          <Button
-            variant="tinted"
-            icon="plus"
-            size="sm"
-            onClick={() => handleOpenFoodModal()}
-          >
-            {t('Add Food')}
-          </Button>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <Button
+              variant="tinted"
+              icon="plus"
+              size="sm"
+              onClick={() => handleOpenFoodModal()}
+            >
+              {t('Add Food')}
+            </Button>
+            <Button
+              variant="tinted"
+              icon="reset"
+              size="sm"
+              onClick={() => handleOpenRepeatMealModal()}
+            >
+              {t('Repeat Meal')}
+            </Button>
+            <Button
+              variant="tinted"
+              icon="bookmark"
+              size="sm"
+              onClick={() => handleOpenSaveAsMyMeal()}
+            >
+              {t('Save as My Meal')}
+            </Button>
+            <Button
+              variant="tinted"
+              icon="flame"
+              size="sm"
+              onClick={handleOpenRecipeBuilder}
+            >
+              {t('Recipe Builder')}
+            </Button>
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -856,15 +1133,35 @@ export default function Nutrition() {
                     </div>
                   </div>
 
-                  <button
-                    className="iconbtn"
-                    style={{ width: 32, height: 32, fontSize: 14, background: 'var(--surface-2)', color: 'var(--mint)' }}
-                    onClick={() => handleOpenFoodModal(null, meal.id)}
-                    aria-label={t('Add food to {0}', meal.label)}
-                    title={t('Add food to {0}', meal.label)}
-                  >
-                    <Icon name="plus" />
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                      className="iconbtn"
+                      style={{ width: 28, height: 28, fontSize: 12, background: 'var(--surface-2)', color: 'var(--theme-accent, #E8B477)' }}
+                      onClick={() => handleOpenRepeatMealModal(meal.id)}
+                      aria-label={t('Repeat previous {0}', meal.label)}
+                      title={t('Repeat previous {0}', meal.label)}
+                    >
+                      <Icon name="reset" />
+                    </button>
+                    <button
+                      className="iconbtn"
+                      style={{ width: 28, height: 28, fontSize: 12, background: 'var(--surface-2)', color: 'var(--theme-accent, #E8B477)' }}
+                      onClick={() => handleOpenSaveAsMyMeal(meal.id)}
+                      aria-label={t('Save {0} as template', meal.label)}
+                      title={t('Save {0} as template', meal.label)}
+                    >
+                      <Icon name="bookmark" />
+                    </button>
+                    <button
+                      className="iconbtn"
+                      style={{ width: 32, height: 32, fontSize: 14, background: 'var(--surface-2)', color: 'var(--mint)' }}
+                      onClick={() => handleOpenFoodModal(null, meal.id)}
+                      aria-label={t('Add food to {0}', meal.label)}
+                      title={t('Add food to {0}', meal.label)}
+                    >
+                      <Icon name="plus" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Food Entries in this meal */}
@@ -1360,6 +1657,8 @@ export default function Nutrition() {
           {t('Export Daily Report PDF')}
         </Button>
       </div>
+      </>
+      )}
     </div>
   )
 }
@@ -1812,10 +2111,21 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
           <input
             type="text"
             required={draftItems.length === 0}
-            placeholder={t('Search or enter food, e.g. Oatmeal, Banana')}
+            placeholder={t('Search or enter food, e.g. chapathi, dosa, idli, rice, chicken')}
             value={foodName}
             onChange={e => setFoodName(e.target.value)}
-            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)' }}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              borderRadius: 10,
+              border: '1px solid rgba(255, 255, 255, 0.22)',
+              background: 'rgba(255, 255, 255, 0.08)',
+              color: '#FFFFFF',
+              fontSize: '0.95rem',
+              fontWeight: 600,
+              outline: 'none',
+              boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.3)'
+            }}
           />
           {searching && (
             <div style={{ position: 'absolute', right: 10, top: 32, fontSize: 11, color: 'var(--muted)' }}>
@@ -1839,51 +2149,67 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
                 overflowY: 'auto'
               }}
             >
-              {searchResults.map(item => (
-                <div
-                  key={item.id || item.name}
-                  onClick={() => handleSelectFood(item)}
-                  style={{
-                    padding: '10px 12px',
-                    cursor: 'pointer',
-                    borderBottom: '1px solid var(--border)',
-                    fontSize: 13,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2, #262626)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                >
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <strong style={{ color: 'var(--label)' }}>{item.name}</strong>
-                      {item.name_regional && (
-                        <span style={{ fontSize: 11, color: 'var(--label-2)' }}>({item.name_regional})</span>
-                      )}
-                      {item.data_source === 'icmr_nin_2017' || item.is_verified ? (
-                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 9999, background: 'rgba(232, 180, 119, 0.2)', color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}>
-                          ICMR-NIN
-                        </span>
-                      ) : item.data_source === 'indb' ? (
-                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 9999, background: 'rgba(232, 180, 119, 0.2)', color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}>
-                          INDB Recipe
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 9999, background: 'rgba(46, 196, 182, 0.2)', color: 'var(--teal)', fontWeight: 700 }}>
-                          USDA
-                        </span>
-                      )}
+              {searchResults.map(item => {
+                const itemKcal = item.calories != null ? item.calories : (item.energy_kcal != null ? item.energy_kcal : null);
+                const itemP = item.protein != null ? item.protein : (item.protein_g != null ? item.protein_g : 0);
+                const itemC = item.carbs != null ? item.carbs : (item.carb_g != null ? item.carb_g : 0);
+                const itemF = item.fat != null ? item.fat : (item.fat_g != null ? item.fat_g : 0);
+                const hasNutrition = itemKcal != null && Number(itemKcal) > 0;
+
+                return (
+                  <div
+                    key={item.id || item.name}
+                    onClick={() => handleSelectFood(item)}
+                    style={{
+                      padding: '10px 14px',
+                      cursor: 'pointer',
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                      fontSize: 13,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      background: 'transparent',
+                      transition: 'background 0.15s ease'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <strong style={{ color: '#FFFFFF', fontSize: '0.9rem' }}>{item.name}</strong>
+                        {(item.name_regional || item.tamil_name || item.hindi_name) && (
+                          <span style={{ fontSize: 11, color: 'var(--theme-accent, #E8B477)', fontWeight: 600 }}>
+                            ({item.name_regional || item.tamil_name || item.hindi_name})
+                          </span>
+                        )}
+                        {item.source === 'NIN_STAPLE' || item.source === 'INDB_ICMR' || item.data_source === 'icmr_nin_2017' ? (
+                          <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 9999, background: 'rgba(232, 180, 119, 0.25)', color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}>
+                            ICMR-NIN Verified
+                          </span>
+                        ) : item.source === 'INDB_RECIPE' || item.data_source === 'indb' ? (
+                          <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 9999, background: 'rgba(232, 180, 119, 0.2)', color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}>
+                            INDB Recipe
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 9999, background: 'rgba(46, 196, 182, 0.2)', color: 'var(--teal, #2EC4B6)', fontWeight: 700 }}>
+                            {item.source || 'USDA'}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11, color: hasNutrition ? 'rgba(255, 255, 255, 0.7)' : 'var(--coral, #FF6B6B)', marginTop: 3 }}>
+                        {hasNutrition ? (
+                          `100g = ${itemKcal} kcal · ${itemP}g P · ${itemC}g C · ${itemF}g F`
+                        ) : (
+                          'Nutrition information unavailable — verify or enter values manually.'
+                        )}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--label-2)', marginTop: 2 }}>
-                      100g = {item.calories || 0} kcal · {item.protein || 0}g P · {item.carbs || 0}g C · {item.fat || 0}g F
-                    </div>
+                    <span style={{ color: hasNutrition ? 'var(--theme-accent, #E8B477)' : 'rgba(255, 255, 255, 0.4)', fontWeight: 700, fontSize: 13, flex: 'none', marginLeft: 8 }}>
+                      {hasNutrition ? `${itemKcal} kcal` : 'Manual'}
+                    </span>
                   </div>
-                  <span style={{ color: 'var(--theme-accent, #E8B477)', fontWeight: 700, fontSize: 13 }}>
-                    {item.calories || 0} kcal
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

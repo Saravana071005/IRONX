@@ -88,6 +88,49 @@ export function getDb() {
         water_goal_litres REAL DEFAULT 2.5,
         updated_at TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS meal_templates (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        meal_type TEXT NOT NULL,
+        items_json TEXT NOT NULL,
+        total_calories REAL NOT NULL,
+        total_protein REAL NOT NULL,
+        total_carbs REAL NOT NULL,
+        total_fat REAL NOT NULL,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_meal_templates_user ON meal_templates(user_id);
+
+      CREATE TABLE IF NOT EXISTS custom_recipes (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        ingredients_json TEXT NOT NULL,
+        oil_grams REAL DEFAULT 0,
+        total_raw_weight_g REAL NOT NULL,
+        cooked_weight_g REAL,
+        servings REAL NOT NULL DEFAULT 1,
+        total_calories REAL NOT NULL,
+        total_protein REAL NOT NULL,
+        total_carbs REAL NOT NULL,
+        total_fat REAL NOT NULL,
+        per_serving_calories REAL,
+        per_serving_protein REAL,
+        per_serving_carbs REAL,
+        per_serving_fat REAL,
+        per_100g_calories REAL,
+        per_100g_protein REAL,
+        per_100g_carbs REAL,
+        per_100g_fat REAL,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_custom_recipes_user ON custom_recipes(user_id);
     `);
     try {
       db.exec("ALTER TABLE meal_logs ADD COLUMN notes TEXT");
@@ -99,27 +142,76 @@ export function getDb() {
   return db;
 }
 
+
+const TAMIL_FOOD_MAP = {
+  'சப்பாத்தி': 'chapati',
+  'சப்பாத்தி': 'roti',
+  'தோசை': 'dosa',
+  'தோசை': 'dosai',
+  'இட்லி': 'idli',
+  'இட்லி': 'idly',
+  'சாதம்': 'rice',
+  'சோறு': 'rice',
+  'முட்டை': 'egg',
+  'கோழி': 'chicken',
+  'மீன்': 'fish',
+  'பருப்பு': 'dal',
+  'சாம்பார்': 'sambar',
+  'தயிர்': 'curd',
+  'வெங்காயம்': 'onion',
+  'தக்காளி': 'tomato',
+  'சுண்டல்': 'sundal',
+  'பாசிப்பயறு': 'green gram',
+  'வாழைப்பழம்': 'banana',
+  'தர்பூசணி': 'watermelon',
+  'பால்': 'milk',
+  'கீரை': 'spinach',
+  'பன்னீர்': 'paneer'
+};
+
 export function searchFoods(query, limit = 20, group = null) {
   const d = getDb();
-  const qClean = String(query || '').trim().toLowerCase();
+  let qClean = String(query || '').trim().toLowerCase();
   if (!qClean) {
+    let rawRows = [];
     if (group) {
-      return d.prepare(`
+      rawRows = d.prepare(`
         SELECT id, name, canonical_name, alternate_names, tamil_name, hindi_name,
-               food_group, prep_state, source, energy_kcal, protein_g, carb_g, fat_g, fibre_g,
+               food_group, prep_state, source, serving_basis_g, energy_kcal, protein_g, carb_g, fat_g, fibre_g,
                is_recipe, serving_size_g, serving_unit, confidence
         FROM foods
         WHERE food_group = ?
         LIMIT ?
       `).all(group, limit);
+    } else {
+      rawRows = d.prepare(`
+        SELECT id, name, canonical_name, alternate_names, tamil_name, hindi_name,
+               food_group, prep_state, source, serving_basis_g, energy_kcal, protein_g, carb_g, fat_g, fibre_g,
+               is_recipe, serving_size_g, serving_unit, confidence
+        FROM foods
+        LIMIT ?
+      `).all(limit);
     }
-    return d.prepare(`
-      SELECT id, name, canonical_name, alternate_names, tamil_name, hindi_name,
-             food_group, prep_state, source, energy_kcal, protein_g, carb_g, fat_g, fibre_g,
-             is_recipe, serving_size_g, serving_unit, confidence
-      FROM foods
-      LIMIT ?
-    `).all(limit);
+    return rawRows.map(r => ({
+      ...r,
+      calories: r.energy_kcal,
+      protein: r.protein_g,
+      carbs: r.carb_g,
+      fat: r.fat_g,
+      fibre: r.fibre_g,
+      category: r.food_group,
+      serving_size: r.serving_size_g,
+      serving_basis_g: r.serving_basis_g || 100,
+      name_regional: r.tamil_name || r.hindi_name || null
+    }));
+  }
+
+  // Check if Tamil alias exists
+  let extraAliases = [];
+  for (const [ta, en] of Object.entries(TAMIL_FOOD_MAP)) {
+    if (qClean.includes(ta) && !extraAliases.includes(en)) {
+      extraAliases.push(en);
+    }
   }
 
   // Token-based matching: split query into tokens
@@ -131,12 +223,23 @@ export function searchFoods(query, limit = 20, group = null) {
     params.push(like, like, like, like);
   });
 
+  // If Tamil alias matched, allow OR match on English staple
+  let extraCondition = "";
+  if (extraAliases.length > 0) {
+    const orParts = extraAliases.map(() => "(canonical_name LIKE ? OR alternate_names LIKE ?)");
+    extraCondition = " OR (" + orParts.join(" OR ") + ")";
+    extraAliases.forEach(al => {
+      const like = `%${al}%`;
+      params.push(like, like);
+    });
+  }
+
   let sql = `
     SELECT id, name, canonical_name, alternate_names, tamil_name, hindi_name,
-           food_group, prep_state, source, energy_kcal, protein_g, carb_g, fat_g, fibre_g,
+           food_group, prep_state, source, serving_basis_g, energy_kcal, protein_g, carb_g, fat_g, fibre_g,
            is_recipe, serving_size_g, serving_unit, confidence
     FROM foods
-    WHERE ${conditions.join(" AND ")}
+    WHERE (${conditions.join(" AND ")})${extraCondition}
   `;
 
   if (group) {
@@ -159,7 +262,19 @@ export function searchFoods(query, limit = 20, group = null) {
   `;
   params.push(qClean, qClean, qClean, limit);
 
-  return d.prepare(sql).all(...params);
+  const rawResults = d.prepare(sql).all(...params);
+  return rawResults.map(r => ({
+    ...r,
+    calories: r.energy_kcal,
+    protein: r.protein_g,
+    carbs: r.carb_g,
+    fat: r.fat_g,
+    fibre: r.fibre_g,
+    category: r.food_group,
+    serving_size: r.serving_size_g,
+    serving_basis_g: r.serving_basis_g || 100,
+    name_regional: r.tamil_name || r.hindi_name || null
+  }));
 }
 
 export function getFoodById(id) {
@@ -284,7 +399,9 @@ export function addMealLog(entry) {
 export function updateMealLog(id, userId, updates) {
   const d = getDb();
   const existing = d.prepare("SELECT * FROM meal_logs WHERE id = ? AND user_id = ?").get(id, userId);
-  if (!existing) return null;
+  if (!existing) {
+    return addMealLog({ ...updates, id, user_id: userId });
+  }
   const merged = { ...existing, ...updates };
   d.prepare(`
     UPDATE meal_logs
@@ -321,7 +438,13 @@ export function deleteMealLog(id, userId) {
   const res = d.prepare("DELETE FROM meal_logs WHERE id = ? AND user_id = ?").run(id, userId);
   if (process.env.MONGODB_URI) {
     getMongoDb().then(mongo => {
-      if (mongo) mongo.collection('meal_logs').deleteOne({ id, user_id: userId }).catch(() => {});
+      if (mongo) {
+        mongo.collection('meal_logs').deleteOne({ id, user_id: userId }).catch(() => {});
+        mongo.collection('states').updateOne(
+          { userId },
+          { $pull: { 'state.meals': { id } } }
+        ).catch(() => {});
+      }
     }).catch(() => {});
   }
   return res.changes > 0;
@@ -707,8 +830,422 @@ export function clearAllNutritionDataForUser(userId) {
     try { d.prepare("DELETE FROM strength_logs WHERE user_id = ?").run(userId); } catch {}
     try { d.prepare("DELETE FROM user_nutrition_targets WHERE user_id = ?").run(userId); } catch {}
     try { d.prepare("DELETE FROM daily_health_settings WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM meal_templates WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM custom_recipes WHERE user_id = ?").run(userId); } catch {}
   } catch (err) {
     console.error('Error clearing SQLite nutrition data for user:', err.message);
   }
 }
 
+/* ==================== Meal Templates (Saved Custom Meals) ==================== */
+export async function getMealTemplates(userId) {
+  const d = getDb();
+  let rows = d.prepare(`
+    SELECT id, user_id, name, meal_type, items_json, total_calories, total_protein, total_carbs, total_fat, notes, created_at, updated_at
+    FROM meal_templates
+    WHERE user_id = ?
+    ORDER BY updated_at DESC
+  `).all(userId);
+
+  if (rows.length === 0 && process.env.MONGODB_URI) {
+    try {
+      const mongo = await getMongoDb();
+      if (mongo) {
+        const mTemplates = await mongo.collection('meal_templates').find({ user_id: userId }).toArray();
+        for (const t of mTemplates) {
+          d.prepare(`
+            INSERT OR REPLACE INTO meal_templates (
+              id, user_id, name, meal_type, items_json, total_calories, total_protein, total_carbs, total_fat, notes, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            t.id || t._id.toString(),
+            userId,
+            t.name,
+            t.meal_type || 'breakfast',
+            typeof t.items_json === 'string' ? t.items_json : JSON.stringify(t.items || []),
+            Number(t.total_calories || t.calories || 0),
+            Number(t.total_protein || t.protein || 0),
+            Number(t.total_carbs || t.carbs || 0),
+            Number(t.total_fat || t.fat || 0),
+            t.notes || null,
+            t.created_at || new Date().toISOString(),
+            t.updated_at || new Date().toISOString()
+          );
+        }
+        if (mTemplates.length > 0) {
+          rows = d.prepare(`
+            SELECT id, user_id, name, meal_type, items_json, total_calories, total_protein, total_carbs, total_fat, notes, created_at, updated_at
+            FROM meal_templates
+            WHERE user_id = ?
+            ORDER BY updated_at DESC
+          `).all(userId);
+        }
+      }
+    } catch (err) {
+      console.error('Mongo getMealTemplates sync error:', err.message);
+    }
+  }
+
+  return rows.map(r => ({
+    ...r,
+    items: typeof r.items_json === 'string' ? JSON.parse(r.items_json || '[]') : (r.items_json || [])
+  }));
+}
+
+export function saveMealTemplate(userId, template) {
+  const d = getDb();
+  const id = template.id || ('mtpl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
+  const now = new Date().toISOString();
+  const items = Array.isArray(template.items) ? template.items : [];
+  const itemsJson = typeof template.items_json === 'string' ? template.items_json : JSON.stringify(items);
+  
+  let totalKcal = Number(template.total_calories != null ? template.total_calories : (template.calories != null ? template.calories : 0));
+  let totalP = Number(template.total_protein != null ? template.total_protein : (template.protein != null ? template.protein : 0));
+  let totalC = Number(template.total_carbs != null ? template.total_carbs : (template.carbs != null ? template.carbs : 0));
+  let totalF = Number(template.total_fat != null ? template.total_fat : (template.fat != null ? template.fat : 0));
+
+  if (!totalKcal && items.length > 0) {
+    totalKcal = Math.round(items.reduce((acc, it) => acc + (Number(it.energy_kcal || it.calories) || 0), 0));
+    totalP = Math.round(items.reduce((acc, it) => acc + (Number(it.protein_g || it.protein) || 0), 0) * 10) / 10;
+    totalC = Math.round(items.reduce((acc, it) => acc + (Number(it.carb_g || it.carbs) || 0), 0) * 10) / 10;
+    totalF = Math.round(items.reduce((acc, it) => acc + (Number(it.fat_g || it.fat) || 0), 0) * 10) / 10;
+  }
+
+  d.prepare(`
+    INSERT OR REPLACE INTO meal_templates (
+      id, user_id, name, meal_type, items_json, total_calories, total_protein, total_carbs, total_fat, notes, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    userId,
+    String(template.name || 'Saved Meal').trim(),
+    String(template.meal_type || 'breakfast').toLowerCase(),
+    itemsJson,
+    totalKcal,
+    totalP,
+    totalC,
+    totalF,
+    template.notes || null,
+    template.created_at || now,
+    now
+  );
+
+  const entry = {
+    id,
+    user_id: userId,
+    name: String(template.name || 'Saved Meal').trim(),
+    meal_type: String(template.meal_type || 'breakfast').toLowerCase(),
+    items_json: itemsJson,
+    items,
+    total_calories: totalKcal,
+    total_protein: totalP,
+    total_carbs: totalC,
+    total_fat: totalF,
+    notes: template.notes || null,
+    created_at: template.created_at || now,
+    updated_at: now
+  };
+
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) {
+        mongo.collection('meal_templates').updateOne(
+          { id, user_id: userId },
+          { $set: entry },
+          { upsert: true }
+        ).catch(() => {});
+      }
+    }).catch(() => {});
+  }
+
+  return entry;
+}
+
+export function deleteMealTemplate(id, userId) {
+  const d = getDb();
+  const res = d.prepare("DELETE FROM meal_templates WHERE id = ? AND user_id = ?").run(id, userId);
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('meal_templates').deleteOne({ id, user_id: userId }).catch(() => {});
+    }).catch(() => {});
+  }
+  return res.changes > 0;
+}
+
+/* ==================== Raw Ingredient Recipes ==================== */
+export async function getCustomRecipes(userId) {
+  const d = getDb();
+  let rows = d.prepare(`
+    SELECT id, user_id, name, ingredients_json, oil_grams, total_raw_weight_g, cooked_weight_g, servings,
+           total_calories, total_protein, total_carbs, total_fat,
+           per_serving_calories, per_serving_protein, per_serving_carbs, per_serving_fat,
+           per_100g_calories, per_100g_protein, per_100g_carbs, per_100g_fat,
+           notes, created_at, updated_at
+    FROM custom_recipes
+    WHERE user_id = ?
+    ORDER BY updated_at DESC
+  `).all(userId);
+
+  if (rows.length === 0 && process.env.MONGODB_URI) {
+    try {
+      const mongo = await getMongoDb();
+      if (mongo) {
+        const mRecipes = await mongo.collection('custom_recipes').find({ user_id: userId }).toArray();
+        for (const r of mRecipes) {
+          d.prepare(`
+            INSERT OR REPLACE INTO custom_recipes (
+              id, user_id, name, ingredients_json, oil_grams, total_raw_weight_g, cooked_weight_g, servings,
+              total_calories, total_protein, total_carbs, total_fat,
+              per_serving_calories, per_serving_protein, per_serving_carbs, per_serving_fat,
+              per_100g_calories, per_100g_protein, per_100g_carbs, per_100g_fat,
+              notes, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            r.id || r._id.toString(),
+            userId,
+            r.name,
+            typeof r.ingredients_json === 'string' ? r.ingredients_json : JSON.stringify(r.ingredients || []),
+            Number(r.oil_grams || 0),
+            Number(r.total_raw_weight_g || 0),
+            r.cooked_weight_g != null ? Number(r.cooked_weight_g) : null,
+            Number(r.servings || 1),
+            Number(r.total_calories || 0),
+            Number(r.total_protein || 0),
+            Number(r.total_carbs || 0),
+            Number(r.total_fat || 0),
+            Number(r.per_serving_calories || 0),
+            Number(r.per_serving_protein || 0),
+            Number(r.per_serving_carbs || 0),
+            Number(r.per_serving_fat || 0),
+            Number(r.per_100g_calories || 0),
+            Number(r.per_100g_protein || 0),
+            Number(r.per_100g_carbs || 0),
+            Number(r.per_100g_fat || 0),
+            r.notes || null,
+            r.created_at || new Date().toISOString(),
+            r.updated_at || new Date().toISOString()
+          );
+        }
+        if (mRecipes.length > 0) {
+          rows = d.prepare(`
+            SELECT id, user_id, name, ingredients_json, oil_grams, total_raw_weight_g, cooked_weight_g, servings,
+                   total_calories, total_protein, total_carbs, total_fat,
+                   per_serving_calories, per_serving_protein, per_serving_carbs, per_serving_fat,
+                   per_100g_calories, per_100g_protein, per_100g_carbs, per_100g_fat,
+                   notes, created_at, updated_at
+            FROM custom_recipes
+            WHERE user_id = ?
+            ORDER BY updated_at DESC
+          `).all(userId);
+        }
+      }
+    } catch (err) {
+      console.error('Mongo getCustomRecipes sync error:', err.message);
+    }
+  }
+
+  return rows.map(r => ({
+    ...r,
+    ingredients: typeof r.ingredients_json === 'string' ? JSON.parse(r.ingredients_json || '[]') : (r.ingredients_json || [])
+  }));
+}
+
+export function saveCustomRecipe(userId, recipe) {
+  const d = getDb();
+  const id = recipe.id || ('rcp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
+  const now = new Date().toISOString();
+  const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
+  const ingredientsJson = typeof recipe.ingredients_json === 'string' ? recipe.ingredients_json : JSON.stringify(ingredients);
+
+  const oilGrams = Math.max(0, Number(recipe.oil_grams || 0));
+  const oilKcal = oilGrams * 8.84; // ~884 kcal per 100g cooking oil
+  const oilFat = oilGrams;
+
+  let rawWeight = Number(recipe.total_raw_weight_g) || 0;
+  if (!rawWeight && ingredients.length > 0) {
+    rawWeight = ingredients.reduce((sum, ing) => sum + (Number(ing.raw_weight_g || ing.grams || ing.serving_quantity) || 0), 0) + oilGrams;
+  }
+
+  const cookedWeight = recipe.cooked_weight_g != null && Number(recipe.cooked_weight_g) > 0 ? Number(recipe.cooked_weight_g) : null;
+  const servings = Math.max(0.5, Number(recipe.servings || 1));
+
+  let totalKcal = Math.round((ingredients.reduce((sum, ing) => sum + (Number(ing.energy_kcal || ing.calories) || 0), 0) + oilKcal));
+  let totalP = Math.round(ingredients.reduce((sum, ing) => sum + (Number(ing.protein_g || ing.protein) || 0), 0) * 10) / 10;
+  let totalC = Math.round(ingredients.reduce((sum, ing) => sum + (Number(ing.carb_g || ing.carbs) || 0), 0) * 10) / 10;
+  let totalF = Math.round((ingredients.reduce((sum, ing) => sum + (Number(ing.fat_g || ing.fat) || 0), 0) + oilFat) * 10) / 10;
+
+  const perServingKcal = Math.round(totalKcal / servings);
+  const perServingP = Math.round((totalP / servings) * 10) / 10;
+  const perServingC = Math.round((totalC / servings) * 10) / 10;
+  const perServingF = Math.round((totalF / servings) * 10) / 10;
+
+  let per100gKcal = 0;
+  let per100gP = 0;
+  let per100gC = 0;
+  let per100gF = 0;
+
+  const basisWeight = cookedWeight || rawWeight;
+  if (basisWeight > 0) {
+    const factor = 100 / basisWeight;
+    per100gKcal = Math.round(totalKcal * factor);
+    per100gP = Math.round(totalP * factor * 10) / 10;
+    per100gC = Math.round(totalC * factor * 10) / 10;
+    per100gF = Math.round(totalF * factor * 10) / 10;
+  }
+
+  d.prepare(`
+    INSERT OR REPLACE INTO custom_recipes (
+      id, user_id, name, ingredients_json, oil_grams, total_raw_weight_g, cooked_weight_g, servings,
+      total_calories, total_protein, total_carbs, total_fat,
+      per_serving_calories, per_serving_protein, per_serving_carbs, per_serving_fat,
+      per_100g_calories, per_100g_protein, per_100g_carbs, per_100g_fat,
+      notes, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    userId,
+    String(recipe.name || 'Custom Recipe').trim(),
+    ingredientsJson,
+    oilGrams,
+    rawWeight,
+    cookedWeight,
+    servings,
+    totalKcal,
+    totalP,
+    totalC,
+    totalF,
+    perServingKcal,
+    perServingP,
+    perServingC,
+    perServingF,
+    per100gKcal,
+    per100gP,
+    per100gC,
+    per100gF,
+    recipe.notes || null,
+    recipe.created_at || now,
+    now
+  );
+
+  const entry = {
+    id,
+    user_id: userId,
+    name: String(recipe.name || 'Custom Recipe').trim(),
+    ingredients_json: ingredientsJson,
+    ingredients,
+    oil_grams: oilGrams,
+    total_raw_weight_g: rawWeight,
+    cooked_weight_g: cookedWeight,
+    servings,
+    total_calories: totalKcal,
+    total_protein: totalP,
+    total_carbs: totalC,
+    total_fat: totalF,
+    per_serving_calories: perServingKcal,
+    per_serving_protein: perServingP,
+    per_serving_carbs: perServingC,
+    per_serving_fat: perServingF,
+    per_100g_calories: per100gKcal,
+    per_100g_protein: per100gP,
+    per_100g_carbs: per100gC,
+    per_100g_fat: per100gF,
+    notes: recipe.notes || null,
+    created_at: recipe.created_at || now,
+    updated_at: now
+  };
+
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) {
+        mongo.collection('custom_recipes').updateOne(
+          { id, user_id: userId },
+          { $set: entry },
+          { upsert: true }
+        ).catch(() => {});
+      }
+    }).catch(() => {});
+  }
+
+  return entry;
+}
+
+export function deleteCustomRecipe(id, userId) {
+  const d = getDb();
+  const res = d.prepare("DELETE FROM custom_recipes WHERE id = ? AND user_id = ?").run(id, userId);
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(mongo => {
+      if (mongo) mongo.collection('custom_recipes').deleteOne({ id, user_id: userId }).catch(() => {});
+    }).catch(() => {});
+  }
+  return res.changes > 0;
+}
+
+/* ==================== Previous Meals (Repeat Previous Meal) ==================== */
+export function getPreviousMeals(userId, limitDays = 30) {
+  const d = getDb();
+  const rows = d.prepare(`
+    SELECT id, user_id, date, meal_type, food_id, food_name, serving_quantity, serving_unit,
+           serving_grams, energy_kcal, protein_g, carb_g, fat_g, fibre_g, notes, created_at
+    FROM meal_logs
+    WHERE user_id = ?
+    ORDER BY date DESC, created_at ASC
+  `).all(userId);
+
+  const groups = {};
+  for (const r of rows) {
+    const mType = (r.meal_type || 'breakfast').toLowerCase();
+    const key = `${r.date}__${mType}`;
+    if (!groups[key]) {
+      groups[key] = {
+        date: r.date,
+        meal_type: mType,
+        items: [],
+        total_calories: 0,
+        total_protein: 0,
+        total_carbs: 0,
+        total_fat: 0
+      };
+    }
+    groups[key].items.push({
+      id: r.id,
+      food_id: r.food_id,
+      food_name: r.food_name,
+      name: r.food_name,
+      serving_quantity: r.serving_quantity,
+      qty: r.serving_quantity,
+      serving_unit: r.serving_unit,
+      unit: r.serving_unit,
+      serving_grams: r.serving_grams,
+      energy_kcal: r.energy_kcal,
+      calories: r.energy_kcal,
+      protein_g: r.protein_g,
+      protein: r.protein_g,
+      carb_g: r.carb_g,
+      carbs: r.carb_g,
+      fat_g: r.fat_g,
+      fat: r.fat_g,
+      fibre_g: r.fibre_g,
+      notes: r.notes
+    });
+    groups[key].total_calories += Number(r.energy_kcal) || 0;
+    groups[key].total_protein += Number(r.protein_g) || 0;
+    groups[key].total_carbs += Number(r.carb_g) || 0;
+    groups[key].total_fat += Number(r.fat_g) || 0;
+  }
+
+  const list = Object.values(groups).map(g => ({
+    ...g,
+    total_calories: Math.round(g.total_calories),
+    total_protein: Math.round(g.total_protein * 10) / 10,
+    total_carbs: Math.round(g.total_carbs * 10) / 10,
+    total_fat: Math.round(g.total_fat * 10) / 10
+  }));
+
+  return {
+    all: list,
+    breakfast: list.filter(m => m.meal_type === 'breakfast'),
+    lunch: list.filter(m => m.meal_type === 'lunch'),
+    dinner: list.filter(m => m.meal_type === 'dinner'),
+    snacks: list.filter(m => m.meal_type === 'snacks')
+  };
+}
