@@ -49,14 +49,14 @@
     "@capacitor/filesystem": "^7.1.8",
     "@capacitor/local-notifications": "^7.0.7",
     "@capacitor/share": "^7.0.4",
-    "@simplewebauthn/server": "^13.1.1",
+    "@simplewebauthn/server": "^14.1.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.9",
     "mongodb": "^7.7.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",
-    "web-push": "^3.6.7",
+    "web-push": "^4.0.0",
     "zod": "^4.0.0",
     "zustand": "^5.0.14"
   },
@@ -67,6 +67,6 @@
     "@capacitor/ios": "^7.6.8",
     "@vitejs/plugin-react": "^6.0.3",
     "vite": "^8.1.5",
-    "vitest": "^4.1.10"
+    "vitest": "^5.1.1"
   }
 }
