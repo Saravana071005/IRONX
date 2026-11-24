@@ -94,24 +94,24 @@ export default function HomeMealTracker({ date = todayISO(), onNavigateNutrition
     <div
       className="card"
       style={{
-        background: '#1C1C20',
-        border: '1px solid #303036',
+        background: 'var(--surface)',
+        border: '1px solid var(--borders)',
         borderRadius: 16,
         padding: '16px',
-        color: '#FFFFFF'
+        color: 'var(--label)'
       }}
     >
       {/* Header */}
       <div className="row between" style={{ alignItems: 'center', marginBottom: 14 }}>
         <div className="row" style={{ alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 10, background: '#242429', border: '1px solid #303036', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF' }}>
+          <div style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--borders)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--label)' }}>
             <Icon name="apple" size={17} />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#FFFFFF', letterSpacing: '-0.02em' }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--label)', letterSpacing: '-0.02em' }}>
               {t("Today's Meal Tracker")}
             </h3>
-            <div style={{ fontSize: 11, color: '#A1A1AA', marginTop: 1 }}>
+            <div style={{ fontSize: 11, color: 'var(--label-2)', marginTop: 1 }}>
               {t('4 daily meals adherence')}
             </div>
           </div>
@@ -123,7 +123,7 @@ export default function HomeMealTracker({ date = todayISO(), onNavigateNutrition
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#A1A1AA',
+              color: 'var(--label-2)',
               fontSize: 12,
               fontWeight: 600,
               cursor: 'pointer',
@@ -155,18 +155,18 @@ export default function HomeMealTracker({ date = todayISO(), onNavigateNutrition
                 justifyContent: 'space-between',
                 padding: '10px 14px',
                 borderRadius: 12,
-                background: isDone ? '#242429' : '#141417',
-                border: isDone ? '1px solid #FFFFFF' : '1px solid #303036',
+                background: isDone ? 'var(--surface-3)' : 'var(--surface-2)',
+                border: isDone ? '1px solid var(--label)' : '1px solid var(--borders)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease'
               }}
             >
               {/* Left: Icon & Label */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ color: isDone ? '#FFFFFF' : '#71717A', display: 'flex', alignItems: 'center' }}>
+                <span style={{ color: isDone ? 'var(--label)' : 'var(--label-3)', display: 'flex', alignItems: 'center' }}>
                   <Icon name={meal.icon} size={16} />
                 </span>
-                <span style={{ fontSize: 14, fontWeight: 600, color: isDone ? '#FFFFFF' : '#A1A1AA' }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: isDone ? 'var(--label)' : 'var(--label-2)' }}>
                   {t(meal.label)}
                 </span>
               </div>
@@ -179,9 +179,9 @@ export default function HomeMealTracker({ date = todayISO(), onNavigateNutrition
                     fontWeight: 700,
                     padding: '3px 9px',
                     borderRadius: 9999,
-                    background: isDone ? '#FFFFFF' : '#1C1C20',
-                    color: isDone ? '#09090B' : '#71717A',
-                    border: '1px solid #303036'
+                    background: isDone ? 'var(--label)' : 'var(--surface-2)',
+                    color: isDone ? 'var(--bg)' : 'var(--label-2)',
+                    border: '1px solid var(--borders)'
                   }}
                 >
                   {isDone ? `✓ ${t('Done')}` : `✕ ${t('Not Done')}`}
@@ -192,12 +192,12 @@ export default function HomeMealTracker({ date = todayISO(), onNavigateNutrition
                     width: 20,
                     height: 20,
                     borderRadius: 6,
-                    border: isDone ? '1.5px solid #FFFFFF' : '1.5px solid #71717A',
-                    background: isDone ? '#FFFFFF' : 'transparent',
+                    border: isDone ? '1.5px solid var(--label)' : '1.5px solid var(--label-3)',
+                    background: isDone ? 'var(--label)' : 'transparent',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#09090B',
+                    color: 'var(--bg)',
                     fontSize: 12,
                     fontWeight: 900
                   }}
@@ -211,24 +211,24 @@ export default function HomeMealTracker({ date = todayISO(), onNavigateNutrition
       </div>
 
       {/* Consumed Calories vs Goal */}
-      <div style={{ background: '#141417', border: '1px solid #303036', borderRadius: 12, padding: '10px 14px' }}>
+      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--borders)', borderRadius: 12, padding: '10px 14px' }}>
         <div className="row between" style={{ alignItems: 'baseline', marginBottom: 6 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#A1A1AA' }}>
-            {t('Consumed')}: <strong style={{ color: '#FFFFFF', fontSize: 14 }}>{fmtNum(consumedCalories)} kcal</strong>
-            <span style={{ color: '#71717A', fontSize: 12 }}> / {fmtNum(targetCalories)} kcal</span>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--label-2)' }}>
+            {t('Consumed')}: <strong style={{ color: 'var(--label)', fontSize: 14 }}>{fmtNum(consumedCalories)} kcal</strong>
+            <span style={{ color: 'var(--label-3)', fontSize: 12 }}> / {fmtNum(targetCalories)} kcal</span>
           </div>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)' }}>
             {pct}%
           </span>
         </div>
 
         {/* Monochrome Bar */}
-        <div style={{ height: 6, background: '#242429', borderRadius: 9999, overflow: 'hidden' }}>
+        <div style={{ height: 6, background: 'var(--surface-3)', borderRadius: 9999, overflow: 'hidden' }}>
           <div
             style={{
               height: '100%',
               width: `${pct}%`,
-              background: '#FFFFFF',
+              background: 'var(--label)',
               borderRadius: 9999,
               transition: 'width 0.3s ease'
             }}

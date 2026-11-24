@@ -524,9 +524,9 @@ export default function Home() {
           style={{
             padding: '12px 6px',
             borderRadius: 14,
-            background: '#1C1C20',
-            border: '1px solid #303036',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--borders)',
+            boxShadow: 'var(--card-shadow)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -535,13 +535,13 @@ export default function Home() {
             gap: 2
           }}
         >
-          <div style={{ color: '#FFFFFF', marginBottom: 2 }}>
+          <div style={{ color: 'var(--label)', marginBottom: 2 }}>
             <Icon name="flame" size={17} />
           </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+          <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--label)', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
             {streakCount > 0 ? streakCount : 0}
           </span>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#A1A1AA', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--label-2)', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
             {t('Day Streak')}
           </span>
         </div>
@@ -552,9 +552,9 @@ export default function Home() {
           style={{
             padding: '12px 6px',
             borderRadius: 14,
-            background: '#1C1C20',
-            border: '1px solid #303036',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--borders)',
+            boxShadow: 'var(--card-shadow)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -563,13 +563,13 @@ export default function Home() {
             gap: 2
           }}
         >
-          <div style={{ color: '#FFFFFF', marginBottom: 2 }}>
+          <div style={{ color: 'var(--label)', marginBottom: 2 }}>
             <Icon name="dumbbell" size={17} />
           </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+          <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--label)', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
             {wThisWeek > 0 ? wThisWeek : (S?.workouts?.length || 0)}
           </span>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#A1A1AA', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--label-2)', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
             {t('Workouts')}
           </span>
         </div>
@@ -584,9 +584,9 @@ export default function Home() {
           style={{
             padding: '12px 6px',
             borderRadius: 14,
-            background: '#1C1C20',
-            border: '1px solid #303036',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--borders)',
+            boxShadow: 'var(--card-shadow)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -596,13 +596,13 @@ export default function Home() {
             cursor: 'pointer'
           }}
         >
-          <div style={{ color: '#FFFFFF', marginBottom: 2 }}>
+          <div style={{ color: 'var(--label)', marginBottom: 2 }}>
             <Icon name="chartLine" size={17} />
           </div>
-          <span style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', padding: '0 4px' }}>
+          <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--label)', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', padding: '0 4px' }}>
             {progressDisplay}
           </span>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#A1A1AA', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--label-2)', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
             {t('Progress')}
           </span>
         </div>
@@ -806,13 +806,13 @@ export default function Home() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  background: '#FFFFFF',
-                  color: '#09090B',
+                  background: 'var(--label)',
+                  color: 'var(--bg)',
                   fontWeight: 800,
                   fontSize: 14,
-                  border: '1px solid #303036',
+                  border: '1px solid var(--borders)',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 16px rgba(255, 255, 255, 0.2)',
+                  boxShadow: 'var(--card-shadow)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
@@ -829,13 +829,13 @@ export default function Home() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  background: '#FFFFFF',
-                  color: '#09090B',
+                  background: 'var(--label)',
+                  color: 'var(--bg)',
                   fontWeight: 800,
                   fontSize: 14,
-                  border: '1px solid #303036',
+                  border: '1px solid var(--borders)',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 16px rgba(255, 255, 255, 0.2)',
+                  boxShadow: 'var(--card-shadow)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
@@ -852,13 +852,13 @@ export default function Home() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  background: '#FFFFFF',
-                  color: '#09090B',
+                  background: 'var(--label)',
+                  color: 'var(--bg)',
                   fontWeight: 800,
                   fontSize: 14,
-                  border: '1px solid #303036',
+                  border: '1px solid var(--borders)',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 16px rgba(255, 255, 255, 0.2)',
+                  boxShadow: 'var(--card-shadow)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
@@ -875,13 +875,13 @@ export default function Home() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  background: '#FFFFFF',
-                  color: '#09090B',
+                  background: 'var(--label)',
+                  color: 'var(--bg)',
                   fontWeight: 800,
                   fontSize: 14,
-                  border: '1px solid #303036',
+                  border: '1px solid var(--borders)',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 16px rgba(255, 255, 255, 0.2)',
+                  boxShadow: 'var(--card-shadow)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
@@ -937,11 +937,9 @@ export default function Home() {
                 justifyContent: 'center',
                 padding: '12px 6px',
                 borderRadius: 14,
-                background: 'rgba(255, 255, 255, 0.06)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.07)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                background: 'var(--surface-2)',
+                border: '1px solid var(--borders)',
+                boxShadow: 'var(--card-shadow)',
                 gap: 6,
                 cursor: 'pointer',
                 textAlign: 'center',
@@ -954,17 +952,16 @@ export default function Home() {
                   width: 38,
                   height: 38,
                   borderRadius: 10,
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
+                  background: 'var(--surface-3)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#FFFFFF'
+                  color: 'var(--label)'
                 }}
               >
                 <Icon name="dumbbell" size={18} />
               </div>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--label)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
                 {t('Log Workout')}
               </span>
             </button>
@@ -979,11 +976,9 @@ export default function Home() {
                 justifyContent: 'center',
                 padding: '12px 6px',
                 borderRadius: 14,
-                background: 'rgba(255, 255, 255, 0.06)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.07)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                background: 'var(--surface-2)',
+                border: '1px solid var(--borders)',
+                boxShadow: 'var(--card-shadow)',
                 gap: 6,
                 cursor: 'pointer',
                 textAlign: 'center',
@@ -996,17 +991,16 @@ export default function Home() {
                   width: 38,
                   height: 38,
                   borderRadius: 10,
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
+                  background: 'var(--surface-3)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#FFFFFF'
+                  color: 'var(--label)'
                 }}
               >
                 <Icon name="apple" size={18} />
               </div>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--label)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
                 {t('Log Food')}
               </span>
             </button>
@@ -1021,11 +1015,9 @@ export default function Home() {
                 justifyContent: 'center',
                 padding: '12px 6px',
                 borderRadius: 14,
-                background: 'rgba(255, 255, 255, 0.06)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.07)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                background: 'var(--surface-2)',
+                border: '1px solid var(--borders)',
+                boxShadow: 'var(--card-shadow)',
                 gap: 6,
                 cursor: 'pointer',
                 textAlign: 'center',
@@ -1038,17 +1030,16 @@ export default function Home() {
                   width: 38,
                   height: 38,
                   borderRadius: 10,
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
+                  background: 'var(--surface-3)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#FFFFFF'
+                  color: 'var(--label)'
                 }}
               >
                 <Icon name="figureRun" size={18} />
               </div>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--label)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
                 {t('Log Cardio')}
               </span>
             </button>
@@ -1063,11 +1054,9 @@ export default function Home() {
                 justifyContent: 'center',
                 padding: '12px 6px',
                 borderRadius: 14,
-                background: 'rgba(255, 255, 255, 0.06)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.07)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                background: 'var(--surface-2)',
+                border: '1px solid var(--borders)',
+                boxShadow: 'var(--card-shadow)',
                 gap: 6,
                 cursor: 'pointer',
                 textAlign: 'center',
@@ -1080,17 +1069,16 @@ export default function Home() {
                   width: 38,
                   height: 38,
                   borderRadius: 10,
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
+                  background: 'var(--surface-3)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#FFFFFF'
+                  color: 'var(--label)'
                 }}
               >
                 <Icon name="scale" size={18} />
               </div>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#E5E7EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--label)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
                 {t('Body Stats')}
               </span>
             </button>
@@ -1118,7 +1106,7 @@ export default function Home() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#F9FAFB', letterSpacing: '-0.015em', margin: 0, textTransform: 'lowercase' }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)', letterSpacing: '-0.015em', margin: 0, textTransform: 'lowercase' }}>
               {t('Weekly Activity')}
             </h3>
             <button
@@ -1126,7 +1114,7 @@ export default function Home() {
               style={{
                 fontSize: 12,
                 fontWeight: 600,
-                color: '#FFFFFF',
+                color: 'var(--label)',
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
@@ -1295,8 +1283,8 @@ export default function Home() {
                 <svg width={chartWidth} height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ overflow: 'visible' }}>
                   <defs>
                     <linearGradient id="chartAccentGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.25" />
-                      <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.0" />
+                      <stop offset="0%" stopColor="var(--label)" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="var(--label)" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
                   {/* Gradient Area under curve */}
@@ -1306,9 +1294,8 @@ export default function Home() {
                     <path
                       d={pathD}
                       fill="none"
-                      stroke="#FFFFFF" strokeWidth="2.5"
+                      stroke="var(--label)" strokeWidth="2.5"
                       strokeLinecap="round"
-                      style={{ filter: 'drop-shadow(0 2px 8px rgba(255, 255, 255, 0.3))' }}
                     />
                   ) : null}
                   {/* Data Points */}
@@ -1318,8 +1305,8 @@ export default function Home() {
                       cx={pt.x}
                       cy={pt.y}
                       r="4"
-                      fill="var(--theme-accent-highlight, var(--label, #F5F5F5))"
-                      stroke="#141416"
+                      fill="var(--label)"
+                      stroke="var(--surface)"
                       strokeWidth="2"
                     />
                   ))}
@@ -1367,8 +1354,8 @@ export default function Home() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Icon name="vital" size={18} style={{ color: '#FFFFFF' }} />
-                  <span style={{ fontSize: 16, fontWeight: 700, color: '#F9FAFB' }}>
+                  <Icon name="vital" size={18} style={{ color: 'var(--label)' }} />
+                  <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)' }}>
                     {t('Daily Bio-Metrics')} · {t('Calories Overview')}
                   </span>
                 </div>
@@ -1380,7 +1367,7 @@ export default function Home() {
                     gap: 4,
                     fontSize: 12,
                     fontWeight: 700,
-                    color: '#FFFFFF',
+                    color: 'var(--label)',
                     background: 'none',
                     border: 'none',
                     cursor: 'pointer'
@@ -1408,31 +1395,31 @@ export default function Home() {
                     alignItems: 'center',
                     padding: '10px 6px',
                     borderRadius: 12,
-                    background: 'rgba(255, 255, 255, 0.08)',
-                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--borders)',
                     textAlign: 'center'
                   }}
                 >
                   <div style={{ position: 'relative', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
                     <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 36 36">
-                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#161920" strokeWidth="3.5" />
+                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--borders)" strokeWidth="3.5" />
                       <path
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         fill="none"
-                        stroke="#FFFFFF"
+                        stroke="var(--label)"
                         strokeDasharray={`${Math.min(100, Math.round((proteinGrams / 180) * 100))}, 100`}
                         strokeLinecap="round"
                         strokeWidth="3.5"
                       />
                     </svg>
-                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: '#F9FAFB' }}>
+                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: 'var(--label)' }}>
                       {`${Math.min(100, Math.round((proteinGrams / 180) * 100))}%`}
                     </span>
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#F9FAFB', lineHeight: 1.1 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)', lineHeight: 1.1 }}>
                     {proteinGrams} / 180g
                   </span>
-                  <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
+                  <span style={{ fontSize: 10, color: 'var(--label-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
                     {t('Protein')}
                   </span>
                 </div>
@@ -1445,31 +1432,31 @@ export default function Home() {
                     alignItems: 'center',
                     padding: '10px 6px',
                     borderRadius: 12,
-                    background: 'rgba(255, 255, 255, 0.08)',
-                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--borders)',
                     textAlign: 'center'
                   }}
                 >
                   <div style={{ position: 'relative', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
                     <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 36 36">
-                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#161920" strokeWidth="3.5" />
+                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--borders)" strokeWidth="3.5" />
                       <path
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         fill="none"
-                        stroke="var(--theme-accent, #F5F5F5)"
+                        stroke="var(--label)"
                         strokeDasharray={`${Math.min(100, Math.round((loggedCalories / targetCalories) * 100))}, 100`}
                         strokeLinecap="round"
                         strokeWidth="3.5"
                       />
                     </svg>
-                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: '#F9FAFB' }}>
+                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: 'var(--label)' }}>
                       {loggedCalories > 999 ? `${(loggedCalories / 1000).toFixed(1)}k` : loggedCalories}
                     </span>
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#F9FAFB', lineHeight: 1.1 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)', lineHeight: 1.1 }}>
                     {`${(loggedCalories / 1000).toFixed(1)}k / ${(targetCalories / 1000).toFixed(1)}k`}
                   </span>
-                  <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
+                  <span style={{ fontSize: 10, color: 'var(--label-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
                     {t('Calories')}
                   </span>
                 </div>
@@ -1482,31 +1469,31 @@ export default function Home() {
                     alignItems: 'center',
                     padding: '10px 6px',
                     borderRadius: 12,
-                    background: 'rgba(255, 255, 255, 0.08)',
-                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)',
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--borders)',
                     textAlign: 'center'
                   }}
                 >
                   <div style={{ position: 'relative', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
                     <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 36 36">
-                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#161920" strokeWidth="3.5" />
+                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--borders)" strokeWidth="3.5" />
                       <path
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         fill="none"
-                        stroke="#A1A1AA"
+                        stroke="var(--label-2)"
                         strokeDasharray={`${Math.min(100, Math.round((carbsGrams / 250) * 100))}, 100`}
                         strokeLinecap="round"
                         strokeWidth="3.5"
                       />
                     </svg>
-                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: '#F9FAFB' }}>
+                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: 'var(--label)' }}>
                       {`${Math.min(100, Math.round((carbsGrams / 250) * 100))}%`}
                     </span>
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#F9FAFB', lineHeight: 1.1 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)', lineHeight: 1.1 }}>
                     {carbsGrams} / 250g
                   </span>
-                  <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
+                  <span style={{ fontSize: 10, color: 'var(--label-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
                     {t('Carbs')}
                   </span>
                 </div>
@@ -1518,7 +1505,7 @@ export default function Home() {
               style={{
                 marginTop: 16,
                 paddingTop: 12,
-                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                borderTop: '1px solid var(--borders)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -1628,8 +1615,8 @@ export default function Home() {
                       style={{
                         padding: '10px 14px',
                         borderRadius: 12,
-                        background: isDayToday ? '#242429' : '#1C1C20',
-                        border: isDayToday ? '1px solid #FFFFFF' : '1px solid #303036',
+                        background: isDayToday ? 'var(--surface-3)' : 'var(--surface-2)',
+                        border: isDayToday ? '1px solid var(--label)' : '1px solid var(--borders)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -1639,7 +1626,7 @@ export default function Home() {
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 64 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: isDayToday ? '#FFFFFF' : '#71717A' }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: isDayToday ? 'var(--label)' : 'var(--label-3)' }}>
                             {dayNameLabel}
                           </span>
                           {isDayToday && (
@@ -1650,8 +1637,8 @@ export default function Home() {
                                 textTransform: 'uppercase',
                                 padding: '2px 5px',
                                 borderRadius: 9999,
-                                background: '#FFFFFF',
-                                color: '#09090B'
+                                background: 'var(--label)',
+                                color: 'var(--bg)'
                               }}
                             >
                               {t('Today')}
@@ -1682,9 +1669,9 @@ export default function Home() {
           style={{
             padding: '16px 18px',
             borderRadius: 14,
-            background: '#1C1C20',
-            border: '1px solid #303036',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--borders)',
+            boxShadow: 'var(--card-shadow)',
             display: 'flex',
             flexDirection: 'column',
             gap: 8,
@@ -1692,24 +1679,24 @@ export default function Home() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#A1A1AA', display: 'flex', alignItems: 'center', gap: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--label-2)', display: 'flex', alignItems: 'center', gap: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               <span>🎯</span>
               <span>{t('Target Today')}</span>
             </span>
-            <span style={{ fontSize: 11, fontWeight: 800, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--label)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               {t('Day {0} of 30', Math.min(30, (streakCount || 0) + 1))}
             </span>
           </div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)' }}>
             {S?.active?.name || scheduledTemplate?.name || (todayWorkout ? todayWorkout.name : t('Daily Workout Session'))}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #303036', fontSize: 13 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#FFFFFF' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--borders)', fontSize: 13 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: 'var(--label)' }}>
               <span>🔥</span>
               <span>{streakCount > 0 ? `${streakCount}-Day Streak` : 'Streak Active'}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#A1A1AA', fontWeight: 600 }}>
-              <Icon name="bolt" size={14} style={{ color: '#FFFFFF' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--label-2)', fontWeight: 600 }}>
+              <Icon name="bolt" size={14} style={{ color: 'var(--label)' }} />
               <span>{exerciseCaloriesBurned > 0 ? `${exerciseCaloriesBurned} kcal burned` : `${Math.round(loggedCalories || 0)} kcal burned`}</span>
             </div>
           </div>

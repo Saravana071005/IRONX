@@ -247,8 +247,8 @@ export default function MuscleBalanceChart({ S }) {
   const hasActivity = inWin.length > 0 && worked.length > 0
 
   const navBtnStyle = {
-    background: 'rgba(255, 255, 255, 0.05)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    background: 'var(--surface-2)',
+    border: '1px solid var(--borders)',
     color: 'var(--label)',
     borderRadius: 8,
     width: 32,
@@ -266,11 +266,11 @@ export default function MuscleBalanceChart({ S }) {
       style={{
         padding: '24px 20px',
         borderRadius: 22,
-        background: 'var(--surface, #090909)',
+        background: 'var(--surface)',
         backgroundImage: 'var(--grad-glass-surface)',
         backdropFilter: 'var(--glass-blur)',
         WebkitBackdropFilter: 'var(--glass-blur)',
-        border: '1px solid var(--theme-accent-border, var(--borders, #303036))',
+        border: '1px solid var(--borders)',
         boxShadow: 'var(--card-shadow), var(--glass-highlight)',
         marginBottom: 18,
         position: 'relative'
@@ -349,8 +349,8 @@ export default function MuscleBalanceChart({ S }) {
             marginBottom: 16,
             padding: '8px 12px',
             borderRadius: 12,
-            background: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid rgba(255, 255, 255, 0.07)'
+            background: 'var(--surface-2)',
+            border: '1px solid var(--borders)'
           }}
         >
           <button
@@ -371,7 +371,7 @@ export default function MuscleBalanceChart({ S }) {
               position: 'relative'
             }}
           >
-            <Icon name="calendar" size={15} style={{ color: 'var(--theme-accent, #F5F5F5)' }} />
+            <Icon name="calendar" size={15} style={{ color: 'var(--label)' }} />
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
               {formatDateLabel(selectedDate, todayStr)}
             </span>
@@ -402,9 +402,9 @@ export default function MuscleBalanceChart({ S }) {
                   fontWeight: 700,
                   padding: '4px 10px',
                   borderRadius: 9999,
-                  background: 'var(--borders, #303036)',
-                  color: 'var(--theme-accent, #F5F5F5)',
-                  border: '1px solid var(--borders, #303036)',
+                  background: 'var(--surface-3)',
+                  color: 'var(--label)',
+                  border: '1px solid var(--borders)',
                   cursor: 'pointer'
                 }}
               >
@@ -439,8 +439,8 @@ export default function MuscleBalanceChart({ S }) {
             marginBottom: 16,
             padding: '8px 12px',
             borderRadius: 12,
-            background: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid rgba(255, 255, 255, 0.07)'
+            background: 'var(--surface-2)',
+            border: '1px solid var(--borders)'
           }}
         >
           <button
@@ -453,7 +453,7 @@ export default function MuscleBalanceChart({ S }) {
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Icon name="calendar" size={15} style={{ color: 'var(--theme-accent, #F5F5F5)' }} />
+            <Icon name="calendar" size={15} style={{ color: 'var(--label)' }} />
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
               {currentWeek.label}
             </span>
@@ -468,9 +468,9 @@ export default function MuscleBalanceChart({ S }) {
                   fontWeight: 700,
                   padding: '4px 10px',
                   borderRadius: 9999,
-                  background: 'var(--borders, #303036)',
-                  color: 'var(--theme-accent, #F5F5F5)',
-                  border: '1px solid var(--borders, #303036)',
+                  background: 'var(--surface-3)',
+                  color: 'var(--label)',
+                  border: '1px solid var(--borders)',
                   cursor: 'pointer'
                 }}
               >
@@ -515,8 +515,8 @@ export default function MuscleBalanceChart({ S }) {
           marginTop: 14,
           padding: '10px 14px',
           borderRadius: 12,
-          background: 'rgba(255, 255, 255, 0.02)',
-          border: '1px solid rgba(255, 255, 255, 0.05)',
+          background: 'var(--surface-2)',
+          border: '1px solid var(--borders)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -530,9 +530,9 @@ export default function MuscleBalanceChart({ S }) {
               width: 8,
               height: 8,
               borderRadius: '50%',
-              background: hasActivity ? 'var(--theme-accent, #F5F5F5)' : '#555560',
+              background: hasActivity ? 'var(--label)' : 'var(--label-3)',
               boxShadow: hasActivity
-                ? '0 0 8px var(--theme-accent-glow, var(--borders, #303036))'
+                ? '0 0 8px rgba(0, 0, 0, 0.15)'
                 : 'none'
             }}
           />
@@ -551,9 +551,9 @@ export default function MuscleBalanceChart({ S }) {
             style={{
               padding: '5px 12px',
               borderRadius: 9999,
-              background: 'var(--borders, #303036)',
-              color: 'var(--theme-accent, #F5F5F5)',
-              border: '1px solid var(--borders, #303036)',
+              background: 'var(--surface-3)',
+              color: 'var(--label)',
+              border: '1px solid var(--borders)',
               fontSize: 12,
               fontWeight: 700,
               cursor: 'pointer',
@@ -575,9 +575,9 @@ export default function MuscleBalanceChart({ S }) {
             marginTop: 16,
             padding: '16px',
             borderRadius: 16,
-            background: 'var(--surface-2, #141418)',
-            border: '1px solid var(--theme-accent-border, var(--borders, #303036))',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--borders)',
+            boxShadow: 'var(--card-shadow)',
             animation: 'fadeIn 0.2s ease'
           }}
         >
@@ -597,10 +597,10 @@ export default function MuscleBalanceChart({ S }) {
                     height: 10,
                     borderRadius: '50%',
                     background: selectedDetails.isTrained
-                      ? 'var(--theme-accent, #F5F5F5)'
-                      : '#555560',
+                      ? 'var(--label)'
+                      : 'var(--label-3)',
                     boxShadow: selectedDetails.isTrained
-                      ? '0 0 10px var(--theme-accent-glow, var(--borders, #303036))'
+                      ? '0 0 10px rgba(0, 0, 0, 0.15)'
                       : 'none'
                   }}
                 />
@@ -614,14 +614,12 @@ export default function MuscleBalanceChart({ S }) {
                     padding: '2px 7px',
                     borderRadius: 4,
                     background: selectedDetails.isTrained
-                      ? 'var(--borders, #303036)'
-                      : 'rgba(255, 255, 255, 0.05)',
+                      ? 'var(--surface-3)'
+                      : 'var(--surface-2)',
                     color: selectedDetails.isTrained
-                      ? 'var(--theme-accent, #F5F5F5)'
+                      ? 'var(--label)'
                       : 'var(--label-3)',
-                    border: selectedDetails.isTrained
-                      ? '1px solid var(--borders, #303036)'
-                      : '1px solid rgba(255, 255, 255, 0.08)'
+                    border: '1px solid var(--borders)'
                   }}
                 >
                   {selectedDetails.isTrained ? t('Trained') : t('Resting')}
@@ -653,7 +651,7 @@ export default function MuscleBalanceChart({ S }) {
                 style={{
                   fontSize: 12,
                   fontWeight: 700,
-                  color: 'var(--theme-accent, #F5F5F5)',
+                  color: 'var(--label)',
                   marginBottom: 8
                 }}
               >
@@ -667,8 +665,8 @@ export default function MuscleBalanceChart({ S }) {
                     style={{
                       padding: '8px 12px',
                       borderRadius: 10,
-                      background: 'rgba(255, 255, 255, 0.03)',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      background: 'var(--surface-3)',
+                      border: '1px solid var(--borders)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between'
@@ -680,7 +678,7 @@ export default function MuscleBalanceChart({ S }) {
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--label-2)', marginTop: 2 }}>
                         {ex.isPrimary ? (
-                          <span style={{ color: 'var(--theme-accent, #F5F5F5)', fontWeight: 600 }}>
+                          <span style={{ color: 'var(--label)', fontWeight: 600 }}>
                             {t('Primary Target')}
                           </span>
                         ) : (

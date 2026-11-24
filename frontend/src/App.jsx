@@ -40,12 +40,16 @@ bindUI(useUI)   // lets the shared controls open sheets without importing the st
 
 function applyPrefs(S) {
   const de = document.documentElement
-  de.dataset.theme = S.theme === 'dark' ? 'dark' : 'light'
+  const isLight = S.theme === 'light'
+  de.dataset.theme = isLight ? 'light' : 'dark'
   de.dataset.accent = ACCENTS[S.accent] ? S.accent : 'mint'
   if (S.stealthDim && S.stealthMode) de.classList.add('stealth-dim')
   else de.classList.remove('stealth-dim')
   const meta = document.querySelector('meta[name="theme-color"]')
-  if (meta) meta.content = de.dataset.theme === 'dark' ? '#07080c' : '#fbf9f5'
+  if (meta) meta.content = isLight ? '#F5F5F5' : '#09090B'
+  if (typeof document !== 'undefined' && document.body) {
+    document.body.style.backgroundColor = isLight ? '#F5F5F5' : '#09090B'
+  }
   applyThemeToDocument(S)
 }
 
@@ -171,7 +175,7 @@ function Shell() {
               <div className="mobile-header-left" style={{ width: 38, minWidth: 38, display: 'flex', alignItems: 'center' }} />
               <div className="mobile-header-brand" onClick={() => navigate('/home')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flex: 1, background: 'transparent', border: 'none', boxShadow: 'none' }}>
                 <IronXLogo size={28} />
-                <span className="sidebar-brand-title" style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '0.04em', color: '#FFFFFF' }}>IRONX</span>
+                <span className="sidebar-brand-title" style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '0.04em', color: 'var(--label)' }}>IRONX</span>
               </div>
               <div className="mobile-header-actions" style={{ minWidth: 38, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                 {S.active ? (

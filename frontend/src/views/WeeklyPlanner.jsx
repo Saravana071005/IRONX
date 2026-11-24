@@ -121,9 +121,9 @@ export default function WeeklyPlanner() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: 'var(--theme-accent-light, var(--borders, #303036))',
-                color: 'var(--theme-accent, #F5F5F5)',
-                border: '1px solid var(--theme-accent-border, var(--borders, #303036))'
+                background: 'var(--surface-2)',
+                color: 'var(--label)',
+                border: '1px solid var(--borders)'
               }}
             >
               <Icon name="calendar" size={20} />
@@ -252,8 +252,8 @@ export default function WeeklyPlanner() {
           style={{
             padding: '20px 24px',
             marginBottom: 20,
-            background: 'var(--theme-accent-light, var(--borders, #303036))',
-            border: '1px solid var(--theme-accent-border, var(--borders, #303036))',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--borders)',
             borderRadius: 18,
             
           }}
@@ -286,7 +286,8 @@ export default function WeeklyPlanner() {
             position: 'sticky',
             top: 16,
             zIndex: 100,
-            background: 'var(--surface-2, #242429)', color: 'var(--label, #F5F5F5)',
+            background: 'var(--surface-2)',
+            color: 'var(--label)',
             padding: '12px 20px',
             borderRadius: 16,
             display: 'flex',
@@ -294,8 +295,7 @@ export default function WeeklyPlanner() {
             justifyContent: 'space-between',
             boxShadow: 'var(--card-shadow)',
             marginBottom: 20,
-            
-            border: '1px solid var(--theme-accent-border, rgba(255, 208, 154, 0.4))'
+            border: '1px solid var(--borders)'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -306,7 +306,7 @@ export default function WeeklyPlanner() {
           </div>
           <Button
             size="sm"
-            style={{ background: '#12100E', color: 'var(--label, #F5F5F5)', fontWeight: 800, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}
+            variant="primary"
             onClick={handleSaveWeeklyPlan}
           >
             {t('Save Weekly Plan')}
@@ -342,19 +342,15 @@ export default function WeeklyPlanner() {
                 padding: '20px 22px',
                 borderRadius: 20,
                 background: isToday
-                  ? 'var(--theme-accent-light, var(--borders, #303036))'
+                  ? 'var(--surface-2)'
                   : 'var(--surface)',
                 border: isToday
-                  ? '1px solid var(--theme-accent-border-hover, var(--borders, #303036))'
+                  ? '1px solid var(--borders)'
                   : isRest || isUnscheduled
                     ? '1px solid var(--sep)'
-                    : '1px solid var(--border-gold)',
+                    : '1px solid var(--borders)',
                 borderLeft: isToday ? '4px solid var(--label)' : isRest || isUnscheduled ? '1px solid var(--borders)' : '4px solid var(--label-3)',
-                boxShadow: isToday
-                  ? '0 0 24px -4px var(--theme-accent-glow, var(--borders, #303036)), var(--card-shadow)'
-                  : 'var(--card-shadow)',
-                
-                
+                boxShadow: 'var(--card-shadow)',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
@@ -375,8 +371,8 @@ export default function WeeklyPlanner() {
                     {isToday && (
                       <span
                         style={{
-                          background: 'var(--theme-accent-gradient, linear-gradient(135deg, var(--label, #F5F5F5) 0%, var(--theme-accent, #F5F5F5) 100%))',
-                          color: '#12100E',
+                          background: 'var(--label)',
+                          color: 'var(--bg)',
                           fontSize: 10,
                           fontWeight: 900,
                           padding: '3px 9px',
@@ -399,9 +395,9 @@ export default function WeeklyPlanner() {
                           padding: '3px 9px',
                           borderRadius: 9999,
                           fontWeight: 700,
-                          background: 'var(--theme-accent-light, var(--borders, #303036))',
-                          color: 'var(--theme-accent, #F5F5F5)',
-                          border: '1px solid var(--theme-accent-border, var(--borders, #303036))'
+                          background: 'var(--surface-2)',
+                          color: 'var(--label)',
+                          border: '1px solid var(--borders)'
                         }}
                       >
                         ✓ {t('Completed')}
@@ -413,9 +409,9 @@ export default function WeeklyPlanner() {
                         padding: '3px 10px',
                         borderRadius: 9999,
                         fontWeight: 700,
-                        background: isRest || isUnscheduled ? 'var(--surface-2)' : 'var(--theme-accent-light, var(--borders, #303036))',
-                        color: isRest || isUnscheduled ? 'var(--label-2)' : 'var(--theme-accent, #F5F5F5)',
-                        border: isRest || isUnscheduled ? '1px solid var(--sep)' : '1px solid var(--theme-accent-border, var(--borders, #303036))'
+                        background: isRest || isUnscheduled ? 'var(--surface-2)' : 'var(--surface-3)',
+                        color: isRest || isUnscheduled ? 'var(--label-2)' : 'var(--label)',
+                        border: '1px solid var(--borders)'
                       }}
                     >
                       {isRest ? t('Rest Day') : isUnscheduled ? t('Not Scheduled') : (assignedTemplate?.name || t('Custom Workout'))}
@@ -440,7 +436,7 @@ export default function WeeklyPlanner() {
                       borderRadius: 12,
                       padding: '10px 14px',
                       color: 'var(--label)',
-                      border: '1px solid var(--theme-accent-border, var(--borders, #303036))',
+                      border: '1px solid var(--borders)',
                       outline: 'none',
                       cursor: 'pointer'
                     }}
@@ -465,7 +461,7 @@ export default function WeeklyPlanner() {
               {assignedTemplate ? (
                 <div style={{ marginTop: 8, paddingTop: 12, borderTop: '1px solid var(--sep)' }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--label-2)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Icon name="dumbbell" size={13} style={{ color: 'var(--theme-accent, #F5F5F5)' }} />
+                    <Icon name="dumbbell" size={13} style={{ color: 'var(--label)' }} />
                     <span>{assignedTemplate.exercises.length} {t('Planned Exercises')}:</span>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 110, overflowY: 'auto' }}>
@@ -474,7 +470,7 @@ export default function WeeklyPlanner() {
                         key={idx}
                         style={{
                           background: 'var(--surface-2)',
-                          border: '1px solid var(--theme-accent-border, var(--borders, #303036))',
+                          border: '1px solid var(--borders)',
                           padding: '4px 10px',
                           borderRadius: 8,
                           fontSize: 12,
@@ -486,7 +482,7 @@ export default function WeeklyPlanner() {
                         }}
                       >
                         <span>{ex.name}</span>
-                        <span style={{ color: 'var(--theme-accent, #F5F5F5)', fontWeight: 700, fontSize: 11 }}>
+                        <span style={{ color: 'var(--label)', fontWeight: 700, fontSize: 11 }}>
                           {ex.sets}×{ex.reps}
                         </span>
                       </span>
@@ -528,7 +524,7 @@ export default function WeeklyPlanner() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: 'var(--theme-accent, #F5F5F5)' }}>
+                    <span style={{ color: 'var(--label)' }}>
                       <Icon name="heart" size={15} />
                     </span>
                     <span style={{ fontSize: 12, color: 'var(--label-2)', fontWeight: 500 }}>
@@ -540,9 +536,9 @@ export default function WeeklyPlanner() {
                     style={{
                       fontSize: 12,
                       padding: '5px 12px',
-                      color: 'var(--theme-accent, #F5F5F5)',
-                      background: 'var(--theme-accent-light, var(--borders, #303036))',
-                      border: '1px solid var(--theme-accent-border, var(--borders, #303036))',
+                      color: 'var(--label)',
+                      background: 'var(--surface-2)',
+                      border: '1px solid var(--borders)',
                       borderRadius: 10,
                       cursor: 'pointer',
                       display: 'inline-flex',

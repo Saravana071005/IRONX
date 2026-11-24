@@ -35,11 +35,11 @@ function WeeklyReportCard({ S }) {
     <div className="card" style={{ marginBottom: 12 }}>
       <div className="row between" style={{ cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>
         <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-          <span className="lrow-i" style={{ background: '#242429', color: '#FFFFFF', width: 28, height: 28, fontSize: 14 }}>
+          <span className="lrow-i" style={{ background: 'var(--surface-2)', color: 'var(--label)', width: 28, height: 28, fontSize: 14 }}>
             <Icon name="sparkles" />
           </span>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.05rem', color: '#FFFFFF' }}>{t('Weekly Fitness Intelligence')}</h2>
+            <h2 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--label)' }}>{t('Weekly Fitness Intelligence')}</h2>
             <div className="muted small">{report?.training?.workoutsCount || 0} {t('workouts')} · {fmtVol(report?.training?.totalVolumeKg || 0, S?.unit || 'kg')} {t('tonnage')}</div>
           </div>
         </div>
@@ -51,11 +51,11 @@ function WeeklyReportCard({ S }) {
           <div className="grid2" style={{ marginBottom: 12 }}>
             <div className="tile" style={{ padding: '8px 12px' }}>
               <div className="l">{t('Completed Sets')}</div>
-              <div className="v" style={{ fontSize: '1.2rem', color: '#FFFFFF' }}>{report?.training?.totalSets || 0}</div>
+              <div className="v" style={{ fontSize: '1.2rem', color: 'var(--label)' }}>{report?.training?.totalSets || 0}</div>
             </div>
             <div className="tile" style={{ padding: '8px 12px' }}>
               <div className="l">{t('New PRs')}</div>
-              <div className="v" style={{ fontSize: '1.2rem', color: '#FFFFFF' }}>{report?.training?.newPRCount || 0}</div>
+              <div className="v" style={{ fontSize: '1.2rem', color: 'var(--label)' }}>{report?.training?.newPRCount || 0}</div>
             </div>
           </div>
 
@@ -86,7 +86,7 @@ function WeeklyReportCard({ S }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {report.recommendations.map((rec, i) => (
                   <div key={i} style={{ padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', fontSize: 12 }}>
-                    <div style={{ fontWeight: 600, color: '#FFFFFF', marginBottom: 2 }}>{rec.title}</div>
+                    <div style={{ fontWeight: 600, color: 'var(--label)', marginBottom: 2 }}>{rec.title}</div>
                     <div className="muted">{rec.detail}</div>
                   </div>
                 ))}
@@ -108,11 +108,11 @@ function PRVaultCard({ S }) {
     <div className="card" style={{ marginBottom: 12 }}>
       <div className="row between" style={{ marginBottom: 8 }}>
         <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-          <span className="lrow-i" style={{ background: '#242429', color: '#FFFFFF', width: 28, height: 28, fontSize: 14 }}>
+          <span className="lrow-i" style={{ background: 'var(--surface-2)', color: 'var(--label)', width: 28, height: 28, fontSize: 14 }}>
             <Icon name="trophy" />
           </span>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.05rem', color: '#FFFFFF' }}>{t('Personal Record Vault')}</h2>
+            <h2 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--label)' }}>{t('Personal Record Vault')}</h2>
             <div className="muted small">{vault.length} {t('verified personal records')}</div>
           </div>
         </div>
@@ -123,11 +123,11 @@ function PRVaultCard({ S }) {
           {filtered.map(pr => (
             <div key={pr.id} className="row between" style={{ padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)' }}>
               <div>
-                <div style={{ fontWeight: 600, fontSize: 13, color: '#FFFFFF' }}>{pr.exName}</div>
+                <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--label)' }}>{pr.exName}</div>
                 <div className="small muted">{pr.label} · {fmtDate(pr.date)}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: '#FFFFFF' }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--label)' }}>
                   {pr.value} {pr.metric === 'duration' ? 's' : (S.unit || 'kg')}
                 </div>
                 {pr.prevValue && (
@@ -268,10 +268,10 @@ export default function Stats() {
       {/* Header */}
       <div className="hdr" style={{ alignItems: 'center', marginBottom: 14 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, letterSpacing: '-0.025em', color: '#FFFFFF' }}>
+          <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, letterSpacing: '-0.025em', color: 'var(--label)' }}>
             {t('Activity & Stats')}
           </h1>
-          <div className="sub" style={{ fontSize: 13, color: '#A1A1AA', marginTop: 2 }}>
+          <div className="sub" style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 2 }}>
             {t('Real verified workout progression and cardio logs')}
           </div>
         </div>
@@ -309,7 +309,7 @@ export default function Stats() {
         </div>
         <div className="tile">
           <div className="l"><Icon name="scale" />{t('Weight 30d')}</div>
-          <div className="v" style={{ fontSize: 20, color: '#FFFFFF' }}>
+          <div className="v" style={{ fontSize: 20, color: 'var(--label)' }}>
             {bwDelta30 === null ? '—' : (bwDelta30 > 0 ? '+' : '') + fmtNum(bwDelta30) + ' ' + S.unit}
           </div>
         </div>
@@ -319,14 +319,14 @@ export default function Stats() {
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 10 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#A1A1AA', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-2)', textTransform: 'uppercase' }}>
               {t('Dedicated Cardio Activity')}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
-              <div className="big" style={{ fontSize: 26, fontWeight: 800, color: '#FFFFFF' }}>
+              <div className="big" style={{ fontSize: 26, fontWeight: 800, color: 'var(--label)' }}>
                 {supportedStats.totalCardioKm > 0 ? `${supportedStats.totalCardioKm} km` : '0 km'}
               </div>
-              <span style={{ fontSize: 13, color: '#A1A1AA' }}>
+              <span style={{ fontSize: 13, color: 'var(--label-2)' }}>
                 {supportedStats.totalCardioMin > 0 ? `· ${supportedStats.totalCardioMin} min total` : ''}
               </span>
             </div>
@@ -338,16 +338,16 @@ export default function Stats() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
           <div style={{ background: 'var(--surface-2)', padding: '10px 12px', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: '#71717A', textTransform: 'uppercase', fontWeight: 600 }}>{t('Sessions')}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', marginTop: 2 }}>{cardioLogs.length}</div>
+            <div style={{ fontSize: 11, color: 'var(--label-3)', textTransform: 'uppercase', fontWeight: 600 }}>{t('Sessions')}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)', marginTop: 2 }}>{cardioLogs.length}</div>
           </div>
           <div style={{ background: 'var(--surface-2)', padding: '10px 12px', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: '#71717A', textTransform: 'uppercase', fontWeight: 600 }}>{t('Total Time')}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', marginTop: 2 }}>{supportedStats.totalCardioMin} min</div>
+            <div style={{ fontSize: 11, color: 'var(--label-3)', textTransform: 'uppercase', fontWeight: 600 }}>{t('Total Time')}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)', marginTop: 2 }}>{supportedStats.totalCardioMin} min</div>
           </div>
           <div style={{ background: 'var(--surface-2)', padding: '10px 12px', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: '#71717A', textTransform: 'uppercase', fontWeight: 600 }}>{t('Distance')}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', marginTop: 2 }}>{supportedStats.totalCardioKm} km</div>
+            <div style={{ fontSize: 11, color: 'var(--label-3)', textTransform: 'uppercase', fontWeight: 600 }}>{t('Distance')}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)', marginTop: 2 }}>{supportedStats.totalCardioKm} km</div>
           </div>
         </div>
       </div>
@@ -356,15 +356,15 @@ export default function Stats() {
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 8 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#A1A1AA', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-2)', textTransform: 'uppercase' }}>
               {t('Total Volume Lifted (7d)')}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
-              <div className="big" style={{ fontSize: 28, fontWeight: 800, color: '#FFFFFF' }}>
-                {totalVolume7d > 0 ? `${fmtNum(totalVolume7d)}` : '0'} <span style={{ fontSize: 15, fontWeight: 500, color: '#A1A1AA' }}>{S.unit}</span>
+              <div className="big" style={{ fontSize: 28, fontWeight: 800, color: 'var(--label)' }}>
+                {totalVolume7d > 0 ? `${fmtNum(totalVolume7d)}` : '0'} <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--label-2)' }}>{S.unit}</span>
               </div>
               {totalVolume7d > 0 && (
-                <span className="tag acc" style={{ fontSize: 12, padding: '3px 8px', borderRadius: 9999, background: '#242429', color: '#FFFFFF', border: '1px solid #303036' }}>
+                <span className="tag acc" style={{ fontSize: 12, padding: '3px 8px', borderRadius: 9999, background: 'var(--surface-2)', color: 'var(--label)', border: '1px solid var(--borders)' }}>
                   ▲ {t('Active')}
                 </span>
               )}
@@ -377,7 +377,7 @@ export default function Stats() {
 
         {volumePoints.length > 1 ? (
           <div className="chart" style={{ marginTop: 12 }}>
-            <LineChart points={volumePoints} h={140} unit={S.unit} color="#FFFFFF" />
+            <LineChart points={volumePoints} h={140} unit={S.unit} color="var(--label)" />
           </div>
         ) : (
           <div className="muted small" style={{ padding: '16px 0', textAlign: 'center' }}>
@@ -389,10 +389,10 @@ export default function Stats() {
       {/* Weekly Activity Summary (Monday - Sunday) */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="row between" style={{ marginBottom: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#FFFFFF' }}>
+          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--label)' }}>
             {t('Weekly Activity Summary')}
           </h2>
-          <span className="tag acc" style={{ fontSize: 11, fontWeight: 700, background: '#242429', color: '#FFFFFF', border: '1px solid #303036' }}>
+          <span className="tag acc" style={{ fontSize: 11, fontWeight: 700, background: 'var(--surface-2)', color: 'var(--label)', border: '1px solid var(--borders)' }}>
             {supportedStats.thisWeekTotal} {t('sessions this week')}
           </span>
         </div>
@@ -419,12 +419,12 @@ export default function Stats() {
                     style={{
                       width: '100%',
                       height: `${heightPct}%`,
-                      background: hasSession ? '#FFFFFF' : (isToday ? '#71717A' : '#1C1C20'),
+                      background: hasSession ? 'var(--label)' : (isToday ? 'var(--label-3)' : 'var(--surface-2)'),
                       borderRadius: 9999
                     }}
                   />
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 600, color: isToday ? '#FFFFFF' : '#71717A' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: isToday ? 'var(--label)' : 'var(--label-3)' }}>
                   {d.slice(0, 1)}
                 </span>
               </div>
@@ -458,7 +458,7 @@ export default function Stats() {
           <div className="row between" style={{ marginBottom: 8 }}>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--label)' }}>{t('Body weight')}</h2>
             <div className="row" style={{ gap: 8 }}>
-              <Button size="sm" icon="target" style={S.targetW ? { color: '#FFFFFF' } : undefined} onClick={goalSheet}>
+              <Button size="sm" icon="target" style={S.targetW ? { color: 'var(--label)' } : undefined} onClick={goalSheet}>
                 {S.targetW ? fmtNum(S.targetW) : t('Goal')}
               </Button>
               <Button size="sm" icon="plus" onClick={() => bwSheet()}>{t('Log')}</Button>
@@ -497,9 +497,9 @@ export default function Stats() {
               )}
               <div className="chart">
                 {onEff ? (
-                  <LineChart points={effPts} h={150} unit={hd} color="#A1A1AA" invert={kind === 'rir'} />
+                  <LineChart points={effPts} h={150} unit={hd} color="var(--label-2)" invert={kind === 'rir'} />
                 ) : (
-                  <LineChart points={onE1 ? e1Pts.map(p => ({ t: p.t, y: p.y, d: p.d })) : topPts} h={150} unit={exUnit} color="#FFFFFF" />
+                  <LineChart points={onE1 ? e1Pts.map(p => ({ t: p.t, y: p.y, d: p.d })) : topPts} h={150} unit={exUnit} color="var(--label)" />
                 )}
               </div>
               <div style={{ marginTop: 8 }}>
