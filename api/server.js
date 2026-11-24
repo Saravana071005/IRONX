@@ -10,10 +10,6 @@ import {
   generateAuthenticationOptions, verifyAuthenticationResponse
 } from '@simplewebauthn/server';
 import webpush from 'web-push';
-import * as coachConfig from './coach/config.js';
-import * as coachJobs from './coach/jobs.js';
-import { coachRoutes } from './coach/routes.js';
-import { startCadence } from './coach/cadence.js';
 import { nutritionRoutes } from './nutrition/routes.js';
 import { clearAllNutritionDataForUser } from './nutrition/db.js';
 import { getMongoDb, pingMongo } from './db/mongo.js';
@@ -625,12 +621,10 @@ const routes = {
   // single flag every piece of Coach UI hangs off, so an unconfigured instance is byte-for-byte
   // the app it was before the feature existed.
   'GET /api/config': async (req, res) => {
-    const coach = coachConfig.publicConfig();
     json(res, 200, {
       auth_provider: 'google',
       google_client_id: GOOGLE_CLIENT_ID || null,
-      invite_only: INVITE_ONLY,
-      ...(coach ? { coach } : {})
+      invite_only: INVITE_ONLY
     });
   },
 
@@ -1833,34 +1827,12 @@ const routes = {
     json(res, 200, { ok: true });
   },
 
-  /* ---------- AI Coach ---------- */
-  // Routes live in coach/routes.js and are handed the helpers above rather than importing
-  // them: they are closures over db and SECRET, and passing them in keeps that module free of
-  // a cycle. Every one of them is inert while the feature is unconfigured.
-  ...coachRoutes({ json, readBody, readSession, requireAdmin }),
-
+  
   /* ---------- Nutrition Engine ---------- */
   ...nutritionRoutes({ json, readBody, readSession })
 };
 
-/* ---------- Coach: boot recovery, notifications, scheduled reviews ---------- */
-if (!isVercel) {
-  // A job that was running when the process died is not coming back; say so rather than leaving
-  // a spinner that never resolves.
-  coachJobs.recoverOnBoot();
-  // A ready proposal is the one Coach event worth a notification. Failures and "nothing to
-  // change" stay silent on purpose (FR-38/E4).
-  coachJobs.setProposalHook((uid, pending) => {
-    const n = (pending?.changes || []).length;
-    if (!n) return;
-    sendPush(uid, {
-      title: 'Your Coach has been reading',
-      body: n === 1 ? '1 suggestion after this week' : `${n} suggestions after this week`,
-      tag: 'coach-proposal', url: '#/coach'
-    });
-  });
-  startCadence({ users: () => db.users, userNow });
-}
+/* ---------- Coach: disabled & removed ---------- */
 
 export async function handleRequest(req, res) {
   // Handle CORS

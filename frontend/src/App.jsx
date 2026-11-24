@@ -29,9 +29,6 @@ const History = lazy(() => import('./views/History.jsx'))
 const Library = lazy(() => import('./views/Library.jsx'))
 const Settings = lazy(() => import('./views/Settings.jsx'))
 const Admin = lazy(() => import('./views/Admin.jsx'))
-const Coach = lazy(() => import('./views/Coach.jsx'))
-const CoachIntake = lazy(() => import('./views/CoachIntake.jsx'))
-const CoachProposal = lazy(() => import('./views/CoachProposal.jsx'))
 const Nutrition = lazy(() => import('./views/Nutrition.jsx'))
 const WeeklyPlanner = lazy(() => import('./views/WeeklyPlanner.jsx'))
 const DayPlanner = lazy(() => import('./views/DayPlanner.jsx'))
@@ -190,9 +187,6 @@ function Shell() {
                     <Route path="/library" element={<Library />} />
                     <Route path="/nutrition" element={<Nutrition />} />
                     <Route path="/settings" element={<Settings />} />
-                    <Route path="/coach" element={<Coach />} />
-                    <Route path="/coach/intake" element={<CoachIntake />} />
-                    <Route path="/coach/proposal" element={<CoachProposal />} />
                     <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/home" replace />} />
                     <Route path="*" element={<Navigate to={authed ? "/home" : "/"} replace />} />
                   </Routes>

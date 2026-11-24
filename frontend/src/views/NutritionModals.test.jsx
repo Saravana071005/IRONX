@@ -88,8 +88,8 @@ describe('NutritionModals Component Suite', () => {
     expect(html).toContain('+ Log 1 Serving to Breakfast')
   })
 
-  // 5. AICoachView
-  it('AICoachView renders macro targets, calculator, South Indian food recommendations and chat assistant', () => {
+  // 5. FoodDatabaseLookup / AICoachView
+  it('FoodDatabaseLookup renders food nutrition dataset lookup, category filters, and verified recipes', () => {
     const mockFoods = [
       { energy_kcal: 208, protein_g: 6.2, carb_g: 40.6, fat_g: 2.4 },
       { energy_kcal: 140, protein_g: 12, carb_g: 1, fat_g: 9 }
@@ -104,17 +104,12 @@ describe('NutritionModals Component Suite', () => {
         toast={() => {}}
       />
     )
-    expect(html).toContain('IRONX AI')
+    expect(html).toContain('Food Nutrition Database')
     expect(html).toContain('Verified Foods (2,799)')
     expect(html).toContain('Verified Recipes (1,014)')
-    expect(html).toContain('AI Fast Meal Log')
-    expect(html).toContain('Daily Calories')
-    expect(html).toContain('Protein Progress')
-    expect(html).toContain('Carbs &amp; Fat Balance')
-    expect(html).toContain('Suggested South Indian Foods')
-    expect(html).toContain('சப்பாத்தி')
-    expect(html).toContain('Chat with IRONX AI')
-    expect(html).toContain('How much protein do I still need today?')
+    expect(html).toContain('All Categories')
+    expect(html).toContain('ICMR-NIN 2017')
+    expect(html).toContain('Search')
   })
 
   // 6. Recipe Macro Calculation Logic Verification

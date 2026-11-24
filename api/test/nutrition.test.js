@@ -772,53 +772,42 @@ test('Daily Health Log: Simplified food entry without required calories or macro
   await routes['POST /api/nutrition/food/delete']({}, {})
 })
 
-test('Zero-Hallucination AI Fast Log & Verified Nutrition Calculations', async () => {
-  const userId = 'test_ai_' + Date.now()
+test('Zero-Hallucination Food Nutrition Dataset Calculations', async () => {
+  const userId = 'test_ds_' + Date.now()
   let responseData = null
   let responseStatus = null
   const mockJson = (res, status, data) => { responseStatus = status; responseData = data }
-  const mockSession = () => ({ id: userId, name: 'AiTester' })
+  const mockSession = () => ({ id: userId, name: 'DsTester' })
 
-  // 1. Parse 100g oats - verify exact ICMR-NIN verified math (389 kcal, NEVER 1800 kcal!)
-  let requestBody = { text: '100g oats' }
-  let routes = nutritionRoutes({ json: mockJson, readBody: async () => requestBody, readSession: mockSession })
-  await routes['POST /api/nutrition/ai-parse']({}, {})
+  // 1. Search 100g oats - verify exact ICMR-NIN verified math (389 kcal per 100g, NEVER 1800 kcal!)
+  const routes = nutritionRoutes({ json: mockJson, readBody: async () => ({}), readSession: mockSession })
+  await routes['GET /api/nutrition/search']({ url: 'http://x/api/nutrition/search?q=oats' }, {})
 
   assert.equal(responseStatus, 200)
   assert.equal(responseData.ok, true)
-  assert.ok(responseData.items.length > 0)
-  const oats = responseData.items[0]
-  assert.ok(oats.food_name.toLowerCase().includes('oats'))
-  assert.equal(oats.serving_quantity, 100)
-  assert.equal(oats.serving_unit, 'g')
+  assert.ok(responseData.foods.length > 0)
+  const oats = responseData.foods[0]
+  assert.ok(oats.name.toLowerCase().includes('oats'))
   assert.equal(oats.energy_kcal, 389) // Strictly 389 kcal per 100g!
   assert.ok(oats.energy_kcal < 500, 'Oats 100g must never hallucinate ~1800 kcal')
   assert.equal(oats.protein_g, 16.9) // ICMR-NIN verified lab value
   assert.equal(oats.carb_g, 66.3)
   assert.equal(oats.fat_g, 6.9)
 
-  // 2. Parse multi-item meal: 2 chapatis and 1 boiled egg
-  requestBody = { text: '2 chapatis and 1 boiled egg' }
-  routes = nutritionRoutes({ json: mockJson, readBody: async () => requestBody, readSession: mockSession })
-  await routes['POST /api/nutrition/ai-parse']({}, {})
-
+  // 2. Search chapati and boiled egg verified database values
+  await routes['GET /api/nutrition/search']({ url: 'http://x/api/nutrition/search?q=chapathi' }, {})
   assert.equal(responseStatus, 200)
-  assert.equal(responseData.ok, true)
-  assert.equal(responseData.items.length, 2)
+  assert.ok(responseData.foods.length > 0)
+  const chapati = responseData.foods[0]
+  assert.ok(chapati.name.toLowerCase().includes('roti') || chapati.name.toLowerCase().includes('chapati'))
+  assert.equal(chapati.energy_kcal, 297) // 297 kcal per 100g
 
-  const chapati = responseData.items.find(it => it.food_name.toLowerCase().includes('roti') || it.food_name.toLowerCase().includes('chapati'))
-  assert.ok(chapati, 'Found chapati item')
-  assert.equal(chapati.serving_quantity, 2)
-  assert.equal(chapati.serving_unit, 'piece')
-  assert.equal(chapati.effective_grams, 70) // 2 * 35g
-  assert.equal(chapati.energy_kcal, 208) // 70/100 * 297 = 207.9 -> 208 kcal
-
-  const egg = responseData.items.find(it => it.food_name.toLowerCase().includes('egg'))
-  assert.ok(egg, 'Found egg item')
-  assert.equal(egg.serving_quantity, 1)
-  assert.equal(egg.serving_unit, 'piece')
-  assert.equal(egg.effective_grams, 50) // 1 * 50g
-  assert.equal(egg.energy_kcal, 72) // 50/100 * 143 = 71.5 -> 72 kcal
+  await routes['GET /api/nutrition/search']({ url: 'http://x/api/nutrition/search?q=egg' }, {})
+  assert.equal(responseStatus, 200)
+  assert.ok(responseData.foods.length > 0)
+  const egg = responseData.foods[0]
+  assert.ok(egg.name.toLowerCase().includes('egg'))
+  assert.equal(egg.energy_kcal, 143) // 143 kcal per 100g
 })
 
 test('Multi-Item Meal Builder: POST /api/nutrition/food/save-batch persists complete meals atomically', async () => {

@@ -12,7 +12,6 @@ export default function Sidebar({ onStart, mobileOpen = false, onClose }) {
   const loc = useLocation()
   const { S, user } = useStore()
   const isGuest = useStore(s => s.isGuest())
-  const hasCoach = useStore(s => s.coachConfig?.enabled)
 
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -180,7 +179,6 @@ export default function Sidebar({ onStart, mobileOpen = false, onClose }) {
           <NavItem k="history" icon="history" to="/history" label={t('History')} />
 
           {!collapsed && <div className="sidebar-nav-group-title" style={{ marginTop: 14 }}>{t('Preferences')}</div>}
-          {hasCoach && <NavItem k="coach" icon="sparkles" to="/coach" label={t('AI Coach')} />}
           <NavItem k="settings" icon="gear" to="/settings" label={t('Settings')} />
           {user?.admin && <NavItem k="admin" icon="wrench" to="/admin" label={t('Admin')} />}
         </nav>

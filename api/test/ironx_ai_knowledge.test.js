@@ -192,36 +192,28 @@ test('IRONX AI Phase 14: Scenario 12 - 10 Phase 2 Categories Coverage', () => {
   }
 })
 
-test('IRONX AI Phase 14: Scenario 13 - Natural Language Bilingual Parsing (English & Tamil)', async () => {
-  // Mock request/response helpers for HTTP endpoint
+test('IRONX Nutrition Dataset: Scenario 13 - Bilingual Food Search (English & Tamil)', async () => {
   const routes = nutritionRoutes({
     json: (res, code, data) => { res.statusCode = code; res.body = data; },
     readBody: async (req) => req._body,
     readSession: () => ({ id: 'usr_test', email: 'test@ironx.com' })
   })
 
-  // English multi-item query
+  // English query for chapati
   const resEn = {}
-  await routes['POST /api/nutrition/ai/parse-nl']({
-    _body: { text: 'I ate 2 chapatis and 100g chicken' }
-  }, resEn)
-
+  await routes['GET /api/nutrition/search']({ url: 'http://x/api/nutrition/search?q=chapati' }, resEn)
   assert.equal(resEn.statusCode, 200)
   assert.ok(resEn.body.ok)
-  assert.equal(resEn.body.parsed_items.length, 2)
-  assert.equal(resEn.body.parsed_items[0].food_id, 'INX_STAPLE_ROTI_COOKED')
-  assert.equal(resEn.body.parsed_items[0].serving_quantity, 2)
-  assert.ok(resEn.body.total_calories > 250)
+  assert.ok(resEn.body.foods.length > 0)
+  assert.ok(resEn.body.foods[0].name.toLowerCase().includes('roti') || resEn.body.foods[0].name.toLowerCase().includes('chapati'))
 
-  // Tamil query: 2 சப்பாத்தி மற்றும் 100 கிராம் சாதம்
+  // Tamil query for சப்பாத்தி
   const resTa = {}
-  await routes['POST /api/nutrition/ai/parse-nl']({
-    _body: { text: '2 சப்பாத்தி மற்றும் 100 கிராம் சாதம்' }
-  }, resTa)
-
+  await routes['GET /api/nutrition/search']({ url: 'http://x/api/nutrition/search?q=' + encodeURIComponent('சப்பாத்தி') }, resTa)
   assert.equal(resTa.statusCode, 200)
   assert.ok(resTa.body.ok)
-  assert.ok(resTa.body.parsed_items.length >= 2, 'Parsed both Tamil items')
+  assert.ok(resTa.body.foods.length > 0)
+  assert.ok(resTa.body.foods[0].name.toLowerCase().includes('roti') || resTa.body.foods[0].name.toLowerCase().includes('chapati'))
 })
 
 test('IRONX AI Phase 14: Scenario 14 - Recipe Macro Consistency (Atwater check)', () => {

@@ -900,8 +900,8 @@ export default function Nutrition() {
           onClick={() => setActiveTab('coach')}
           style={{ fontWeight: 700, borderRadius: 9999, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
         >
-          <Icon name="sparkles" />
-          {t("IRONX AI")}
+          <Icon name="apple" />
+          {t("Food Database")}
         </button>
         <button
           type="button"
@@ -1667,7 +1667,7 @@ export default function Nutrition() {
 
 /**
  * Comprehensive Smart Food Modal & Multi-Item Meal Builder:
- * - AI Fast Log bar (English, Tamil, Hindi via Gemini with verified DB fallback)
+ * - Verified Dataset Search with exact 100g base reference
  * - Autocomplete Search with Verified badges (ICMR-NIN, INDB, USDA) and regional names
  * - Mathematically verified proportional recalculation (100g base reference)
  * - Quick Portion Chips (Piece foods vs Metric foods)
@@ -1689,12 +1689,7 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
   // Multi-Item Meal Draft State
   const [draftItems, setDraftItems] = useState([])
 
-  // AI Fast Log State
-  const [aiInput, setAiInput] = useState('')
-  const [parsingAi, setParsingAi] = useState(false)
-  const [aiError, setAiError] = useState('')
-  const [aiSuccessMsg, setAiSuccessMsg] = useState('')
-
+  
   // Food search & autocomplete
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -1826,48 +1821,7 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
     }
   }
 
-  // AI Fast Log Handler
-  const handleAiFastLog = async (e) => {
-    e?.preventDefault()
-    if (!aiInput.trim()) return
-    setParsingAi(true)
-    setAiError('')
-    setAiSuccessMsg('')
-
-    try {
-      const res = await api('/api/nutrition/ai-parse', {
-        method: 'POST',
-        body: JSON.stringify({ text: aiInput.trim() })
-      })
-
-      if (res?.ok && Array.isArray(res.items) && res.items.length > 0) {
-        const newDrafts = res.items.map(it => ({
-          id: 'draft_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-          meal_type: mealType,
-          food_name: it.food_name || it.raw_name,
-          serving_quantity: it.serving_quantity || 1,
-          serving_unit: it.serving_unit || 'g',
-          energy_kcal: Math.round(it.energy_kcal || 0),
-          protein_g: Math.round((it.protein_g || 0) * 10) / 10,
-          carb_g: Math.round((it.carb_g || 0) * 10) / 10,
-          fat_g: Math.round((it.fat_g || 0) * 10) / 10,
-          notes: it.raw_name !== it.food_name ? `Parsed from: ${it.raw_name}` : null,
-          is_verified: it.is_verified,
-          data_source: it.data_source
-        }))
-
-        setDraftItems(prev => [...prev, ...newDrafts])
-        setAiInput('')
-        setAiSuccessMsg(t('Added {0} items to meal draft!', newDrafts.length))
-      } else {
-        setAiError(t('Could not parse any foods from your input. Try e.g. "2 chapatis, 1 bowl dal"'))
-      }
-    } catch (err) {
-      setAiError(err.message || t('Failed to parse with AI. Please search food manually.'))
-    } finally {
-      setParsingAi(false)
-    }
-  }
+  
 
   // Add current active input to draft
   const handleAddToDraft = () => {
@@ -2130,6 +2084,27 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
           {searching && (
             <div style={{ position: 'absolute', right: 10, top: 32, fontSize: 11, color: 'var(--muted)' }}>
               {t('Searching...')}
+            </div>
+          )}
+          {foodName.trim().length >= 2 && searchResults.length === 0 && !searching && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                background: 'var(--surface-1, #1A1A1A)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: 8,
+                marginTop: 4,
+                zIndex: 100,
+                padding: '12px 14px',
+                fontSize: 13,
+                color: 'var(--coral, #FF6B6B)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+              }}
+            >
+              {t('Food not found in dataset.')}
             </div>
           )}
           {searchResults.length > 0 && (

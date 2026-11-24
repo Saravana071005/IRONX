@@ -132,33 +132,9 @@ export function getDb() {
       );
       CREATE INDEX IF NOT EXISTS idx_custom_recipes_user ON custom_recipes(user_id);
 
-      CREATE TABLE IF NOT EXISTS user_diet_plans (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        plan_name TEXT NOT NULL,
-        fitness_goal TEXT NOT NULL,
-        target_calories REAL NOT NULL,
-        target_protein_g REAL NOT NULL,
-        target_carb_g REAL NOT NULL,
-        target_fat_g REAL NOT NULL,
-        target_fibre_g REAL NOT NULL,
-        meal_count INTEGER NOT NULL,
-        meals_json TEXT NOT NULL,
-        user_profile_json TEXT NOT NULL,
-        calculation_json TEXT NOT NULL,
-        status TEXT DEFAULT 'active',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_user_diet_plans_user ON user_diet_plans(user_id);
-
-      CREATE TABLE IF NOT EXISTS user_ai_conversations (
-        user_id TEXT PRIMARY KEY,
-        conversation_state TEXT NOT NULL,
-        history_json TEXT NOT NULL,
-        profile_draft_json TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
+      DROP TABLE IF EXISTS user_diet_plans;
+      DROP TABLE IF EXISTS user_ai_conversations;
+      DROP TABLE IF EXISTS ai_usage_logs;
     `);
     try {
       db.exec("ALTER TABLE meal_logs ADD COLUMN notes TEXT");
@@ -1206,99 +1182,6 @@ export function deleteCustomRecipe(id, userId) {
     }).catch(() => {});
   }
   return res.changes > 0;
-}
-
-/* ==================== User Diet Plans & AI Conversation State ==================== */
-export function getUserDietPlan(userId) {
-  const d = getDb();
-  const row = d.prepare(`
-    SELECT id, user_id, plan_name, fitness_goal, target_calories, target_protein_g,
-           target_carb_g, target_fat_g, target_fibre_g, meal_count, meals_json,
-           user_profile_json, calculation_json, status, created_at, updated_at
-    FROM user_diet_plans
-    WHERE user_id = ? AND status = 'active'
-    ORDER BY updated_at DESC
-    LIMIT 1
-  `).get(userId);
-  if (!row) return null;
-  return {
-    ...row,
-    meals: JSON.parse(row.meals_json || '[]'),
-    user_profile: JSON.parse(row.user_profile_json || '{}'),
-    calculation: JSON.parse(row.calculation_json || '{}')
-  };
-}
-
-export function saveUserDietPlan(userId, plan) {
-  const d = getDb();
-  const id = plan.id || ('plan_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
-  const now = new Date().toISOString();
-  const mealsJson = typeof plan.meals === 'string' ? plan.meals : JSON.stringify(plan.meals || []);
-  const profileJson = typeof plan.user_profile === 'string' ? plan.user_profile : JSON.stringify(plan.user_profile || {});
-  const calcJson = typeof plan.calculation === 'string' ? plan.calculation : JSON.stringify(plan.calculation || {});
-
-  // Mark prior active plans as archived
-  try {
-    d.prepare("UPDATE user_diet_plans SET status = 'archived' WHERE user_id = ?").run(userId);
-  } catch {}
-
-  d.prepare(`
-    INSERT OR REPLACE INTO user_diet_plans (
-      id, user_id, plan_name, fitness_goal, target_calories, target_protein_g,
-      target_carb_g, target_fat_g, target_fibre_g, meal_count, meals_json,
-      user_profile_json, calculation_json, status, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
-  `).run(
-    id,
-    userId,
-    plan.plan_name || 'Personalized South Indian Diet Plan',
-    plan.fitness_goal || 'fat_loss',
-    Number(plan.target_calories || 1900),
-    Number(plan.target_protein_g || 140),
-    Number(plan.target_carb_g || 220),
-    Number(plan.target_fat_g || 60),
-    Number(plan.target_fibre_g || 30),
-    Number(plan.meal_count || 4),
-    mealsJson,
-    profileJson,
-    calcJson,
-    plan.created_at || now,
-    now
-  );
-
-  return getUserDietPlan(userId);
-}
-
-export function getUserConversation(userId) {
-  const d = getDb();
-  const row = d.prepare("SELECT * FROM user_ai_conversations WHERE user_id = ?").get(userId);
-  if (!row) return null;
-  return {
-    ...row,
-    history: JSON.parse(row.history_json || '[]'),
-    profile_draft: JSON.parse(row.profile_draft_json || '{}')
-  };
-}
-
-export function saveUserConversation(userId, conversationState, history = [], profileDraft = {}) {
-  const d = getDb();
-  const now = new Date().toISOString();
-  d.prepare(`
-    INSERT OR REPLACE INTO user_ai_conversations (
-      user_id, conversation_state, history_json, profile_draft_json, updated_at
-    ) VALUES (?, ?, ?, ?, ?)
-  `).run(
-    userId,
-    conversationState,
-    JSON.stringify(history),
-    JSON.stringify(profileDraft),
-    now
-  );
-}
-
-export function clearUserConversation(userId) {
-  const d = getDb();
-  d.prepare("DELETE FROM user_ai_conversations WHERE user_id = ?").run(userId);
 }
 
 /* ==================== Previous Meals (Repeat Previous Meal) ==================== */

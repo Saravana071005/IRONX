@@ -42,18 +42,11 @@ import {
   searchVerifiedFoods,
   searchVerifiedRecipes,
   getVerifiedRecipeById,
-  calculateDeterministicRecipe,
-  getUserDietPlan,
-  saveUserDietPlan,
-  clearUserConversation
+  calculateDeterministicRecipe
 } from './db.js';
 import {
-  calculatePersonalizedTargets,
-  generateDietPlan,
-  modifyDietPlan
+  calculatePersonalizedTargets
 } from './knowledge.js';
-import { handleConversationalTurn } from './conversation.js';
-import { generateDietPlanPdf } from './pdf_generator.js';
 import { calculateRecipeNutrition, resolveGrams, calculateNutrients } from './engine.js';
 import { parseMeal } from './parser.js';
 
@@ -70,7 +63,7 @@ export function nutritionRoutes({ json, readBody, readSession }) {
   const genId = () => crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(12).toString('hex');
 
   return {
-    /* ---------- Food Search & Details (For manual entry assistance) ---------- */
+    /* ---------- Food Search & Details (For nutrition dataset lookup & manual entry) ---------- */
     'GET /api/nutrition/search': async (req, res) => {
       const url = new URL(req.url, 'http://x');
       const q = url.searchParams.get('q') || '';
@@ -79,167 +72,16 @@ export function nutritionRoutes({ json, readBody, readSession }) {
 
       try {
         const results = searchFoods(q, limit, group);
-        json(res, 200, { ok: true, count: results.length, foods: results, results: results });
+        json(res, 200, {
+          ok: true,
+          count: results.length,
+          foods: results,
+          results: results,
+          message: results.length === 0 ? 'Food not found in dataset.' : undefined
+        });
       } catch (e) {
         json(res, 500, { error: e.message });
       }
-    },
-
-    /* ---------- Gemini AI Meal Parser with Zero-Hallucination DB Verification ---------- */
-    'POST /api/nutrition/ai-parse': async (req, res) => {
-      const user = requireUser(req, res);
-      if (!user) return;
-
-      const body = await readBody(req);
-      const text = String(body.text || body.prompt || '').trim();
-      if (!text) {
-        return json(res, 400, { error: 'Meal description text is required' });
-      }
-
-      let parsedItems = [];
-      let usedGemini = false;
-
-      // 1. Check server-side process.env.GEMINI_API_KEY
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          const apiKey = process.env.GEMINI_API_KEY;
-          const prompt = `You are an expert nutrition intake parser for Indian and international diets.
-Parse the following meal description into individual food items.
-Recognize English, Hindi/Hinglish, and Tamil/Tanglish food terms (e.g. chapati, roti, dal, thayir, curd, dahi, muttai, anda, egg, rice, sadam, chawal, idli, dosa, oats, chicken, paneer, banana, apple, milk).
-Extract quantities, units, and preparation methods.
-
-User input: "${text}"
-
-Respond with ONLY a JSON array of objects with the following schema:
-[
-  {
-    "raw_name": string,
-    "normalized_food": string,
-    "quantity": number,
-    "unit": string,
-    "prep_state": string,
-    "clarification": string or null
-  }
-]
-No other text or markdown, just the JSON array.`;
-
-          const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                  temperature: 0.1,
-                  responseMimeType: 'application/json'
-                }
-              })
-            }
-          );
-
-          if (geminiRes.ok) {
-            const geminiData = await geminiRes.json();
-            const rawJsonText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (rawJsonText) {
-              const parsed = JSON.parse(rawJsonText);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                parsedItems = parsed;
-                usedGemini = true;
-              }
-            }
-          }
-        } catch (err) {
-          console.warn('Gemini API call error, falling back to local NLP parser:', err.message);
-        }
-      }
-
-      // 2. Fallback to local deterministic NLP parser if Gemini not used or failed
-      if (!usedGemini || parsedItems.length === 0) {
-        const localResult = parseMeal(text);
-        if (localResult && Array.isArray(localResult.items)) {
-          parsedItems = localResult.items.map(item => ({
-            raw_name: item.raw_phrase || item.food_name,
-            normalized_food: item.food_name,
-            quantity: item.serving_quantity || item.quantity || 1,
-            unit: item.serving_unit || item.unit || 'g',
-            prep_state: item.prep_state || null,
-            food_id: item.food_id
-          }));
-        }
-      }
-
-      // 3. Strict Database Resolution (Zero Hallucination Guarantee)
-      // Match every parsed item strictly against verified lab records in nutrition.db
-      const resolvedItems = [];
-      let totalKcal = 0;
-      let totalProtein = 0;
-      let totalCarb = 0;
-      let totalFat = 0;
-      let totalFibre = 0;
-
-      for (const item of parsedItems) {
-        const qStr = item.normalized_food || item.raw_name || '';
-        let food = item.food_id ? getFoodById(item.food_id) : null;
-        if (!food && qStr) {
-          const candidates = searchFoods(qStr, 5);
-          if (candidates && candidates.length > 0) {
-            if (item.prep_state) {
-              food = candidates.find(c => c.prep_state === item.prep_state) || candidates[0];
-            } else {
-              food = candidates[0];
-            }
-          }
-        }
-
-        if (food) {
-          const q = Number(item.quantity) || 1;
-          const u = item.unit || food.serving_unit || 'g';
-          const resG = resolveGrams(food, q, u);
-          const nut = calculateNutrients(food, resG.grams);
-
-          totalKcal += nut.energy_kcal;
-          totalProtein += nut.protein_g;
-          totalCarb += nut.carb_g;
-          totalFat += nut.fat_g;
-          totalFibre += nut.fibre_g;
-
-          resolvedItems.push({
-            raw_name: item.raw_name || food.name,
-            food_id: food.id,
-            food_name: food.name,
-            category: food.food_group,
-            prep_state: food.prep_state,
-            source: food.source,
-            confidence: food.confidence || 'verified_lab',
-            serving_quantity: q,
-            serving_unit: u,
-            serving_grams: resG.grams,
-            effective_grams: resG.grams,
-            energy_kcal: Math.round(nut.energy_kcal),
-            protein_g: nut.protein_g,
-            carb_g: nut.carb_g,
-            fat_g: nut.fat_g,
-            fibre_g: nut.fibre_g,
-            assumption: resG.assumption,
-            clarification: item.clarification || null
-          });
-        }
-      }
-
-      json(res, 200, {
-        ok: true,
-        engine: usedGemini ? 'gemini-ai' : 'deterministic-local-nlp',
-        count: resolvedItems.length,
-        items: resolvedItems,
-        totals: {
-          energy_kcal: Math.round(totalKcal * 10) / 10,
-          protein_g: Math.round(totalProtein * 10) / 10,
-          carb_g: Math.round(totalCarb * 10) / 10,
-          fat_g: Math.round(totalFat * 10) / 10,
-          fibre_g: Math.round(totalFibre * 10) / 10
-        }
-      });
     },
 
     'GET /api/nutrition/food': async (req, res) => {
@@ -248,7 +90,7 @@ No other text or markdown, just the JSON array.`;
       if (!id) return json(res, 400, { error: 'food id required' });
 
       const food = getFoodById(id);
-      if (!food) return json(res, 404, { error: 'food not found' });
+      if (!food) return json(res, 404, { ok: false, error: 'Food not found in dataset.' });
 
       let ingredients = [];
       if (food.is_recipe && food.source_id) {
@@ -1322,151 +1164,8 @@ No other text or markdown, just the JSON array.`;
       });
     },
 
-    /* ---------- IRONX AI: Conversational Intelligence Assistant ---------- */
-    'POST /api/nutrition/coach/chat': async (req, res) => {
-      const user = requireUser(req, res);
-      if (!user) return;
-
-      const body = await readBody(req);
-      const message = String(body.message || body.prompt || '').trim();
-      const date = String(body.date || new Date().toISOString().slice(0, 10));
-
-      if (!message) {
-        return json(res, 400, { error: 'Message is required' });
-      }
-
-      try {
-        const turnResult = await handleConversationalTurn({ user, message, date });
-        json(res, 200, {
-          ok: true,
-          ...turnResult,
-          model: 'ironx-ai-deterministic-engine'
-        });
-      } catch (err) {
-        json(res, 500, { error: err.message });
-      }
-    },
-
-    /* ---------- IRONX AI: Get Active Diet Plan ---------- */
-    'GET /api/nutrition/ai/diet-plan/current': async (req, res) => {
-      const user = requireUser(req, res);
-      if (!user) return;
-      const plan = getUserDietPlan(user.id);
-      json(res, 200, { ok: true, plan: plan || null });
-    },
-
-    /* ---------- IRONX AI: Generate Diet Plan ---------- */
-    'POST /api/nutrition/ai/diet-plan/generate': async (req, res) => {
-      const user = requireUser(req, res);
-      if (!user) return;
-      const body = await readBody(req);
-      const profile = { ...(user.profile || {}), ...body };
-      const targets = calculatePersonalizedTargets(profile);
-      const plan = generateDietPlan(profile, targets);
-      saveUserDietPlan(user.id, plan);
-      setUserTargets(user.id, {
-        calorie_target: targets.target_calories,
-        protein_target_g: targets.protein_target_g,
-        carb_target_g: targets.carb_target_g,
-        fat_target_g: targets.fat_target_g,
-        fibre_target_g: targets.fibre_target_g,
-        diet_preference: profile.diet_preference || profile.dietPreferences || 'non_veg'
-      });
-      json(res, 200, { ok: true, plan, targets });
-    },
-
-    /* ---------- IRONX AI: Modify Diet Plan (Interactive Food Substitutions) ---------- */
-    'POST /api/nutrition/ai/diet-plan/modify': async (req, res) => {
-      const user = requireUser(req, res);
-      if (!user) return;
-      const body = await readBody(req);
-      const currentPlan = getUserDietPlan(user.id);
-      if (!currentPlan) {
-        return json(res, 400, { error: 'No active diet plan to modify. Generate one first.' });
-      }
-      const requestText = String(body.request || body.modification || body.message || '').trim();
-      const modified = modifyDietPlan(currentPlan, requestText);
-      saveUserDietPlan(user.id, modified);
-      json(res, 200, { ok: true, plan: modified });
-    },
-
-    /* ---------- IRONX AI: Download PDF Diet Plan ---------- */
-    'GET /api/nutrition/ai/diet-plan/pdf': async (req, res) => {
-      const user = requireUser(req, res);
-      if (!user) return;
-      const plan = getUserDietPlan(user.id);
-      if (!plan) {
-        return json(res, 404, { error: 'No active diet plan found. Generate a diet plan first with IRONX AI.' });
-      }
-      try {
-        const arrayBuffer = generateDietPlanPdf(plan);
-        const pdfBuf = Buffer.from(arrayBuffer);
-        res.writeHead(200, {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': 'inline; filename="ironx_ai_diet_plan.pdf"',
-          'Content-Length': pdfBuf.length,
-          'Cache-Control': 'no-cache'
-        });
-        res.end(pdfBuf);
-      } catch (err) {
-        json(res, 500, { error: err.message });
-      }
-    },
-
-    /* ---------- IRONX AI: 1-Click Log Plan Meals to Today's Food Log ---------- */
-    'POST /api/nutrition/ai/diet-plan/log-to-today': async (req, res) => {
-      const user = requireUser(req, res);
-      if (!user) return;
-      const body = await readBody(req);
-      const date = String(body.date || new Date().toISOString().slice(0, 10));
-      const plan = getUserDietPlan(user.id);
-      if (!plan || !Array.isArray(plan.meals)) {
-        return json(res, 400, { error: 'No active diet plan found' });
-      }
-      const mealName = body.meal_name ? String(body.meal_name).toLowerCase() : null;
-      const loggedItems = [];
-
-      for (const meal of plan.meals) {
-        if (mealName && !meal.meal_name.toLowerCase().includes(mealName)) continue;
-        const mealType = meal.meal_name.toLowerCase().includes('breakfast') ? 'breakfast'
-          : meal.meal_name.toLowerCase().includes('lunch') ? 'lunch'
-          : meal.meal_name.toLowerCase().includes('dinner') ? 'dinner'
-          : 'snacks';
-
-        for (const it of meal.items) {
-          const logEntry = {
-            user_id: user.id,
-            date: date,
-            meal_type: mealType,
-            food_id: it.food_id || 'INX_STAPLE',
-            food_name: it.food_name || it.name || 'Food Item',
-            serving_quantity: it.serving_quantity != null ? it.serving_quantity : 1,
-            serving_unit: it.serving_unit || 'g',
-            serving_grams: it.serving_grams || it.portion_grams || 100,
-            energy_kcal: it.energy_kcal != null ? it.energy_kcal : (it.calories || 0),
-            protein_g: it.protein_g || 0,
-            carb_g: it.carb_g || 0,
-            fat_g: it.fat_g || 0,
-            fibre_g: it.fibre_g || 0,
-            notes: 'Logged from IRONX AI Diet Plan'
-          };
-          const created = addMealLog(logEntry);
-          loggedItems.push(created);
-        }
-      }
-      json(res, 200, { ok: true, logged_items_count: loggedItems.length, logged_items: loggedItems });
-    },
-
-    /* ---------- IRONX AI: Reset Conversation ---------- */
-    'POST /api/nutrition/ai/conversation/reset': async (req, res) => {
-      const user = requireUser(req, res);
-      if (!user) return;
-      clearUserConversation(user.id);
-      json(res, 200, { ok: true, message: 'Conversation reset successfully' });
-    },
-
-    /* ---------- IRONX AI: Verified Foods Knowledge Search ---------- */
-    'GET /api/nutrition/ai/foods': async (req, res) => {
+    /* ---------- Verified Foods Dataset Search ---------- */
+    'GET /api/nutrition/foods': async (req, res) => {
       const url = new URL(req.url, 'http://x');
       const query = url.searchParams.get('q') || '';
       const category = url.searchParams.get('category') || null;
@@ -1476,14 +1175,41 @@ No other text or markdown, just the JSON array.`;
 
       try {
         const foods = searchVerifiedFoods({ query, category, foodState, limit, offset });
-        json(res, 200, { ok: true, count: foods.length, foods });
+        json(res, 200, {
+          ok: true,
+          count: foods.length,
+          foods,
+          message: foods.length === 0 ? 'Food not found in dataset.' : undefined
+        });
       } catch (err) {
         json(res, 500, { error: err.message });
       }
     },
 
-    /* ---------- IRONX AI: Verified Recipes Search ---------- */
-    'GET /api/nutrition/ai/recipes': async (req, res) => {
+    'GET /api/nutrition/ai/foods': async (req, res) => {
+      // Compatibility alias for /api/nutrition/foods
+      const url = new URL(req.url, 'http://x');
+      const query = url.searchParams.get('q') || '';
+      const category = url.searchParams.get('category') || null;
+      const foodState = url.searchParams.get('state') || null;
+      const limit = Math.min(100, Math.max(1, +(url.searchParams.get('limit') || 25)));
+      const offset = Math.max(0, +(url.searchParams.get('offset') || 0));
+
+      try {
+        const foods = searchVerifiedFoods({ query, category, foodState, limit, offset });
+        json(res, 200, {
+          ok: true,
+          count: foods.length,
+          foods,
+          message: foods.length === 0 ? 'Food not found in dataset.' : undefined
+        });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ---------- Verified Recipes Search ---------- */
+    'GET /api/nutrition/verified-recipes': async (req, res) => {
       const url = new URL(req.url, 'http://x');
       const query = url.searchParams.get('q') || '';
       const category = url.searchParams.get('category') || null;
@@ -1499,8 +1225,25 @@ No other text or markdown, just the JSON array.`;
       }
     },
 
-    /* ---------- IRONX AI: Single Recipe Details & Ingredients ---------- */
-    'GET /api/nutrition/ai/recipes/item': async (req, res) => {
+    'GET /api/nutrition/ai/recipes': async (req, res) => {
+      // Compatibility alias
+      const url = new URL(req.url, 'http://x');
+      const query = url.searchParams.get('q') || '';
+      const category = url.searchParams.get('category') || null;
+      const cuisine = url.searchParams.get('cuisine') || null;
+      const limit = Math.min(50, Math.max(1, +(url.searchParams.get('limit') || 20)));
+      const offset = Math.max(0, +(url.searchParams.get('offset') || 0));
+
+      try {
+        const recipes = searchVerifiedRecipes({ query, category, cuisine, limit, offset });
+        json(res, 200, { ok: true, count: recipes.length, recipes });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ---------- Recipe Details & Ingredients ---------- */
+    'GET /api/nutrition/verified-recipes/item': async (req, res) => {
       const url = new URL(req.url, 'http://x');
       const recipeId = url.searchParams.get('id') || '';
       if (!recipeId) {
@@ -1510,7 +1253,7 @@ No other text or markdown, just the JSON array.`;
       try {
         const recipe = getVerifiedRecipeById(recipeId);
         if (!recipe) {
-          return json(res, 404, { error: 'Recipe not found' });
+          return json(res, 404, { error: 'Recipe not found in dataset' });
         }
         json(res, 200, { ok: true, recipe });
       } catch (err) {
@@ -1518,8 +1261,27 @@ No other text or markdown, just the JSON array.`;
       }
     },
 
-    /* ---------- IRONX AI: Deterministic Recipe Calculator ---------- */
-    'POST /api/nutrition/ai/calculate-recipe': async (req, res) => {
+    'GET /api/nutrition/ai/recipes/item': async (req, res) => {
+      // Compatibility alias
+      const url = new URL(req.url, 'http://x');
+      const recipeId = url.searchParams.get('id') || '';
+      if (!recipeId) {
+        return json(res, 400, { error: 'recipeId is required' });
+      }
+
+      try {
+        const recipe = getVerifiedRecipeById(recipeId);
+        if (!recipe) {
+          return json(res, 404, { error: 'Recipe not found in dataset' });
+        }
+        json(res, 200, { ok: true, recipe });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ---------- Deterministic Recipe Calculator ---------- */
+    'POST /api/nutrition/calculate-recipe': async (req, res) => {
       const body = await readBody(req);
       const ingredients = Array.isArray(body.ingredients) ? body.ingredients : [];
       const cookingOilGrams = Number(body.cooking_oil_grams || body.oil_grams || 0);
@@ -1538,193 +1300,24 @@ No other text or markdown, just the JSON array.`;
       }
     },
 
-    /* ---------- IRONX AI: Natural-Language Food & Meal Parser (Bilingual English/Tamil) ---------- */
-    'POST /api/nutrition/ai/parse-nl': async (req, res) => {
+    'POST /api/nutrition/ai/calculate-recipe': async (req, res) => {
+      // Compatibility alias
       const body = await readBody(req);
-      const rawText = String(body.text || body.query || '').trim();
-      if (!rawText) {
-        return json(res, 400, { error: 'Input text is required' });
-      }
+      const ingredients = Array.isArray(body.ingredients) ? body.ingredients : [];
+      const cookingOilGrams = Number(body.cooking_oil_grams || body.oil_grams || 0);
+      const servings = Math.max(0.25, Number(body.servings || 1));
+      const cookedBatchWeightG = body.cooked_batch_weight_g ? Number(body.cooked_batch_weight_g) : null;
 
       try {
-        // High-precision pattern matching for Tamil and English
-        const items = [];
-        const tLower = rawText.toLowerCase();
-
-        // 1. Chapatis / Roti / சப்பாத்தி
-        const chapatiMatch = rawText.match(/(\d+)\s*(?:chapatis?|chappathis?|rotis?|phulkas?|சப்பாத்தி)/i) ||
-                             (tLower.includes('சப்பாத்தி') ? [null, '2'] : null) ||
-                             (tLower.includes('chapati') || tLower.includes('roti') ? [null, '2'] : null);
-        if (chapatiMatch) {
-          const qty = parseInt(chapatiMatch[1], 10) || 2;
-          items.push({
-            food_id: 'INX_STAPLE_ROTI_COOKED',
-            food_name: 'Wheat Roti / Chapati (Cooked)',
-            food_name_tamil: 'சப்பாத்தி',
-            food_state: 'cooked',
-            serving_quantity: qty,
-            serving_unit: 'piece',
-            serving_grams: qty * 35,
-            energy_kcal: Math.round(qty * 104),
-            protein_g: Math.round(qty * 3.1 * 10) / 10,
-            carb_g: Math.round(qty * 20.3 * 10) / 10,
-            fat_g: Math.round(qty * 1.2 * 10) / 10,
-            fibre_g: Math.round(qty * 2.8 * 10) / 10,
-            source_name: 'ICMR-NIN 2017 Verified'
-          });
-        }
-
-        // 2. Boiled Eggs / முட்டை / அவிச்ச முட்டை
-        const eggMatch = rawText.match(/(\d+)\s*(?:boiled\s+eggs?|eggs?|முட்டை|அவிச்ச\s+முட்டை)/i) ||
-                         (tLower.includes('boiled egg') || tLower.includes('முட்டை') ? [null, '2'] : null);
-        if (eggMatch) {
-          const qty = parseInt(eggMatch[1], 10) || 2;
-          items.push({
-            food_id: 'INX_STAPLE_EGG_BOILED',
-            food_name: 'Boiled Egg (Whole)',
-            food_name_tamil: 'வேகவைத்த முட்டை',
-            food_state: 'boiled',
-            serving_quantity: qty,
-            serving_unit: 'piece',
-            serving_grams: qty * 50,
-            energy_kcal: Math.round(qty * 70),
-            protein_g: Math.round(qty * 6.3 * 10) / 10,
-            carb_g: Math.round(qty * 0.4 * 10) / 10,
-            fat_g: Math.round(qty * 4.8 * 10) / 10,
-            fibre_g: 0.0,
-            source_name: 'USDA SR Legacy Verified'
-          });
-        }
-
-        // 3. Cooked Rice / சாதம் / சோறு
-        const riceMatch = rawText.match(/(\d+)\s*(?:g|grams?|கிராம்)?\s*(?:cooked\s+rice|rice|சாதம்|சோறு)/i) ||
-                          (tLower.includes('சாதம்') || tLower.includes('rice') ? [null, '150'] : null);
-        if (riceMatch && !tLower.includes('curd rice') && !tLower.includes('lemon rice')) {
-          const grams = parseInt(riceMatch[1], 10) || 150;
-          const ratio = grams / 100.0;
-          items.push({
-            food_id: 'INX_STAPLE_RICE_COOKED',
-            food_name: 'Cooked Rice (Steamed)',
-            food_name_tamil: 'சாதம்',
-            food_state: 'cooked',
-            serving_quantity: grams,
-            serving_unit: 'g',
-            serving_grams: grams,
-            energy_kcal: Math.round(130 * ratio),
-            protein_g: Math.round(2.7 * ratio * 10) / 10,
-            carb_g: Math.round(28.2 * ratio * 10) / 10,
-            fat_g: Math.round(0.3 * ratio * 10) / 10,
-            fibre_g: Math.round(0.4 * ratio * 10) / 10,
-            source_name: 'ICMR-NIN 2017 Verified'
-          });
-        }
-
-        // 4. Chicken / சிக்கன் / கோழி
-        const chickenMatch = rawText.match(/(\d+)\s*(?:g|grams?|கிராம்)?\s*(?:chicken(?:\s+breast|\s+gravy|\s+curry)?|சிக்கன்(?:\s+குழம்பு|\s+கறி)?|கோழி)/i) ||
-                             (tLower.includes('chicken') || tLower.includes('சிக்கன்') || tLower.includes('கோழி') ? [null, '100'] : null);
-        if (chickenMatch) {
-          const grams = parseInt(chickenMatch[1], 10) || 100;
-          const ratio = grams / 100.0;
-          const isGravy = /gravy|curry|குழம்பு/i.test(rawText);
-          items.push({
-            food_id: isGravy ? 'STAPLE:chicken_gravy' : 'INX_STAPLE_CHICKEN_COOKED',
-            food_name: isGravy ? 'Chicken Gravy / Curry' : 'Chicken Breast (Cooked)',
-            food_name_tamil: isGravy ? 'சிக்கன் குழம்பு' : 'கோழி இறைச்சி',
-            food_state: 'cooked',
-            serving_quantity: grams,
-            serving_unit: 'g',
-            serving_grams: grams,
-            energy_kcal: Math.round((isGravy ? 125 : 165) * ratio),
-            protein_g: Math.round((isGravy ? 14.0 : 31.0) * ratio * 10) / 10,
-            carb_g: Math.round((isGravy ? 4.5 : 0.0) * ratio * 10) / 10,
-            fat_g: Math.round((isGravy ? 6.0 : 3.6) * ratio * 10) / 10,
-            fibre_g: isGravy ? Math.round(1.2 * ratio * 10) / 10 : 0.0,
-            source_name: isGravy ? 'INDB Recipe Verified' : 'ICMR-NIN & USDA Verified'
-          });
-        }
-
-        // 5. Dosa / தோசை
-        const dosaMatch = rawText.match(/(\d+)\s*(?:dosas?|dosais?|தோசை)/i);
-        if (dosaMatch) {
-          const qty = parseInt(dosaMatch[1], 10) || 2;
-          items.push({
-            food_id: 'INX_STAPLE_DOSA_COOKED',
-            food_name: 'Plain Dosa (Cooked)',
-            food_name_tamil: 'தோசை',
-            food_state: 'cooked',
-            serving_quantity: qty,
-            serving_unit: 'piece',
-            serving_grams: qty * 80,
-            energy_kcal: Math.round(qty * 133),
-            protein_g: Math.round(qty * 3.3 * 10) / 10,
-            carb_g: Math.round(qty * 22.0 * 10) / 10,
-            fat_g: Math.round(qty * 3.7 * 10) / 10,
-            fibre_g: Math.round(qty * 1.5 * 10) / 10,
-            source_name: 'ICMR-NIN 2017 Verified'
-          });
-        }
-
-        // 6. Idli / இட்லி
-        const idliMatch = rawText.match(/(\d+)\s*(?:idlis?|idlys?|இட்லி)/i);
-        if (idliMatch) {
-          const qty = parseInt(idliMatch[1], 10) || 3;
-          items.push({
-            food_id: 'INX_STAPLE_IDLI_COOKED',
-            food_name: 'Steamed Idli (Cooked)',
-            food_name_tamil: 'இட்லி',
-            food_state: 'steamed',
-            serving_quantity: qty,
-            serving_unit: 'piece',
-            serving_grams: qty * 50,
-            energy_kcal: Math.round(qty * 58),
-            protein_g: Math.round(qty * 2.0 * 10) / 10,
-            carb_g: Math.round(qty * 12.0 * 10) / 10,
-            fat_g: Math.round(qty * 0.2 * 10) / 10,
-            fibre_g: Math.round(qty * 0.9 * 10) / 10,
-            source_name: 'ICMR-NIN 2017 Verified'
-          });
-        }
-
-        // Fallback: If no regex matched, search verified foods database
-        if (items.length === 0) {
-          const candidates = searchVerifiedFoods({ query: rawText, limit: 3 });
-          for (const c of candidates) {
-            items.push({
-              food_id: c.food_id,
-              food_name: c.food_name,
-              food_name_tamil: c.food_name_tamil,
-              food_state: c.food_state,
-              serving_quantity: 1,
-              serving_unit: 'serving',
-              serving_grams: 100,
-              energy_kcal: c.energy_kcal,
-              protein_g: c.protein_g,
-              carb_g: c.carb_g,
-              fat_g: c.fat_g,
-              fibre_g: c.fibre_g,
-              source_name: c.source_name
-            });
-          }
-        }
-
-        const totalKcal = Math.round(items.reduce((s, it) => s + (it.energy_kcal || 0), 0));
-        const totalP = Math.round(items.reduce((s, it) => s + (it.protein_g || 0), 0) * 10) / 10;
-        const totalC = Math.round(items.reduce((s, it) => s + (it.carb_g || 0), 0) * 10) / 10;
-        const totalF = Math.round(items.reduce((s, it) => s + (it.fat_g || 0), 0) * 10) / 10;
-
-        json(res, 200, {
-          ok: true,
-          source_text: rawText,
-          parsed_items: items,
-          total_calories: totalKcal,
-          total_protein_g: totalP,
-          total_carbohydrate_g: totalC,
-          total_fat_g: totalF,
-          requires_confirmation: true
+        const calculation = calculateDeterministicRecipe(ingredients, {
+          cookingOilGrams,
+          servings,
+          cookedBatchWeightG
         });
+        json(res, 200, { ok: true, calculation });
       } catch (err) {
         json(res, 500, { error: err.message });
       }
-    },
+    }
   };
 }

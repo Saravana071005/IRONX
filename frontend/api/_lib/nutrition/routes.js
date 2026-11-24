@@ -49,7 +49,7 @@ export function nutritionRoutes({ json, readBody, readSession }) {
   const genId = () => crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(12).toString('hex');
 
   return {
-    /* ---------- Food Search & Details (For manual entry assistance) ---------- */
+    /* ---------- Food Search & Details (For nutrition dataset lookup & manual entry) ---------- */
     'GET /api/nutrition/search': async (req, res) => {
       const url = new URL(req.url, 'http://x');
       const q = url.searchParams.get('q') || '';
@@ -58,167 +58,16 @@ export function nutritionRoutes({ json, readBody, readSession }) {
 
       try {
         const results = searchFoods(q, limit, group);
-        json(res, 200, { ok: true, count: results.length, foods: results, results: results });
+        json(res, 200, {
+          ok: true,
+          count: results.length,
+          foods: results,
+          results: results,
+          message: results.length === 0 ? 'Food not found in dataset.' : undefined
+        });
       } catch (e) {
         json(res, 500, { error: e.message });
       }
-    },
-
-    /* ---------- Gemini AI Meal Parser with Zero-Hallucination DB Verification ---------- */
-    'POST /api/nutrition/ai-parse': async (req, res) => {
-      const user = requireUser(req, res);
-      if (!user) return;
-
-      const body = await readBody(req);
-      const text = String(body.text || body.prompt || '').trim();
-      if (!text) {
-        return json(res, 400, { error: 'Meal description text is required' });
-      }
-
-      let parsedItems = [];
-      let usedGemini = false;
-
-      // 1. Check server-side process.env.GEMINI_API_KEY
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          const apiKey = process.env.GEMINI_API_KEY;
-          const prompt = `You are an expert nutrition intake parser for Indian and international diets.
-Parse the following meal description into individual food items.
-Recognize English, Hindi/Hinglish, and Tamil/Tanglish food terms (e.g. chapati, roti, dal, thayir, curd, dahi, muttai, anda, egg, rice, sadam, chawal, idli, dosa, oats, chicken, paneer, banana, apple, milk).
-Extract quantities, units, and preparation methods.
-
-User input: "${text}"
-
-Respond with ONLY a JSON array of objects with the following schema:
-[
-  {
-    "raw_name": string,
-    "normalized_food": string,
-    "quantity": number,
-    "unit": string,
-    "prep_state": string,
-    "clarification": string or null
-  }
-]
-No other text or markdown, just the JSON array.`;
-
-          const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                  temperature: 0.1,
-                  responseMimeType: 'application/json'
-                }
-              })
-            }
-          );
-
-          if (geminiRes.ok) {
-            const geminiData = await geminiRes.json();
-            const rawJsonText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (rawJsonText) {
-              const parsed = JSON.parse(rawJsonText);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                parsedItems = parsed;
-                usedGemini = true;
-              }
-            }
-          }
-        } catch (err) {
-          console.warn('Gemini API call error, falling back to local NLP parser:', err.message);
-        }
-      }
-
-      // 2. Fallback to local deterministic NLP parser if Gemini not used or failed
-      if (!usedGemini || parsedItems.length === 0) {
-        const localResult = parseMeal(text);
-        if (localResult && Array.isArray(localResult.items)) {
-          parsedItems = localResult.items.map(item => ({
-            raw_name: item.raw_phrase || item.food_name,
-            normalized_food: item.food_name,
-            quantity: item.serving_quantity || item.quantity || 1,
-            unit: item.serving_unit || item.unit || 'g',
-            prep_state: item.prep_state || null,
-            food_id: item.food_id
-          }));
-        }
-      }
-
-      // 3. Strict Database Resolution (Zero Hallucination Guarantee)
-      // Match every parsed item strictly against verified lab records in nutrition.db
-      const resolvedItems = [];
-      let totalKcal = 0;
-      let totalProtein = 0;
-      let totalCarb = 0;
-      let totalFat = 0;
-      let totalFibre = 0;
-
-      for (const item of parsedItems) {
-        const qStr = item.normalized_food || item.raw_name || '';
-        let food = item.food_id ? getFoodById(item.food_id) : null;
-        if (!food && qStr) {
-          const candidates = searchFoods(qStr, 5);
-          if (candidates && candidates.length > 0) {
-            if (item.prep_state) {
-              food = candidates.find(c => c.prep_state === item.prep_state) || candidates[0];
-            } else {
-              food = candidates[0];
-            }
-          }
-        }
-
-        if (food) {
-          const q = Number(item.quantity) || 1;
-          const u = item.unit || food.serving_unit || 'g';
-          const resG = resolveGrams(food, q, u);
-          const nut = calculateNutrients(food, resG.grams);
-
-          totalKcal += nut.energy_kcal;
-          totalProtein += nut.protein_g;
-          totalCarb += nut.carb_g;
-          totalFat += nut.fat_g;
-          totalFibre += nut.fibre_g;
-
-          resolvedItems.push({
-            raw_name: item.raw_name || food.name,
-            food_id: food.id,
-            food_name: food.name,
-            category: food.food_group,
-            prep_state: food.prep_state,
-            source: food.source,
-            confidence: food.confidence || 'verified_lab',
-            serving_quantity: q,
-            serving_unit: u,
-            serving_grams: resG.grams,
-            effective_grams: resG.grams,
-            energy_kcal: Math.round(nut.energy_kcal),
-            protein_g: nut.protein_g,
-            carb_g: nut.carb_g,
-            fat_g: nut.fat_g,
-            fibre_g: nut.fibre_g,
-            assumption: resG.assumption,
-            clarification: item.clarification || null
-          });
-        }
-      }
-
-      json(res, 200, {
-        ok: true,
-        engine: usedGemini ? 'gemini-ai' : 'deterministic-local-nlp',
-        count: resolvedItems.length,
-        items: resolvedItems,
-        totals: {
-          energy_kcal: Math.round(totalKcal * 10) / 10,
-          protein_g: Math.round(totalProtein * 10) / 10,
-          carb_g: Math.round(totalCarb * 10) / 10,
-          fat_g: Math.round(totalFat * 10) / 10,
-          fibre_g: Math.round(totalFibre * 10) / 10
-        }
-      });
     },
 
     'GET /api/nutrition/food': async (req, res) => {
@@ -227,7 +76,7 @@ No other text or markdown, just the JSON array.`;
       if (!id) return json(res, 400, { error: 'food id required' });
 
       const food = getFoodById(id);
-      if (!food) return json(res, 404, { error: 'food not found' });
+      if (!food) return json(res, 404, { ok: false, error: 'Food not found in dataset.' });
 
       let ingredients = [];
       if (food.is_recipe && food.source_id) {

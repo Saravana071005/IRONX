@@ -222,12 +222,12 @@ test('IRONX Smart Nutrition & AI Coach: Comprehensive Backend Verification', asy
     assert.equal(resDelRcp.data.ok, true);
   });
 
-  // 5. PART 7 & 8: AI Nutrition Coach: Targets & Context-Aware Chat
-  await t.test('AI Nutrition Coach calculates personalized BMR/TDEE targets and answers contextually', async () => {
+  // 5. PART 7 & 8: Nutrition Targets Calculator
+  await t.test('Calculates personalized BMR/TDEE targets deterministically', async () => {
     currentUser = userA;
     const routes = getRoutes();
 
-    // 1. Calculate targets
+    // Calculate targets
     requestBody = {
       age: 26,
       sex: 'male',
@@ -250,20 +250,5 @@ test('IRONX Smart Nutrition & AI Coach: Comprehensive Backend Verification', asy
     // Internal consistency check
     const diff = Math.abs(calc.target_calories - calc.macro_kcal_sum);
     assert.ok(diff <= 15, `Calorie contribution from macros (${calc.macro_kcal_sum}) matches target (${calc.target_calories}) within rounding`);
-
-    // 2. Chat Assistant: context-aware response
-    requestBody = {
-      message: 'What should I eat for breakfast?',
-      date: '2026-11-23'
-    };
-    const resChat = {};
-    await routes['POST /api/nutrition/coach/chat']({}, resChat);
-    assert.equal(resChat.statusCode, 200);
-    assert.ok(resChat.data.ok);
-    assert.ok(resChat.data.reply.length > 30);
-    assert.ok(
-      resChat.data.reply.includes('Idli') || resChat.data.reply.includes('Dosa') || resChat.data.reply.includes('Chapati'),
-      'AI Coach recommends realistic South Indian breakfast'
-    );
   });
 });
