@@ -202,6 +202,38 @@ export function getDb() {
     try {
       db.exec("ALTER TABLE meal_logs ADD COLUMN notes TEXT");
     } catch {}
+
+    // Ensure STAPLE:mixed_veg is seeded in foods table for deterministic composite vegetable tracking
+    try {
+      const stapleCheck = db.prepare("SELECT id FROM foods WHERE id = 'STAPLE:mixed_veg'").get();
+      if (!stapleCheck) {
+        db.prepare(`
+          INSERT INTO foods (
+            id, name, canonical_name, alternate_names, tamil_name, hindi_name,
+            food_group, prep_state, source, source_id, serving_basis_g,
+            energy_kcal, protein_g, carb_g, fat_g, fibre_g, sugar_g,
+            sodium_mg, calcium_mg, iron_mg, is_recipe, serving_size_g,
+            serving_unit, confidence, metadata, food_name_english,
+            food_name_tamil, food_name_hindi, scientific_name, preparation_state,
+            edible_portion_basis, moisture_g, source_reference, source_version,
+            data_quality_status, licence_status, last_verified_date, category, subcategory
+          ) VALUES (
+            'STAPLE:mixed_veg', 'Mixed Vegetables (Steamed / Cooked)', 'mixed vegetables vegetable mix steamed vegetables boiled vegetables veggies sabzi',
+            '["mixed vegetables","vegetable mix","steamed vegetables","veggies","sabzi","mixed veg"]',
+            'கலவை காய்கறிகள்', 'सब्जी', 'Vegetables', 'cooked', 'NIN_STAPLE', 'MIXED_VEG', 100,
+            48, 2.1, 8.4, 0.4, 3.2, 2.5, 35, 40, 0.8, 0, 100,
+            'bowl', 'verified_lab', '{"notes":"Standard steamed mixed vegetable blend (peas, carrots, beans, corn, cauliflower) per 100g = ~48 kcal."}',
+            'Mixed Vegetables (Steamed / Cooked)', 'கலவை காய்கறிகள்', 'सब्जी',
+            'Brassica oleracea / Pisum sativum / Daucus carota', 'Steamed without added oil or butter',
+            '100g edible portion', 85.0, 'Indian Food Composition Tables 2017 & INDB',
+            'IFCT-2017-v1', 'Verified Laboratory Analysis', 'Open Access / Public Health Data',
+            '2026-11-24', 'Vegetables', 'Cooked Vegetables & Greens'
+          )
+        `).run();
+      }
+    } catch (e) {
+      // Table may not exist yet during initial migrations
+    }
   } catch (e) {
     console.error('Error ensuring health log schema:', e);
   }

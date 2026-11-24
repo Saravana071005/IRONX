@@ -237,10 +237,10 @@ export default function History() {
 
         <div className="card" style={{ padding: '12px 10px', textAlign: 'center' }}>
           <div style={{ fontSize: 11, color: 'var(--label-3)', textTransform: 'uppercase', fontWeight: 600 }}>
-            {t('Volume')}
+            {t('Exercises')}
           </div>
           <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--label)', marginTop: 2 }}>
-            {fmtNum(stats.totalVolume)} kg
+            {stats.totalWorkouts || 0}
           </div>
         </div>
 
@@ -259,10 +259,10 @@ export default function History() {
         <div className="card" style={{ padding: '16px 18px', marginBottom: 16 }}>
           <div className="row between" style={{ marginBottom: 12 }}>
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--label)' }}>
-              {t('Volume Progression (Recent Workouts)')}
+              {t('Session Sets Progression (Recent Workouts)')}
             </h3>
             <span style={{ fontSize: 12, color: 'var(--label-3)' }}>
-              {t('Total load (kg × reps)')}
+              {t('Completed strength sets')}
             </span>
           </div>
 
@@ -536,7 +536,7 @@ export default function History() {
                   {w.vol > 0 && (
                     <>
                       <span>·</span>
-                      <span>{fmtNum(w.vol)} kg {t('volume')}</span>
+                      <span>{w.entries?.length || 0} {t('exercises')}</span>
                     </>
                   )}
                 </div>

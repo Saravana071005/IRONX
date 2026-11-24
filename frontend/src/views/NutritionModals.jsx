@@ -649,16 +649,13 @@ export function RawRecipeBuilderModal({ onLogRecipePortion, close, toast }) {
   }, [ingQuery])
 
   const handleAddIngredient = () => {
-    if (!selectedRawFood && !ingQuery.trim()) return
-    const g = parseFloat(ingGrams) || 100
-    const food = selectedRawFood || {
-      name: ingQuery.trim(),
-      calories: 100,
-      protein: 2,
-      carbs: 10,
-      fat: 1,
-      source: 'Manual'
+    if (!selectedRawFood) {
+      if (!ingQuery.trim()) return;
+      toast(t('Please search and select a verified ingredient from the dataset.'));
+      return;
     }
+    const g = parseFloat(ingGrams) || 100
+    const food = selectedRawFood
 
     const baseKcal = Number(food.energy_kcal != null ? food.energy_kcal : food.calories) || 0
     const baseP = Number(food.protein_g != null ? food.protein_g : food.protein) || 0

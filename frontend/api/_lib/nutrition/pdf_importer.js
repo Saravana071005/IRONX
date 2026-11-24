@@ -96,6 +96,26 @@ const COMPOSITE_RECIPE_TEMPLATES = {
       { name: 'Onion, big', query: 'onion', quantity: 20, unit: 'g', grams: 20, prep_state: 'raw' },
       { name: 'Ghee / Cooking oil', query: 'ghee', quantity: 5, unit: 'g', grams: 5, prep_state: 'liquid' }
     ]
+  },
+  'vegetable mix': {
+    name: 'Steamed Mixed Vegetables',
+    default_servings: 1,
+    ingredients: [
+      { name: 'Carrot', query: 'carrot', quantity: 30, unit: 'g', grams: 30, prep_state: 'raw' },
+      { name: 'Green Peas', query: 'green peas', quantity: 30, unit: 'g', grams: 30, prep_state: 'raw' },
+      { name: 'French Beans', query: 'beans', quantity: 20, unit: 'g', grams: 20, prep_state: 'raw' },
+      { name: 'Cauliflower', query: 'cauliflower', quantity: 20, unit: 'g', grams: 20, prep_state: 'raw' }
+    ]
+  },
+  'mixed vegetables': {
+    name: 'Steamed Mixed Vegetables',
+    default_servings: 1,
+    ingredients: [
+      { name: 'Carrot', query: 'carrot', quantity: 30, unit: 'g', grams: 30, prep_state: 'raw' },
+      { name: 'Green Peas', query: 'green peas', quantity: 30, unit: 'g', grams: 30, prep_state: 'raw' },
+      { name: 'French Beans', query: 'beans', quantity: 20, unit: 'g', grams: 20, prep_state: 'raw' },
+      { name: 'Cauliflower', query: 'cauliflower', quantity: 20, unit: 'g', grams: 20, prep_state: 'raw' }
+    ]
   }
 };
 

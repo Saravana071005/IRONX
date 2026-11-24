@@ -2,10 +2,11 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { EXIDX } from '../lib/exercises.js'
-import { lastBW, streakWeeks, setLabel, modeOf } from '../lib/history.js'
+import { lastBW, streakWeeks, setLabel, modeOf, setsDone } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, weekKey, DAYS, fmtVol } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { bwSheet, goalSheet, calendarSheet, workoutDetailSheet, WorkoutRow, bwDeltaColor, cardioSheet } from '../sheets.jsx'
+import { bwSheet, goalSheet, calendarSheet, workoutDetailSheet, WorkoutRow, bwDeltaColor, cardioSheet, gpsCardioTrackerSheet } from '../sheets.jsx'
+import { calculateCardioBoost, formatPace } from '../lib/cardioEngine.js'
 import LineChart from '../components/LineChart.jsx'
 import Heatmap from '../components/Heatmap.jsx'
 import Icon from '../components/Icon.jsx'
@@ -40,7 +41,7 @@ function WeeklyReportCard({ S }) {
           </span>
           <div>
             <h2 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--label)' }}>{t('Weekly Fitness Intelligence')}</h2>
-            <div className="muted small">{report?.training?.workoutsCount || 0} {t('workouts')} · {fmtVol(report?.training?.totalVolumeKg || 0, S?.unit || 'kg')} {t('tonnage')}</div>
+            <div className="muted small">{report?.training?.workoutsCount || 0} {t('workouts')} · {report?.training?.totalSets || 0} {t('sets completed')}</div>
           </div>
         </div>
         <Icon name={open ? 'chevronUp' : 'chevronDown'} className="chev" />
@@ -65,7 +66,7 @@ function WeeklyReportCard({ S }) {
               {report.training.topExercises.map(ex => (
                 <div key={ex.id} className="row between small" style={{ padding: '4px 0', borderBottom: 'var(--hair) solid var(--sep)' }}>
                   <span>{ex.name}</span>
-                  <span><b>{fmtVol(ex.volume, S?.unit || 'kg')}</b> · {ex.sets} sets</span>
+                  <span><b>{ex.sets} {t('sets')}</b>{ex.topWeight > 0 ? ` · Top: ${ex.topWeight} ${S?.unit || 'kg'}` : ''}</span>
                 </div>
               ))}
             </div>
@@ -190,21 +191,21 @@ export default function Stats() {
     }
   }, [workouts, cardioLogs])
 
-  // Volume in last 7 days
+    // Cardio Boost & Insights (Module 9)
+  const cardioBoost = useMemo(() => calculateCardioBoost(cardioLogs), [cardioLogs])
+  const avgCardioPace = useMemo(() => formatPace(supportedStats.totalCardioKm, (supportedStats.totalCardioMin || 0) * 60), [supportedStats.totalCardioKm, supportedStats.totalCardioMin])
+
+  // Completed Sets in last 7 days (Replaced Volume Lifted everywhere - Module 2)
   const winWorkouts = workouts.filter(w => {
     const t = w.start || (w.d ? new Date(w.d + (w.d.includes('T') ? '' : 'T12:00:00')).getTime() : 0)
     return t > now - 7 * 86400000
   })
-  const totalVolume7d = winWorkouts.reduce((acc, w) => {
-    return acc + (w.entries || []).reduce((a, e) => {
-      return a + (e.sets || []).filter(s => s.done).reduce((as, s) => as + (Number(s.w) || 0) * (Number(s.r) || 0), 0)
-    }, 0)
-  }, 0)
+  const totalSets7d = winWorkouts.reduce((acc, w) => acc + setsDone(w), 0)
 
-  // Volume curve points for the chart
-  const volumePoints = workouts.slice(-14).map(w => {
-    const vol = (w.entries || []).reduce((a, e) => a + (e.sets || []).filter(s => s.done).reduce((as, s) => as + (Number(s.w) || 0) * (Number(s.r) || 0), 0), 0)
-    return { t: w.start || (w.d ? new Date(w.d + (w.d.includes('T') ? '' : 'T12:00:00')).getTime() : 0), y: vol, d: w.d }
+  // Sets progression curve points for the chart
+  const setsCurvePoints = workouts.slice(-14).map(w => {
+    const sCount = setsDone(w)
+    return { t: w.start || (w.d ? new Date(w.d + (w.d.includes('T') ? '' : 'T12:00:00')).getTime() : 0), y: sCount, d: w.d }
   })
 
   // Bodyweight Points
@@ -315,55 +316,73 @@ export default function Stats() {
         </div>
       </div>
 
-      {/* Dedicated Cardio Activity Card */}
+      {/* Cardio Progress & Performance Insights (Module 9) */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 10 }}>
           <div>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-2)', textTransform: 'uppercase' }}>
-              {t('Dedicated Cardio Activity')}
+              {t('Cardio Progress & Performance Insights')}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
               <div className="big" style={{ fontSize: 26, fontWeight: 800, color: 'var(--label)' }}>
-                {supportedStats.totalCardioKm > 0 ? `${supportedStats.totalCardioKm} km` : '0 km'}
+                {cardioBoost.pastWeekKm > 0 ? `${cardioBoost.pastWeekKm} km` : `${supportedStats.totalCardioKm} km`}
               </div>
               <span style={{ fontSize: 13, color: 'var(--label-2)' }}>
-                {supportedStats.totalCardioMin > 0 ? `· ${supportedStats.totalCardioMin} min total` : ''}
+                {t('past 7 days')} · {cardioLogs.length} {t('sessions')}
               </span>
             </div>
           </div>
-          <Button size="sm" variant="tinted" icon="plus" onClick={() => cardioSheet()}>
-            {t('Log Cardio')}
-          </Button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <Button size="sm" variant="acc" icon="navigation" onClick={() => gpsCardioTrackerSheet()}>
+              {t('GPS Live')}
+            </Button>
+            <Button size="sm" variant="tinted" icon="plus" onClick={() => cardioSheet()}>
+              {t('Log')}
+            </Button>
+          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
-          <div style={{ background: 'var(--surface-2)', padding: '10px 12px', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: 'var(--label-3)', textTransform: 'uppercase', fontWeight: 600 }}>{t('Sessions')}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)', marginTop: 2 }}>{cardioLogs.length}</div>
+        {/* Cardio Metrics 4-Col Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 10, marginBottom: 12, textAlign: 'center' }}>
+          <div style={{ background: 'var(--surface-2)', padding: '10px 6px', borderRadius: 10 }}>
+            <div style={{ fontSize: 10, color: 'var(--label-3)', textTransform: 'uppercase', fontWeight: 600 }}>{t('7d Distance')}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--label)', marginTop: 2 }}>{cardioBoost.pastWeekKm} km</div>
           </div>
-          <div style={{ background: 'var(--surface-2)', padding: '10px 12px', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: 'var(--label-3)', textTransform: 'uppercase', fontWeight: 600 }}>{t('Total Time')}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)', marginTop: 2 }}>{supportedStats.totalCardioMin} min</div>
+          <div style={{ background: 'var(--surface-2)', padding: '10px 6px', borderRadius: 10 }}>
+            <div style={{ fontSize: 10, color: 'var(--label-3)', textTransform: 'uppercase', fontWeight: 600 }}>{t('All-Time')}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--label)', marginTop: 2 }}>{supportedStats.totalCardioKm} km</div>
           </div>
-          <div style={{ background: 'var(--surface-2)', padding: '10px 12px', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: 'var(--label-3)', textTransform: 'uppercase', fontWeight: 600 }}>{t('Distance')}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)', marginTop: 2 }}>{supportedStats.totalCardioKm} km</div>
+          <div style={{ background: 'var(--surface-2)', padding: '10px 6px', borderRadius: 10 }}>
+            <div style={{ fontSize: 10, color: 'var(--label-3)', textTransform: 'uppercase', fontWeight: 600 }}>{t('Time')}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--label)', marginTop: 2 }}>{supportedStats.totalCardioMin} min</div>
+          </div>
+          <div style={{ background: 'var(--surface-2)', padding: '10px 6px', borderRadius: 10 }}>
+            <div style={{ fontSize: 10, color: 'var(--label-3)', textTransform: 'uppercase', fontWeight: 600 }}>{t('Pace (Avg)')}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--theme-accent, #F5F5F5)', marginTop: 2 }}>{avgCardioPace}</div>
+          </div>
+        </div>
+
+        {/* Safe Progressive Cardio Boost Recommendation */}
+        <div style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid var(--borders)', borderRadius: 10, padding: '10px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Icon name="bolt" size={16} style={{ color: 'var(--theme-accent, #F5F5F5)', flex: 'none' }} />
+          <div style={{ color: 'var(--label)', lineHeight: 1.4 }}>
+            {cardioBoost.recommendationMessage}
           </div>
         </div>
       </div>
 
-      {/* Primary Strength Volume Curve Card */}
+      {/* Primary Strength Sets Progression Card */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 8 }}>
           <div>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-2)', textTransform: 'uppercase' }}>
-              {t('Total Volume Lifted (7d)')}
+              {t('Completed Sets (7d)')}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
               <div className="big" style={{ fontSize: 28, fontWeight: 800, color: 'var(--label)' }}>
-                {totalVolume7d > 0 ? `${fmtNum(totalVolume7d)}` : '0'} <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--label-2)' }}>{S.unit}</span>
+                {totalSets7d > 0 ? totalSets7d : 0} <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--label-2)' }}>{t('sets')}</span>
               </div>
-              {totalVolume7d > 0 && (
+              {totalSets7d > 0 && (
                 <span className="tag acc" style={{ fontSize: 12, padding: '3px 8px', borderRadius: 9999, background: 'var(--surface-2)', color: 'var(--label)', border: '1px solid var(--borders)' }}>
                   ▲ {t('Active')}
                 </span>
@@ -375,13 +394,13 @@ export default function Stats() {
           </span>
         </div>
 
-        {volumePoints.length > 1 ? (
+        {setsCurvePoints.length > 1 ? (
           <div className="chart" style={{ marginTop: 12 }}>
-            <LineChart points={volumePoints} h={140} unit={S.unit} color="var(--label)" />
+            <LineChart points={setsCurvePoints} h={140} unit="sets" color="var(--label)" />
           </div>
         ) : (
           <div className="muted small" style={{ padding: '16px 0', textAlign: 'center' }}>
-            {t('Complete strength workouts to generate your volume curve.')}
+            {t('Complete strength workouts to track your training sets.')}
           </div>
         )}
       </div>
@@ -450,9 +469,15 @@ export default function Stats() {
 
       <WeeklyReportCard S={S} />
       <PRVaultCard S={S} />
-      <MuscleBalanceChart S={S} />
 
-      <div className="cols">
+      {/* Body Stats & Anatomical Muscle Balance (Module 10) */}
+      <div style={{ marginTop: 16, marginBottom: 8 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--label)', margin: '0 0 10px' }}>
+          {t('Body Stats & Muscle Balance')}
+        </h2>
+      </div>
+
+      <div className="cols" style={{ marginBottom: 14 }}>
         {/* Body weight card with time range */}
         <div className="card">
           <div className="row between" style={{ marginBottom: 8 }}>
@@ -520,6 +545,8 @@ export default function Stats() {
           )}
         </div>
       </div>
+
+      <MuscleBalanceChart S={S} />
 
       {/* Recent Workouts */}
       {workouts.length > 0 && (

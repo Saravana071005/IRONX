@@ -6,6 +6,7 @@ import Icon from './Icon.jsx'
 import { Button } from './ui.jsx'
 import { todayISO, uid } from '../lib/format.js'
 import { CARDIO_ACTIVITIES, calculateCardioMetrics } from '../lib/customPlanner.js'
+import { gpsCardioTrackerSheet } from '../sheets.jsx'
 import { api } from '../lib/api.js'
 
 export default function CardioModal({ initialEntry = null, defaultDate = null, onClose, onSaved }) {
@@ -133,6 +134,36 @@ export default function CardioModal({ initialEntry = null, defaultDate = null, o
           </button>
         )}
       </div>
+
+            {/* Quick Launch Outdoor GPS Tracker */}
+      {!initialEntry && (
+        <button
+          type="button"
+          onClick={() => {
+            if (onClose) onClose()
+            gpsCardioTrackerSheet(onSaved)
+          }}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            padding: '10px 14px',
+            borderRadius: 10,
+            background: 'var(--surface-2, #18181C)',
+            border: '1px solid var(--theme-accent, #F5F5F5)',
+            color: 'var(--theme-accent, #F5F5F5)',
+            fontSize: 13,
+            fontWeight: 700,
+            marginBottom: 16,
+            cursor: 'pointer'
+          }}
+        >
+          <Icon name="navigation" size={15} />
+          <span>{t('Track Live Outdoor Route with GPS')}</span>
+        </button>
+      )}
 
       {/* Activity Selection Chips */}
       <div style={{ marginBottom: 16 }}>

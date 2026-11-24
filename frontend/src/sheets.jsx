@@ -15,6 +15,8 @@ import Icon from './components/Icon.jsx'
 import { Button, Slider, Switch, Segmented, SelectRow, TextArea } from './components/ui.jsx'
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
+import InteractiveMuscleViewer from './components/InteractiveMuscleViewer.jsx'
+import { evaluateWorkoutProgression } from './lib/progressionEngine.js'
 import { loadOfWorkouts, getExerciseMuscleBreakdown, resolveExerciseMeta } from './lib/muscles.js'
 import { parseImport, mergeImport } from './lib/import-csv.js'
 import { buildPlanBundle, parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
@@ -22,6 +24,7 @@ import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE, shareExport } from './lib/mobile.js'
 import CardioModal from './components/CardioModal.jsx'
+import CardioTracker from './components/CardioTracker.jsx'
 import WeightProgressModal from './components/WeightProgressModal.jsx'
 import { PREDEFINED_WORKOUT_GROUPS } from './lib/customPlanner.js'
 
@@ -1084,22 +1087,38 @@ function SessionRating({ w }) {
   </div>
 }
 
-function FinishSummary({ w, prs, e1prs = [], close }) {
+function FinishSummary({ w, prs = [], e1prs = [], progressionData, close }) {
   const st = useStore(s => s.S)
   const coachOn = !!useStore(s => s.config)?.coach?.enabled && !!st.coach?.consent?.agreedAt
+  const prList = progressionData?.prs || []
   return <div style={{ textAlign: 'center', padding: '8px 0' }}>
     <div style={{ fontSize: 44, display: 'flex', justifyContent: 'center', color: 'var(--acc)' }}><Icon name="trophy" /></div>
     <h3 style={{ margin: '8px 0' }}>{t('Workout complete!')}</h3>
     <div className="tiles" style={{ textAlign: 'left' }}>
       <div className="tile"><div className="l">{t('Duration')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{fmtDur(w.end - w.start)}</div></div>
-      <div className="tile"><div className="l">{t('Volume')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{fmtVol(w.vol, st.unit)}</div></div>
+      <div className="tile"><div className="l">{t('Exercises')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{w.entries?.length || 0}</div></div>
       <div className="tile"><div className="l">{t('Sets')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{setsDone(w)}</div></div>
-      <div className="tile"><div className="l">{t('PRs')}</div><div className="v" style={{ fontSize: 20 }}>{prs.length || '—'}</div></div>
+      <div className="tile"><div className="l">{t('PRs')}</div><div className="v" style={{ fontSize: 20 }}>{prList.length || prs.length || '—'}</div></div>
     </div>
-    {(prs.length > 0 || e1prs.length > 0) && <div style={{ textAlign: 'left', marginBottom: 12 }}>
-      {prs.map(id => <div key={id} className="small accent capitalize row" style={{ gap: 5 }}><Icon name="trophy" style={{ fontSize: 13 }} />{t('New PR:')} {(EXIDX[id] || {}).n || id}</div>)}
-      {e1prs.map(p => <div key={p.id} className="small accent capitalize row" style={{ gap: 5 }}><Icon name="chartLine" style={{ fontSize: 13 }} />{t('Best estimated 1RM:')} {(EXIDX[p.id] || {}).n || p.id} · {fmtNum(p.est)} {st.unit}</div>)}
-    </div>}
+    {/* Progression Breakdown: Weight PRs, Rep PRs, Estimated 1RM PRs */}
+    {prList.length > 0 ? (
+      <div style={{ textAlign: 'left', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {prList.map((p, idx) => (
+          <div key={idx} className="small accent capitalize row" style={{ gap: 6, background: 'var(--surface-2)', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--borders)' }}>
+            <Icon name={p.type === 'WEIGHT_PR' ? 'trophy' : p.type === 'REP_PR' ? 'flame' : 'chartLine'} style={{ fontSize: 13, flex: 'none' }} />
+            <div>
+              <strong>{p.exerciseName}</strong>: {p.message}
+              <span className="muted small" style={{ marginLeft: 6, fontSize: 10, textTransform: 'uppercase' }}>({p.muscleGroup})</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (prs.length > 0 || e1prs.length > 0) && (
+      <div style={{ textAlign: 'left', marginBottom: 12 }}>
+        {prs.map(id => <div key={id} className="small accent capitalize row" style={{ gap: 5 }}><Icon name="trophy" style={{ fontSize: 13 }} />{t('New PR:')} {(EXIDX[id] || {}).n || id}</div>)}
+        {e1prs.map(p => <div key={p.id} className="small accent capitalize row" style={{ gap: 5 }}><Icon name="chartLine" style={{ fontSize: 13 }} />{t('Best estimated 1RM:')} {(EXIDX[p.id] || {}).n || p.id} · {fmtNum(p.est)} {st.unit}</div>)}
+      </div>
+    )}
 
     {/* Workout Summary Details: Group, Date, Completion Status, Exercises with sets, reps, weight */}
     <div className="card" style={{ textAlign: 'left', background: 'var(--surface-2)', padding: '12px 14px', borderRadius: 12, marginTop: 12, marginBottom: 12 }}>
@@ -1135,8 +1154,13 @@ function FinishSummary({ w, prs, e1prs = [], close }) {
       </div>
     </div>
 
-    <h4 className="sec" style={{ textAlign: 'left' }}>{t('What you just trained')}</h4>
-    <BodyMap load={loadOfWorkouts([w])} body={st.body} />
+    <h4 className="sec" style={{ textAlign: 'left', marginBottom: 8 }}>{t('What you just trained')}</h4>
+    <InteractiveMuscleViewer
+      load={loadOfWorkouts([w])}
+      body={st.body}
+      workoutTitle={w.name || t('Strength Workout')}
+      workoutDate={w.d ? fmtDate(w.d) : todayISO()}
+    />
     {coachOn && <SessionRating w={w} />}
     <div style={{ height: 14 }} />
     <Button variant="primary" onClick={() => { close(); nav('/home') }}>{t('Nice!')}</Button>
@@ -1155,13 +1179,12 @@ function doFinishWorkout() {
   const st = S()
   const A = st.active
   if (!A) return
+  const progressionData = evaluateWorkoutProgression(A, st.workouts || [], { unit: st.unit || 'kg' })
   const prs = []
   const e1prs = []
   A.entries.forEach(e => {
     const mx = Math.max(0, ...e.sets.filter(s => s.done && !s.warmup).map(s => s.w))
     if (mx > 0 && mx > bestWeightFor(st, e.id)) prs.push(e.id)
-    // A heavier estimate without a heavier top set is its own kind of progress —
-    // same weight for more reps. Reported separately so it can't be read as a load PR.
     const rec = is1RMRecord(st, e.id, e)
     if (rec && !prs.includes(e.id)) e1prs.push({ id: e.id, ...rec })
   })
@@ -1291,10 +1314,10 @@ function doFinishWorkout() {
   })
   useUI.getState().stopRest()
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
-  ui().openSheet(close => <PostWorkoutWeightPrompt w={w} prs={prs} e1prs={e1prs} close={close} />, { kind: 'center', locked: true })
+  ui().openSheet(close => <PostWorkoutWeightPrompt w={w} prs={prs} e1prs={e1prs} progressionData={progressionData} close={close} />, { kind: 'center', locked: true })
 }
 
-function PostWorkoutWeightPrompt({ w, prs, e1prs, close }) {
+function PostWorkoutWeightPrompt({ w, prs, e1prs, progressionData, close }) {
   const st = useStore(s => s.S)
   const update = useStore(s => s.update)
   const unit = st.unit || 'kg'
@@ -1320,12 +1343,12 @@ function PostWorkoutWeightPrompt({ w, prs, e1prs, close }) {
       useUI.getState().toast(t('Weight saved'))
     }
     close()
-    ui().openSheet(c => <FinishSummary w={w} prs={prs} e1prs={e1prs} close={c} />, { kind: 'center', locked: true })
+    ui().openSheet(c => <FinishSummary w={w} prs={prs} e1prs={e1prs} progressionData={progressionData} close={c} />, { kind: 'center', locked: true })
   }
 
   const handleSkip = () => {
     close()
-    ui().openSheet(c => <FinishSummary w={w} prs={prs} e1prs={e1prs} close={c} />, { kind: 'center', locked: true })
+    ui().openSheet(c => <FinishSummary w={w} prs={prs} e1prs={e1prs} progressionData={progressionData} close={c} />, { kind: 'center', locked: true })
   }
 
   return (
@@ -1386,6 +1409,12 @@ function PostWorkoutWeightPrompt({ w, prs, e1prs, close }) {
       </div>
     </div>
   )
+}
+
+export function gpsCardioTrackerSheet(onSaved = null) {
+  ui().openSheet(close => (
+    <CardioTracker onClose={close} onSaved={onSaved} />
+  ))
 }
 
 export function cardioSheet(initialEntry = null, defaultDate = null, onSaved = null) {

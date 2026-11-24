@@ -19,31 +19,51 @@ describe('Home View Rendering & Defensive Edge Cases', () => {
       </MemoryRouter>
     )
     expect(html).toContain('Hi,')
-    expect(html).toContain('Weekly Activity')
+    expect(html).toContain('Target Today')
     expect(html).toContain('Calories Overview')
+    expect(html.includes("Today's Meal Tracker") || html.includes("Today&#x27;s Meal Tracker")).toBe(true)
+    expect(html.includes('Set Up Your First Workout Template') || html.includes('No Workout Scheduled') || html.includes('In Progress')).toBe(true)
+    expect(html).toContain('Quick Actions')
+    expect(html).toContain('Weekly Activity')
     expect(html).toContain('Your Progress')
     expect(html).toContain('This Week Plan')
-    expect(html).toContain('Muscle Balance')
+    // Muscle Balance moved to Body Stats (Module 10)
+    expect(html).not.toContain('Muscle Balance')
   })
 
-  it('renders reorganized layout order with Quick Actions above Weekly Activity without duplicates', () => {
+  it('renders exact Module 11 section order from Top to Bottom without duplicates', () => {
     const html = renderToString(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     )
-    // Layout sequence: Greeting -> Quick Actions -> Weekly Activity -> Your Progress -> Muscle Balance
+    // Ordered sequence: (1) Greeting -> (3) Target Today -> (4) Calories Overview -> (5) Meal Tracker -> (6) Today in Progress/Session Hero -> (7) Quick Actions -> (8) Weekly Activity -> (9) Your Progress -> (10) This Week Plan
     const posGreeting = html.indexOf('Hi,')
+    const posTargetToday = html.indexOf('Target Today')
+    const posCaloriesOverview = html.indexOf('Calories Overview')
+    const posMealTracker = html.indexOf("Today&#x27;s Meal Tracker") !== -1
+      ? html.indexOf("Today&#x27;s Meal Tracker")
+      : html.indexOf("Today's Meal Tracker")
+    const posTodayInProgress = html.indexOf('Set Up Your First Workout Template') !== -1
+      ? html.indexOf('Set Up Your First Workout Template')
+      : html.indexOf('No Workout Scheduled')
     const posQuickActions = html.indexOf('Quick Actions')
     const posWeeklyActivity = html.indexOf('Weekly Activity')
     const posProgress = html.indexOf('Your Progress')
-    const posMuscleBalance = html.indexOf('Muscle Balance')
+    const posPlan = html.indexOf('This Week Plan')
 
     expect(posGreeting).toBeGreaterThan(-1)
-    expect(posQuickActions).toBeGreaterThan(posGreeting)
+    expect(posTargetToday).toBeGreaterThan(posGreeting)
+    expect(posCaloriesOverview).toBeGreaterThan(posTargetToday)
+    expect(posMealTracker).toBeGreaterThan(posCaloriesOverview)
+    expect(posTodayInProgress).toBeGreaterThan(posMealTracker)
+    expect(posQuickActions).toBeGreaterThan(posTodayInProgress)
     expect(posWeeklyActivity).toBeGreaterThan(posQuickActions)
     expect(posProgress).toBeGreaterThan(posWeeklyActivity)
-    expect(posMuscleBalance).toBeGreaterThan(posProgress)
+    expect(posPlan).toBeGreaterThan(posProgress)
+
+    // Muscle Balance moved out of Home
+    expect(html.indexOf('Muscle Balance')).toBe(-1)
 
     // Quick Actions must not be duplicated
     const quickActionsCount = (html.match(/Quick Actions/g) || []).length

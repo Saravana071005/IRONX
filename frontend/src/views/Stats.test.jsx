@@ -6,7 +6,7 @@ import Stats from './Stats.jsx'
 import { useStore } from '../store/useStore.js'
 
 describe('Stats View', () => {
-  it('renders Stats view without throwing ReferenceError: fmtVol is not defined', () => {
+  it('renders Stats view without errors and verifies modules 2, 8, 9, 10', () => {
     useStore.setState({
       workouts: [
         {
@@ -21,17 +21,37 @@ describe('Stats View', () => {
           ]
         }
       ],
-      cardioLogs: [],
-      bodyweight: [],
+      cardioLogs: [
+        {
+          id: 'c1',
+          d: '2026-11-24',
+          type: 'outdoor_run',
+          distanceKm: 5.2,
+          totalDurationMinutes: 30
+        }
+      ],
+      bodyweight: [{ d: '2026-11-24', w: 75 }],
       prVault: []
     })
 
+    let html = ''
     expect(() => {
-      renderToString(
+      html = renderToString(
         <MemoryRouter>
           <Stats />
         </MemoryRouter>
       )
     }).not.toThrow()
+
+    // Module 2: Volume lifted removed
+    expect(html).not.toContain('Total Volume Lifted')
+
+    // Module 9: Cardio Progress & Performance Insights
+    expect(html).toContain('Cardio Progress &amp; Performance Insights')
+    expect(html).toContain('GPS Live')
+
+    // Module 10: Muscle Balance in Body Stats
+    expect(html).toContain('Body Stats &amp; Muscle Balance')
+    expect(html).toContain('Muscle Balance')
   })
 })
