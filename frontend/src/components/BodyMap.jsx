@@ -94,8 +94,8 @@ export function BodyMapLegend() {
             width: 12,
             height: 12,
             borderRadius: 3,
-            background: 'var(--bm-base, #242430)',
-            border: '1px solid var(--bm-stroke, #4A4A5C)'
+            background: 'var(--bm-base, #98624F)',
+            border: '1px solid var(--bm-stroke, #775344)'
           }}
         />
         <span>{t('Resting')}</span>
@@ -106,8 +106,8 @@ export function BodyMapLegend() {
             width: 12,
             height: 12,
             borderRadius: 3,
-            background: '#3E4256',
-            border: '1px solid #64748B'
+            background: '#BD806A',
+            border: '1px solid #775344'
           }}
         />
         <span>{t('Light / Secondary')}</span>
@@ -118,8 +118,8 @@ export function BodyMapLegend() {
             width: 12,
             height: 12,
             borderRadius: 3,
-            background: '#2563EB',
-            border: '1px solid #60A5FA'
+            background: '#DFA88E',
+            border: '1px solid #BD806A'
           }}
         />
         <span>{t('Moderate')}</span>
@@ -130,9 +130,9 @@ export function BodyMapLegend() {
             width: 12,
             height: 12,
             borderRadius: 3,
-            background: '#38BDF8',
-            border: '1px solid #BAE6FD',
-            boxShadow: '0 0 6px rgba(56, 189, 248, 0.5)'
+            background: '#F0C2A9',
+            border: '1px solid #DFA88E',
+            boxShadow: '0 0 6px rgba(240, 194, 169, 0.5)'
           }}
         />
         <span>{t('Primary Target')}</span>

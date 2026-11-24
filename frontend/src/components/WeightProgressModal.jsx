@@ -209,8 +209,8 @@ export default function WeightProgressModal({ close, entries }) {
                 width: '100%',
                 padding: '9px 12px',
                 borderRadius: 10,
-                background: '#09090B',
-                border: '1px solid #303036',
+                background: '#242429',
+                border: '1px solid #414149',
                 color: '#FFFFFF',
                 fontSize: 13,
                 fontWeight: 600,
@@ -221,7 +221,7 @@ export default function WeightProgressModal({ close, entries }) {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#71717A', marginBottom: 4 }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#A1A1AA', marginBottom: 4 }}>
               {t('Weight')} ({unit})
             </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -235,8 +235,8 @@ export default function WeightProgressModal({ close, entries }) {
                   flex: 1,
                   padding: '9px 12px',
                   borderRadius: 10,
-                  background: '#09090B',
-                  border: '1px solid #303036',
+                  background: '#242429',
+                  border: '1px solid #414149',
                   color: '#FFFFFF',
                   fontSize: 15,
                   fontWeight: 700,

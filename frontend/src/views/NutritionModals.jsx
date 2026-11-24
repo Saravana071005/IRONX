@@ -1459,7 +1459,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                   <select
                     value={logMealType}
                     onChange={e => setLogMealType(e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: 8, background: '#121214', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: 8, background: 'var(--input-bg, #242429)', border: '1px solid var(--input-border, #414149)', color: 'var(--input-text, #FFFFFF)', fontSize: 13 }}
                   >
                     <option value="breakfast">Breakfast</option>
                     <option value="lunch">Lunch</option>
@@ -1479,7 +1479,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                       step="any"
                       value={logQty}
                       onChange={e => setLogQty(e.target.value)}
-                      style={{ width: '100%', padding: '8px 12px', borderRadius: 8, background: '#121214', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: 8, background: 'var(--input-bg, #242429)', border: '1px solid var(--input-border, #414149)', color: 'var(--input-text, #FFFFFF)', fontSize: 13 }}
                     />
                   </div>
                   <div>
@@ -1489,7 +1489,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                     <select
                       value={logUnit}
                       onChange={e => setLogUnit(e.target.value)}
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: 8, background: '#121214', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: 8, background: 'var(--input-bg, #242429)', border: '1px solid var(--input-border, #414149)', color: 'var(--input-text, #FFFFFF)', fontSize: 13 }}
                     >
                       <option value="g">grams (g)</option>
                       <option value="piece">piece</option>
