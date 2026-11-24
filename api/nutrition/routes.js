@@ -38,7 +38,11 @@ import {
   getCustomRecipes,
   saveCustomRecipe,
   deleteCustomRecipe,
-  getPreviousMeals
+  getPreviousMeals,
+  searchVerifiedFoods,
+  searchVerifiedRecipes,
+  getVerifiedRecipeById,
+  calculateDeterministicRecipe
 } from './db.js';
 import { calculateRecipeNutrition, resolveGrams, calculateNutrients } from './engine.js';
 import { parseMeal } from './parser.js';
@@ -1492,6 +1496,268 @@ ${remainingP > 20 ? `Focus on protein for your next meal: 2-3 eggs, 100g chicken
         model: 'ironx-deterministic-nutrition-engine',
         stats: { targetKcal, consumedKcal, remainingKcal, targetP, consumedP, remainingP }
       });
+    },
+
+    /* ---------- IRONX AI: Verified Foods Knowledge Search ---------- */
+    'GET /api/nutrition/ai/foods': async (req, res) => {
+      const url = new URL(req.url, 'http://x');
+      const query = url.searchParams.get('q') || '';
+      const category = url.searchParams.get('category') || null;
+      const foodState = url.searchParams.get('state') || null;
+      const limit = Math.min(100, Math.max(1, +(url.searchParams.get('limit') || 25)));
+      const offset = Math.max(0, +(url.searchParams.get('offset') || 0));
+
+      try {
+        const foods = searchVerifiedFoods({ query, category, foodState, limit, offset });
+        json(res, 200, { ok: true, count: foods.length, foods });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ---------- IRONX AI: Verified Recipes Search ---------- */
+    'GET /api/nutrition/ai/recipes': async (req, res) => {
+      const url = new URL(req.url, 'http://x');
+      const query = url.searchParams.get('q') || '';
+      const category = url.searchParams.get('category') || null;
+      const cuisine = url.searchParams.get('cuisine') || null;
+      const limit = Math.min(50, Math.max(1, +(url.searchParams.get('limit') || 20)));
+      const offset = Math.max(0, +(url.searchParams.get('offset') || 0));
+
+      try {
+        const recipes = searchVerifiedRecipes({ query, category, cuisine, limit, offset });
+        json(res, 200, { ok: true, count: recipes.length, recipes });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ---------- IRONX AI: Single Recipe Details & Ingredients ---------- */
+    'GET /api/nutrition/ai/recipes/item': async (req, res) => {
+      const url = new URL(req.url, 'http://x');
+      const recipeId = url.searchParams.get('id') || '';
+      if (!recipeId) {
+        return json(res, 400, { error: 'recipeId is required' });
+      }
+
+      try {
+        const recipe = getVerifiedRecipeById(recipeId);
+        if (!recipe) {
+          return json(res, 404, { error: 'Recipe not found' });
+        }
+        json(res, 200, { ok: true, recipe });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ---------- IRONX AI: Deterministic Recipe Calculator ---------- */
+    'POST /api/nutrition/ai/calculate-recipe': async (req, res) => {
+      const body = await readBody(req);
+      const ingredients = Array.isArray(body.ingredients) ? body.ingredients : [];
+      const cookingOilGrams = Number(body.cooking_oil_grams || body.oil_grams || 0);
+      const servings = Math.max(0.25, Number(body.servings || 1));
+      const cookedBatchWeightG = body.cooked_batch_weight_g ? Number(body.cooked_batch_weight_g) : null;
+
+      try {
+        const calculation = calculateDeterministicRecipe(ingredients, {
+          cookingOilGrams,
+          servings,
+          cookedBatchWeightG
+        });
+        json(res, 200, { ok: true, calculation });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ---------- IRONX AI: Natural-Language Food & Meal Parser (Bilingual English/Tamil) ---------- */
+    'POST /api/nutrition/ai/parse-nl': async (req, res) => {
+      const body = await readBody(req);
+      const rawText = String(body.text || body.query || '').trim();
+      if (!rawText) {
+        return json(res, 400, { error: 'Input text is required' });
+      }
+
+      try {
+        // High-precision pattern matching for Tamil and English
+        const items = [];
+        const tLower = rawText.toLowerCase();
+
+        // 1. Chapatis / Roti / சப்பாத்தி
+        const chapatiMatch = rawText.match(/(\d+)\s*(?:chapatis?|chappathis?|rotis?|phulkas?|சப்பாத்தி)/i) ||
+                             (tLower.includes('சப்பாத்தி') ? [null, '2'] : null) ||
+                             (tLower.includes('chapati') || tLower.includes('roti') ? [null, '2'] : null);
+        if (chapatiMatch) {
+          const qty = parseInt(chapatiMatch[1], 10) || 2;
+          items.push({
+            food_id: 'INX_STAPLE_ROTI_COOKED',
+            food_name: 'Wheat Roti / Chapati (Cooked)',
+            food_name_tamil: 'சப்பாத்தி',
+            food_state: 'cooked',
+            serving_quantity: qty,
+            serving_unit: 'piece',
+            serving_grams: qty * 35,
+            energy_kcal: Math.round(qty * 104),
+            protein_g: Math.round(qty * 3.1 * 10) / 10,
+            carb_g: Math.round(qty * 20.3 * 10) / 10,
+            fat_g: Math.round(qty * 1.2 * 10) / 10,
+            fibre_g: Math.round(qty * 2.8 * 10) / 10,
+            source_name: 'ICMR-NIN 2017 Verified'
+          });
+        }
+
+        // 2. Boiled Eggs / முட்டை / அவிச்ச முட்டை
+        const eggMatch = rawText.match(/(\d+)\s*(?:boiled\s+eggs?|eggs?|முட்டை|அவிச்ச\s+முட்டை)/i) ||
+                         (tLower.includes('boiled egg') || tLower.includes('முட்டை') ? [null, '2'] : null);
+        if (eggMatch) {
+          const qty = parseInt(eggMatch[1], 10) || 2;
+          items.push({
+            food_id: 'INX_STAPLE_EGG_BOILED',
+            food_name: 'Boiled Egg (Whole)',
+            food_name_tamil: 'வேகவைத்த முட்டை',
+            food_state: 'boiled',
+            serving_quantity: qty,
+            serving_unit: 'piece',
+            serving_grams: qty * 50,
+            energy_kcal: Math.round(qty * 70),
+            protein_g: Math.round(qty * 6.3 * 10) / 10,
+            carb_g: Math.round(qty * 0.4 * 10) / 10,
+            fat_g: Math.round(qty * 4.8 * 10) / 10,
+            fibre_g: 0.0,
+            source_name: 'USDA SR Legacy Verified'
+          });
+        }
+
+        // 3. Cooked Rice / சாதம் / சோறு
+        const riceMatch = rawText.match(/(\d+)\s*(?:g|grams?|கிராம்)?\s*(?:cooked\s+rice|rice|சாதம்|சோறு)/i) ||
+                          (tLower.includes('சாதம்') || tLower.includes('rice') ? [null, '150'] : null);
+        if (riceMatch && !tLower.includes('curd rice') && !tLower.includes('lemon rice')) {
+          const grams = parseInt(riceMatch[1], 10) || 150;
+          const ratio = grams / 100.0;
+          items.push({
+            food_id: 'INX_STAPLE_RICE_COOKED',
+            food_name: 'Cooked Rice (Steamed)',
+            food_name_tamil: 'சாதம்',
+            food_state: 'cooked',
+            serving_quantity: grams,
+            serving_unit: 'g',
+            serving_grams: grams,
+            energy_kcal: Math.round(130 * ratio),
+            protein_g: Math.round(2.7 * ratio * 10) / 10,
+            carb_g: Math.round(28.2 * ratio * 10) / 10,
+            fat_g: Math.round(0.3 * ratio * 10) / 10,
+            fibre_g: Math.round(0.4 * ratio * 10) / 10,
+            source_name: 'ICMR-NIN 2017 Verified'
+          });
+        }
+
+        // 4. Chicken / சிக்கன் / கோழி
+        const chickenMatch = rawText.match(/(\d+)\s*(?:g|grams?|கிராம்)?\s*(?:chicken(?:\s+breast|\s+gravy|\s+curry)?|சிக்கன்(?:\s+குழம்பு|\s+கறி)?|கோழி)/i) ||
+                             (tLower.includes('chicken') || tLower.includes('சிக்கன்') || tLower.includes('கோழி') ? [null, '100'] : null);
+        if (chickenMatch) {
+          const grams = parseInt(chickenMatch[1], 10) || 100;
+          const ratio = grams / 100.0;
+          const isGravy = /gravy|curry|குழம்பு/i.test(rawText);
+          items.push({
+            food_id: isGravy ? 'STAPLE:chicken_gravy' : 'INX_STAPLE_CHICKEN_COOKED',
+            food_name: isGravy ? 'Chicken Gravy / Curry' : 'Chicken Breast (Cooked)',
+            food_name_tamil: isGravy ? 'சிக்கன் குழம்பு' : 'கோழி இறைச்சி',
+            food_state: 'cooked',
+            serving_quantity: grams,
+            serving_unit: 'g',
+            serving_grams: grams,
+            energy_kcal: Math.round((isGravy ? 125 : 165) * ratio),
+            protein_g: Math.round((isGravy ? 14.0 : 31.0) * ratio * 10) / 10,
+            carb_g: Math.round((isGravy ? 4.5 : 0.0) * ratio * 10) / 10,
+            fat_g: Math.round((isGravy ? 6.0 : 3.6) * ratio * 10) / 10,
+            fibre_g: isGravy ? Math.round(1.2 * ratio * 10) / 10 : 0.0,
+            source_name: isGravy ? 'INDB Recipe Verified' : 'ICMR-NIN & USDA Verified'
+          });
+        }
+
+        // 5. Dosa / தோசை
+        const dosaMatch = rawText.match(/(\d+)\s*(?:dosas?|dosais?|தோசை)/i);
+        if (dosaMatch) {
+          const qty = parseInt(dosaMatch[1], 10) || 2;
+          items.push({
+            food_id: 'INX_STAPLE_DOSA_COOKED',
+            food_name: 'Plain Dosa (Cooked)',
+            food_name_tamil: 'தோசை',
+            food_state: 'cooked',
+            serving_quantity: qty,
+            serving_unit: 'piece',
+            serving_grams: qty * 80,
+            energy_kcal: Math.round(qty * 133),
+            protein_g: Math.round(qty * 3.3 * 10) / 10,
+            carb_g: Math.round(qty * 22.0 * 10) / 10,
+            fat_g: Math.round(qty * 3.7 * 10) / 10,
+            fibre_g: Math.round(qty * 1.5 * 10) / 10,
+            source_name: 'ICMR-NIN 2017 Verified'
+          });
+        }
+
+        // 6. Idli / இட்லி
+        const idliMatch = rawText.match(/(\d+)\s*(?:idlis?|idlys?|இட்லி)/i);
+        if (idliMatch) {
+          const qty = parseInt(idliMatch[1], 10) || 3;
+          items.push({
+            food_id: 'INX_STAPLE_IDLI_COOKED',
+            food_name: 'Steamed Idli (Cooked)',
+            food_name_tamil: 'இட்லி',
+            food_state: 'steamed',
+            serving_quantity: qty,
+            serving_unit: 'piece',
+            serving_grams: qty * 50,
+            energy_kcal: Math.round(qty * 58),
+            protein_g: Math.round(qty * 2.0 * 10) / 10,
+            carb_g: Math.round(qty * 12.0 * 10) / 10,
+            fat_g: Math.round(qty * 0.2 * 10) / 10,
+            fibre_g: Math.round(qty * 0.9 * 10) / 10,
+            source_name: 'ICMR-NIN 2017 Verified'
+          });
+        }
+
+        // Fallback: If no regex matched, search verified foods database
+        if (items.length === 0) {
+          const candidates = searchVerifiedFoods({ query: rawText, limit: 3 });
+          for (const c of candidates) {
+            items.push({
+              food_id: c.food_id,
+              food_name: c.food_name,
+              food_name_tamil: c.food_name_tamil,
+              food_state: c.food_state,
+              serving_quantity: 1,
+              serving_unit: 'serving',
+              serving_grams: 100,
+              energy_kcal: c.energy_kcal,
+              protein_g: c.protein_g,
+              carb_g: c.carb_g,
+              fat_g: c.fat_g,
+              fibre_g: c.fibre_g,
+              source_name: c.source_name
+            });
+          }
+        }
+
+        const totalKcal = Math.round(items.reduce((s, it) => s + (it.energy_kcal || 0), 0));
+        const totalP = Math.round(items.reduce((s, it) => s + (it.protein_g || 0), 0) * 10) / 10;
+        const totalC = Math.round(items.reduce((s, it) => s + (it.carb_g || 0), 0) * 10) / 10;
+        const totalF = Math.round(items.reduce((s, it) => s + (it.fat_g || 0), 0) * 10) / 10;
+
+        json(res, 200, {
+          ok: true,
+          source_text: rawText,
+          parsed_items: items,
+          total_calories: totalKcal,
+          total_protein_g: totalP,
+          total_carbohydrate_g: totalC,
+          total_fat_g: totalF,
+          requires_confirmation: true
+        });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
     },
   };
 }

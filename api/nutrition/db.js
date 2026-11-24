@@ -252,10 +252,10 @@ export function searchFoods(query, limit = 20, group = null) {
     ORDER BY 
       (canonical_name = ? OR alternate_names LIKE '%"' || ? || '"%') DESC,
       (canonical_name LIKE ? || ' %') DESC,
-      (source = 'NIN_STAPLE') DESC,
-      (source = 'INDB_ICMR') DESC,
+      (id LIKE 'STAPLE:%' OR source = 'NIN_STAPLE') DESC,
+      (source = 'INDB_ICMR' OR source LIKE '%ICMR%' OR source LIKE '%NIN%') DESC,
       (source = 'INDB_RECIPE') DESC,
-      (source = 'USDA') DESC,
+      (source = 'USDA' OR source LIKE '%USDA%') DESC,
       (source != 'OFF') DESC,
       LENGTH(canonical_name) ASC
     LIMIT ?
@@ -1247,5 +1247,284 @@ export function getPreviousMeals(userId, limitDays = 30) {
     lunch: list.filter(m => m.meal_type === 'lunch'),
     dinner: list.filter(m => m.meal_type === 'dinner'),
     snacks: list.filter(m => m.meal_type === 'snacks')
+  };
+}
+
+/* =========================================================================
+   IRONX AI: VERIFIED NUTRITION KNOWLEDGE RETRIEVAL & CALCULATION ENGINE
+   ========================================================================= */
+
+export function searchVerifiedFoods({ query = '', category = null, foodState = null, limit = 25, offset = 0 } = {}) {
+  const d = getDb();
+  let sql = `
+    SELECT id, name, food_name_english, food_name_tamil, food_name_hindi, alternate_names,
+           category, subcategory, scientific_name, prep_state, preparation_state,
+           edible_portion_basis, energy_kcal, protein_g, carb_g, fat_g, fibre_g, moisture_g,
+           source, source_reference, source_version, data_quality_status, licence_status, last_verified_date
+    FROM foods
+    WHERE is_recipe = 0
+  `;
+  const params = [];
+
+  if (category) {
+    sql += ` AND (category = ? OR food_group = ?)`;
+    params.push(category, category);
+  }
+
+  if (foodState) {
+    sql += ` AND prep_state = ?`;
+    params.push(foodState);
+  }
+
+  const qClean = String(query || '').trim().toLowerCase();
+  let exactTerm = qClean;
+  if (qClean) {
+    // Check Tamil alias
+    let searchTerms = [qClean];
+    for (const [ta, en] of Object.entries(TAMIL_FOOD_MAP)) {
+      if (qClean.includes(ta) && !searchTerms.includes(en)) {
+        searchTerms.push(en);
+      }
+    }
+
+    const orClauses = searchTerms.map(() =>
+      `(LOWER(name) LIKE ? OR LOWER(food_name_english) LIKE ? OR LOWER(food_name_tamil) LIKE ? OR LOWER(canonical_name) LIKE ? OR LOWER(alternate_names) LIKE ?)`
+    );
+    sql += ` AND (${orClauses.join(' OR ')})`;
+    for (const term of searchTerms) {
+      const p = `%${term}%`;
+      params.push(p, p, p, p, p);
+    }
+  }
+
+  sql += `
+    ORDER BY
+      (LOWER(name) = ? OR LOWER(food_name_english) = ? OR LOWER(alternate_names) LIKE '%"' || ? || '"%') DESC,
+      (LOWER(name) LIKE ? || ' %' OR LOWER(canonical_name) LIKE ? || ' %') DESC,
+      (id LIKE 'INX_STAPLE_%' OR id LIKE 'STAPLE:%') DESC,
+      CASE WHEN source LIKE '%NIN%' THEN 1 WHEN source LIKE '%ICMR%' THEN 2 ELSE 3 END,
+      name ASC
+    LIMIT ? OFFSET ?
+  `;
+  params.push(exactTerm, exactTerm, exactTerm, exactTerm, exactTerm, Math.min(100, Math.max(1, limit)), Math.max(0, offset));
+
+  const rows = d.prepare(sql).all(...params);
+  return rows.map(r => ({
+    food_id: r.id,
+    id: r.id,
+    name: r.name,
+    food_name: r.name,
+    food_name_english: r.food_name_english || r.name,
+    food_name_tamil: r.food_name_tamil || '',
+    food_name_hindi: r.food_name_hindi || '',
+    category: r.category || 'Other',
+    subcategory: r.subcategory || '',
+    scientific_name: r.scientific_name || '',
+    food_state: r.prep_state || 'raw',
+    preparation_state: r.preparation_state || 'Standard preparation',
+    edible_portion_basis: r.edible_portion_basis || '100g edible portion',
+    energy_kcal: r.energy_kcal,
+    calories: r.energy_kcal,
+    protein_g: r.protein_g,
+    protein: r.protein_g,
+    carb_g: r.carb_g,
+    carbs: r.carb_g,
+    fat_g: r.fat_g,
+    fat: r.fat_g,
+    fibre_g: r.fibre_g,
+    fibre: r.fibre_g,
+    moisture_g: r.moisture_g,
+    source_name: r.source,
+    source_reference: r.source_reference || '',
+    source_version: r.source_version || '',
+    data_quality_status: r.data_quality_status || 'Verified Laboratory Analysis',
+    licence_status: r.licence_status || 'Open Access',
+    last_verified_date: r.last_verified_date || '2026-11-24'
+  }));
+}
+
+export function searchVerifiedRecipes({ query = '', category = null, cuisine = null, limit = 20, offset = 0 } = {}) {
+  const d = getDb();
+  let sql = `
+    SELECT recipe_id, recipe_name, recipe_name_tamil, recipe_category, cuisine,
+           ingredients, ingredient_food_ids, ingredient_quantities_g, ingredient_preparation_states,
+           cooking_method, total_recipe_weight_g, serving_count, serving_weight_g,
+           total_energy_kcal, total_protein_g, total_carbohydrate_g, total_fat_g, total_fibre_g,
+           nutrition_per_100g, nutrition_per_serving, source_name, source_reference,
+           calculation_method, confidence_level
+    FROM verified_recipes
+    WHERE 1=1
+  `;
+  const params = [];
+
+  if (category) {
+    sql += ` AND recipe_category = ?`;
+    params.push(category);
+  }
+
+  if (cuisine) {
+    sql += ` AND cuisine LIKE ?`;
+    params.push(`%${cuisine}%`);
+  }
+
+  const qClean = String(query || '').trim().toLowerCase();
+  if (qClean) {
+    sql += ` AND (LOWER(recipe_name) LIKE ? OR LOWER(recipe_name_tamil) LIKE ? OR LOWER(ingredients) LIKE ?)`;
+    params.push(`%${qClean}%`, `%${qClean}%`, `%${qClean}%`);
+  }
+
+  sql += ` ORDER BY recipe_name ASC LIMIT ? OFFSET ?`;
+  params.push(Math.min(100, Math.max(1, limit)), Math.max(0, offset));
+
+  const rows = d.prepare(sql).all(...params);
+  return rows.map(r => ({
+    ...r,
+    nutrition_per_100g: r.nutrition_per_100g ? JSON.parse(r.nutrition_per_100g) : {},
+    nutrition_per_serving: r.nutrition_per_serving ? JSON.parse(r.nutrition_per_serving) : {}
+  }));
+}
+
+export function getVerifiedRecipeById(recipeId) {
+  const d = getDb();
+  const recipe = d.prepare("SELECT * FROM verified_recipes WHERE recipe_id = ?").get(recipeId);
+  if (!recipe) return null;
+
+  const ingredients = d.prepare(`
+    SELECT ingredient_sequence, ingredient_food_id, ingredient_name, ingredient_quantity,
+           ingredient_unit, ingredient_weight_g, prep_state, contribution_energy_kcal,
+           contribution_protein_g, contribution_carbs_g, contribution_fat_g, contribution_fibre_g
+    FROM verified_recipe_ingredients
+    WHERE recipe_id = ?
+    ORDER BY ingredient_sequence ASC
+  `).all(recipeId);
+
+  return {
+    ...recipe,
+    ingredients_summary: recipe.ingredients,
+    ingredients: ingredients,
+    ingredient_list: ingredients,
+    nutrition_per_100g: recipe.nutrition_per_100g ? JSON.parse(recipe.nutrition_per_100g) : {},
+    nutrition_per_serving: recipe.nutrition_per_serving ? JSON.parse(recipe.nutrition_per_serving) : {}
+  };
+}
+
+export function calculateDeterministicRecipe(ingredients = [], { cookingOilGrams = 0, servings = 1, cookedBatchWeightG = null } = {}) {
+  const d = getDb();
+  let totalKcal = 0;
+  let totalProtein = 0;
+  let totalCarbs = 0;
+  let totalFat = 0;
+  let totalFibre = 0;
+  let totalRawWeight = 0;
+
+  const calculatedIngredients = [];
+
+  for (const ing of ingredients) {
+    const g = Number(ing.grams || ing.weight_g || ing.amount_g || ing.amount) || 100;
+    totalRawWeight += g;
+
+    let food = null;
+    if (ing.food_id) {
+      food = d.prepare("SELECT energy_kcal, protein_g, carb_g, fat_g, fibre_g FROM foods WHERE id = ?").get(ing.food_id);
+    }
+    if (!food && ing.name) {
+      food = d.prepare("SELECT energy_kcal, protein_g, carb_g, fat_g, fibre_g FROM foods WHERE LOWER(name) LIKE ? LIMIT 1").get(`%${String(ing.name).toLowerCase()}%`);
+    }
+
+    const baseKcal = Number(food?.energy_kcal) || 0;
+    const baseP = Number(food?.protein_g) || 0;
+    const baseC = Number(food?.carb_g) || 0;
+    const baseF = Number(food?.fat_g) || 0;
+    const baseFib = Number(food?.fibre_g) || 0;
+
+    const ratio = g / 100.0;
+    const cKcal = Math.round(baseKcal * ratio * 10) / 10;
+    const cP = Math.round(baseP * ratio * 10) / 10;
+    const cC = Math.round(baseC * ratio * 10) / 10;
+    const cF = Math.round(baseF * ratio * 10) / 10;
+    const cFib = Math.round(baseFib * ratio * 10) / 10;
+
+    totalKcal += cKcal;
+    totalProtein += cP;
+    totalCarbs += cC;
+    totalFat += cF;
+    totalFibre += cFib;
+
+    calculatedIngredients.push({
+      food_id: ing.food_id || null,
+      name: ing.name || 'Ingredient',
+      grams: g,
+      contribution_energy_kcal: cKcal,
+      contribution_protein_g: cP,
+      contribution_carbs_g: cC,
+      contribution_fat_g: cF,
+      contribution_fibre_g: cFib
+    });
+  }
+
+  // Cooking Oil: ~8.84 kcal per gram / 100% lipid fat
+  const oilG = Number(cookingOilGrams) || 0;
+  const oilKcal = Math.round(oilG * 8.84 * 10) / 10;
+  const oilFat = oilG;
+
+  totalRawWeight += oilG;
+  totalKcal += oilKcal;
+  totalFat += oilFat;
+
+  const sCount = Math.max(0.25, Number(servings) || 1);
+  const finalCookedWeight = Number(cookedBatchWeightG) > 0 ? Number(cookedBatchWeightG) : Math.round(totalRawWeight * 0.88);
+
+  const perServingKcal = Math.round(totalKcal / sCount);
+  const perServingP = Math.round((totalProtein / sCount) * 10) / 10;
+  const perServingC = Math.round((totalCarbs / sCount) * 10) / 10;
+  const perServingF = Math.round((totalFat / sCount) * 10) / 10;
+  const perServingFib = Math.round((totalFibre / sCount) * 10) / 10;
+
+  const scale100 = 100.0 / finalCookedWeight;
+  const per100gKcal = Math.round(totalKcal * scale100);
+  const per100gP = Math.round(totalProtein * scale100 * 10) / 10;
+  const per100gC = Math.round(totalCarbs * scale100 * 10) / 10;
+  const per100gF = Math.round(totalFat * scale100 * 10) / 10;
+  const per100gFib = Math.round(totalFibre * scale100 * 10) / 10;
+
+  const totalNutrientsObj = {
+    energy_kcal: Math.round(totalKcal),
+    protein_g: Math.round(totalProtein * 10) / 10,
+    carbohydrate_g: Math.round(totalCarbs * 10) / 10,
+    fat_g: Math.round(totalFat * 10) / 10,
+    fibre_g: Math.round(totalFibre * 10) / 10
+  };
+
+  const perServingObj = {
+    energy_kcal: perServingKcal,
+    protein_g: perServingP,
+    carbohydrate_g: perServingC,
+    fat_g: perServingF,
+    fibre_g: perServingFib
+  };
+
+  const per100gObj = {
+    energy_kcal: per100gKcal,
+    protein_g: per100gP,
+    carbohydrate_g: per100gC,
+    fat_g: per100gF,
+    fibre_g: per100gFib
+  };
+
+  return {
+    ingredients: calculatedIngredients,
+    cooking_oil: { grams: oilG, calories: oilKcal, fat_g: oilFat },
+    total_raw_weight_g: totalRawWeight,
+    final_cooked_weight_g: finalCookedWeight,
+    cooked_batch_weight_g: finalCookedWeight,
+    servings: sCount,
+    serving_count: sCount,
+    serving_weight_g: Math.round(finalCookedWeight / sCount),
+    total_nutrition: totalNutrientsObj,
+    total_nutrients: totalNutrientsObj,
+    nutrition_per_serving: perServingObj,
+    per_serving: perServingObj,
+    nutrition_per_100g: per100gObj,
+    per_100g: per100gObj
   };
 }

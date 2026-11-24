@@ -1051,6 +1051,8 @@ export function RawRecipeBuilderModal({ onLogRecipePortion, close, toast }) {
    Complete personalized assistant based on real profile & daily logs.
    ========================================================================= */
 export function AICoachView({ user, foods = [], currentTargets = {}, onTargetsUpdated, toast }) {
+  const [activeSubTab, setActiveSubTab] = useState('coach') // 'coach' | 'foods' | 'recipes' | 'nl_log'
+
   const [profile, setProfile] = useState({
     age: user?.age || 26,
     sex: user?.sex || 'male',
@@ -1077,6 +1079,26 @@ export function AICoachView({ user, foods = [], currentTargets = {}, onTargetsUp
   const [chatInput, setChatInput] = useState('')
   const [sendingChat, setSendingChat] = useState(false)
 
+  // Verified Foods Explorer State
+  const [foodQuery, setFoodQuery] = useState('')
+  const [foodCategory, setFoodCategory] = useState('')
+  const [foodStateFilter, setFoodStateFilter] = useState('')
+  const [verifiedFoodsList, setVerifiedFoodsList] = useState([])
+  const [loadingFoods, setLoadingFoods] = useState(false)
+
+  // Verified Recipes Browser State
+  const [recipeQuery, setRecipeQuery] = useState('')
+  const [verifiedRecipesList, setVerifiedRecipesList] = useState([])
+  const [selectedRecipeItem, setSelectedRecipeItem] = useState(null)
+  const [loadingRecipes, setLoadingRecipes] = useState(false)
+
+  // Natural Language Meal Logger State
+  const [nlText, setNlText] = useState('')
+  const [nlMealType, setNlMealType] = useState('breakfast')
+  const [nlParsedData, setNlParsedData] = useState(null)
+  const [parsingNl, setParsingNl] = useState(false)
+  const [loggingNl, setLoggingNl] = useState(false)
+
   // Calculate real daily consumption from actual foods
   const targetKcal = Number(currentTargets.calorie_target || currentTargets.calories || 1900)
   const targetP = Number(currentTargets.protein_target_g || currentTargets.protein || 140)
@@ -1094,6 +1116,129 @@ export function AICoachView({ user, foods = [], currentTargets = {}, onTargetsUp
   const remainingC = Math.max(0, Math.round((targetC - consumedC) * 10) / 10)
   const remainingF = Math.max(0, Math.round((targetF - consumedF) * 10) / 10)
 
+  // Fetch verified foods
+  const fetchVerifiedFoods = async (q = foodQuery, cat = foodCategory, st = foodStateFilter) => {
+    setLoadingFoods(true)
+    try {
+      const params = new URLSearchParams()
+      if (q) params.set('q', q)
+      if (cat) params.set('category', cat)
+      if (st) params.set('state', st)
+      params.set('limit', '25')
+      const res = await api(`/api/nutrition/ai/foods?${params.toString()}`)
+      if (res?.ok) {
+        setVerifiedFoodsList(res.foods || [])
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoadingFoods(false)
+    }
+  }
+
+  // Fetch verified recipes
+  const fetchVerifiedRecipes = async (q = recipeQuery) => {
+    setLoadingRecipes(true)
+    try {
+      const params = new URLSearchParams()
+      if (q) params.set('q', q)
+      params.set('limit', '25')
+      const res = await api(`/api/nutrition/ai/recipes?${params.toString()}`)
+      if (res?.ok) {
+        setVerifiedRecipesList(res.recipes || [])
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoadingRecipes(false)
+    }
+  }
+
+  // Fetch single recipe details
+  const handleSelectRecipe = async (r) => {
+    try {
+      const res = await api(`/api/nutrition/ai/recipes/item?id=${r.recipe_id}`)
+      if (res?.ok && res.recipe) {
+        setSelectedRecipeItem(res.recipe)
+      } else {
+        setSelectedRecipeItem(r)
+      }
+    } catch {
+      setSelectedRecipeItem(r)
+    }
+  }
+
+  // Parse Natural Language Meal
+  const handleParseNL = async (queryText = nlText) => {
+    const text = String(queryText || '').trim()
+    if (!text) return
+    setParsingNl(true)
+    try {
+      const res = await api('/api/nutrition/ai/parse-nl', {
+        method: 'POST',
+        body: JSON.stringify({ text })
+      })
+      if (res?.ok) {
+        setNlParsedData(res)
+      } else {
+        toast?.(t('Could not parse meal description'))
+      }
+    } catch (err) {
+      toast?.(t('Error parsing meal: {0}', err.message))
+    } finally {
+      setParsingNl(false)
+    }
+  }
+
+  // Log parsed NL items
+  const handleLogParsedMeal = async () => {
+    if (!nlParsedData?.parsed_items?.length) return
+    setLoggingNl(true)
+    try {
+      const foodsToLog = nlParsedData.parsed_items.map(it => ({
+        food_name: it.food_name,
+        food_name_tamil: it.food_name_tamil || null,
+        serving_quantity: it.serving_quantity || 1,
+        serving_unit: it.serving_unit || 'serving',
+        energy_kcal: it.energy_kcal || 0,
+        protein_g: it.protein_g || 0,
+        carb_g: it.carb_g || 0,
+        fat_g: it.fat_g || 0,
+        fibre_g: it.fibre_g || 0,
+        source_name: it.source_name || 'IRONX AI Verified'
+      }))
+
+      const res = await api('/api/nutrition/food/save-batch', {
+        method: 'POST',
+        body: JSON.stringify({
+          meal_type: nlMealType,
+          foods: foodsToLog
+        })
+      })
+
+      if (res?.ok) {
+        toast?.(t('Successfully logged {0} items to {1}!', foodsToLog.length, nlMealType))
+        setNlText('')
+        setNlParsedData(null)
+      } else {
+        toast?.(t('Failed to save meal'))
+      }
+    } catch (err) {
+      toast?.(t('Error logging meal: {0}', err.message))
+    } finally {
+      setLoggingNl(false)
+    }
+  }
+
+  // Load foods or recipes when switching tabs
+  useEffect(() => {
+    if (activeSubTab === 'foods' && verifiedFoodsList.length === 0) {
+      fetchVerifiedFoods()
+    } else if (activeSubTab === 'recipes' && verifiedRecipesList.length === 0) {
+      fetchVerifiedRecipes()
+    }
+  }, [activeSubTab])
+
   const handleCalculateTargets = async (e) => {
     if (e) e.preventDefault()
     setCalculating(true)
@@ -1105,13 +1250,13 @@ export function AICoachView({ user, foods = [], currentTargets = {}, onTargetsUp
       if (res?.ok) {
         setCalcResult(res.calculation)
         if (onTargetsUpdated) onTargetsUpdated(res.targets)
-        toast(t('New personalized targets calculated & saved!'))
+        toast?.(t('New personalized targets calculated & saved!'))
         setShowConfig(false)
       } else {
-        toast(t('Calculation error: {0}', res?.error || 'Unknown'))
+        toast?.(t('Calculation error: {0}', res?.error || 'Unknown'))
       }
     } catch (err) {
-      toast(t('Failed to calculate targets: {0}', err.message))
+      toast?.(t('Failed to calculate targets: {0}', err.message))
     } finally {
       setCalculating(false)
     }
@@ -1149,315 +1294,891 @@ export function AICoachView({ user, foods = [], currentTargets = {}, onTargetsUp
     }
   }
 
+  const PHASE2_CATEGORIES = [
+    'Cereals and grains',
+    'Vegetables',
+    'Pulses and legumes',
+    'Fruits',
+    'Spices and ingredients',
+    'Nuts, seeds and fats',
+    'Dairy',
+    'Fish and seafood',
+    'Poultry and eggs',
+    'Meat'
+  ]
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Top Banner & Profile Trigger */}
-      <div className="card" style={{ padding: '16px 18px', background: 'linear-gradient(135deg, rgba(232, 180, 119, 0.15) 0%, rgba(20, 20, 24, 0.95) 100%)', border: '1px solid rgba(232, 180, 119, 0.35)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ color: 'var(--theme-accent, #E8B477)', fontSize: 20 }}><Icon name="sparkles" /></span>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#FFFFFF' }}>{t('AI Nutrition Coach')}</h2>
-              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 9999, background: 'rgba(46, 196, 182, 0.25)', color: 'var(--teal, #2EC4B6)', fontWeight: 700 }}>
-                {t('Context-Aware')}
-              </span>
-            </div>
-            <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.75)', marginTop: 4 }}>
-              {t('Personalized BMR & TDEE target: {0} kcal · {1}g Protein · Authentic South Indian advice', targetKcal, targetP)}
-            </div>
-          </div>
-
-          <Button
-            variant="tinted"
-            size="sm"
-            onClick={() => setShowConfig(!showConfig)}
-            style={{ borderRadius: 8, fontWeight: 700 }}
+      {/* Sub-Tab Navigation Pills */}
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+        {[
+          { key: 'coach', label: t('AI Nutrition Coach'), icon: 'sparkles' },
+          { key: 'foods', label: t('Verified Foods (2,799)'), icon: 'apple' },
+          { key: 'recipes', label: t('Verified Recipes (1,014)'), icon: 'flame' },
+          { key: 'nl_log', label: t('AI Fast Meal Log'), icon: 'check' }
+        ].map(tab => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveSubTab(tab.key)}
+            style={{
+              padding: '8px 14px',
+              borderRadius: 9999,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              whiteSpace: 'nowrap',
+              border: activeSubTab === tab.key ? '1px solid var(--theme-accent, #E8B477)' : '1px solid rgba(255, 255, 255, 0.12)',
+              background: activeSubTab === tab.key ? 'rgba(232, 180, 119, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+              color: activeSubTab === tab.key ? 'var(--theme-accent, #E8B477)' : 'rgba(255, 255, 255, 0.75)'
+            }}
           >
-            {showConfig ? t('Hide Profile Form') : t('Edit Profile & Goals')}
-          </Button>
-        </div>
+            <Icon name={tab.icon} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-        {/* Profile & Goal Configuration Form */}
-        {showConfig && (
-          <form onSubmit={handleCalculateTargets} style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 12 }}>
+      {/* VIEW 1: AI COACH & TARGETS */}
+      {activeSubTab === 'coach' && (
+        <>
+          {/* Top Banner & Profile Trigger */}
+          <div className="card" style={{ padding: '16px 18px', background: 'linear-gradient(135deg, rgba(232, 180, 119, 0.15) 0%, rgba(20, 20, 24, 0.95) 100%)', border: '1px solid rgba(232, 180, 119, 0.35)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{t('Age (yrs)')}</label>
-                <input
-                  type="number"
-                  min="12"
-                  max="100"
-                  value={profile.age}
-                  onChange={e => setProfile({ ...profile, age: e.target.value })}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: 'var(--theme-accent, #E8B477)', fontSize: 20 }}><Icon name="sparkles" /></span>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#FFFFFF' }}>{t('AI Nutrition Coach')}</h2>
+                  <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 9999, background: 'rgba(46, 196, 182, 0.25)', color: 'var(--teal, #2EC4B6)', fontWeight: 700 }}>
+                    {t('Context-Aware')}
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.75)', marginTop: 4 }}>
+                  {t('Personalized BMR & TDEE target: {0} kcal · {1}g Protein · Authentic South Indian advice', targetKcal, targetP)}
+                </div>
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{t('Sex')}</label>
-                <select
-                  value={profile.sex}
-                  onChange={e => setProfile({ ...profile, sex: e.target.value })}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: '#1A1A1E', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
+              <Button
+                variant="tinted"
+                size="sm"
+                onClick={() => setShowConfig(!showConfig)}
+                style={{ borderRadius: 8, fontWeight: 700 }}
+              >
+                {showConfig ? t('Hide Profile Form') : t('Edit Profile & Goals')}
+              </Button>
+            </div>
+
+            {/* Profile & Goal Configuration Form */}
+            {showConfig && (
+              <form onSubmit={handleCalculateTargets} style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{t('Age (yrs)')}</label>
+                    <input
+                      type="number"
+                      min="12"
+                      max="100"
+                      value={profile.age}
+                      onChange={e => setProfile({ ...profile, age: e.target.value })}
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{t('Sex')}</label>
+                    <select
+                      value={profile.sex}
+                      onChange={e => setProfile({ ...profile, sex: e.target.value })}
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: '#1A1A1E', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
+                    >
+                      <option value="male">{t('Male')}</option>
+                      <option value="female">{t('Female')}</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{t('Height (cm)')}</label>
+                    <input
+                      type="number"
+                      min="100"
+                      max="250"
+                      value={profile.height_cm}
+                      onChange={e => setProfile({ ...profile, height_cm: e.target.value })}
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{t('Weight (kg)')}</label>
+                    <input
+                      type="number"
+                      min="30"
+                      max="250"
+                      value={profile.weight_kg}
+                      onChange={e => setProfile({ ...profile, weight_kg: e.target.value })}
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 14 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{t('Fitness Goal')}</label>
+                    <select
+                      value={profile.fitness_goal}
+                      onChange={e => setProfile({ ...profile, fitness_goal: e.target.value })}
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: '#1A1A1E', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
+                    >
+                      <option value="fat_loss">{t('Fat Loss')}</option>
+                      <option value="muscle_gain">{t('Muscle Gain')}</option>
+                      <option value="recomp">{t('Body Recomposition')}</option>
+                      <option value="maintenance">{t('Weight Maintenance')}</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{t('Fat Loss Rate')}</label>
+                    <select
+                      value={profile.target_rate}
+                      onChange={e => setProfile({ ...profile, target_rate: e.target.value })}
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: '#1A1A1E', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
+                    >
+                      <option value="conservative">{t('Conservative (Safe & Steady)')}</option>
+                      <option value="moderate">{t('Moderate (Recommended)')}</option>
+                      <option value="aggressive">{t('Aggressive (High Deficit)')}</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{t('Dietary Preference')}</label>
+                    <select
+                      value={profile.diet_preference}
+                      onChange={e => setProfile({ ...profile, diet_preference: e.target.value })}
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: '#1A1A1E', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
+                    >
+                      <option value="non_veg">{t('Non-Vegetarian (Eggs, Chicken, Fish)')}</option>
+                      <option value="eggetarian">{t('Eggetarian (Vegetarian + Eggs)')}</option>
+                      <option value="veg">{t('Vegetarian (Dairy, Dal, Soya)')}</option>
+                      <option value="vegan">{t('Vegan (Plant-based)')}</option>
+                    </select>
+                  </div>
+                </div>
+
+                <Button
+                  variant="primary"
+                  type="submit"
+                  disabled={calculating}
+                  style={{ width: '100%', padding: '10px', fontWeight: 700, borderRadius: 8 }}
                 >
-                  <option value="male">{t('Male')}</option>
-                  <option value="female">{t('Female')}</option>
-                </select>
-              </div>
+                  {calculating ? t('Calculating BMR & Targets...') : t('Calculate & Update Nutrition Targets')}
+                </Button>
+              </form>
+            )}
+          </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{t('Height (cm)')}</label>
-                <input
-                  type="number"
-                  min="100"
-                  max="250"
-                  value={profile.height_cm}
-                  onChange={e => setProfile({ ...profile, height_cm: e.target.value })}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
-                />
+          {/* Target & Progress Cards Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            {/* Calories Card */}
+            <div className="card" style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.06)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--coral, #FF6B6B)', textTransform: 'uppercase' }}>
+                {t('Daily Calories')}
               </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{t('Weight (kg)')}</label>
-                <input
-                  type="number"
-                  min="30"
-                  max="250"
-                  value={profile.weight_kg}
-                  onChange={e => setProfile({ ...profile, weight_kg: e.target.value })}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
-                />
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#FFFFFF', marginTop: 4 }}>
+                {consumedKcal} <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.6)' }}>/ {targetKcal} kcal</span>
+              </div>
+              <div style={{ width: '100%', height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)', marginTop: 8, overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(100, Math.round((consumedKcal / targetKcal) * 100))}%`, height: '100%', background: 'var(--coral, #FF6B6B)', borderRadius: 3 }} />
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 6 }}>
+                {remainingKcal > 0 ? t('{0} kcal remaining', remainingKcal) : t('Target met!')}
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 14 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{t('Fitness Goal')}</label>
-                <select
-                  value={profile.fitness_goal}
-                  onChange={e => setProfile({ ...profile, fitness_goal: e.target.value })}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: '#1A1A1E', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
-                >
-                  <option value="fat_loss">{t('Fat Loss')}</option>
-                  <option value="muscle_gain">{t('Muscle Gain')}</option>
-                  <option value="recomp">{t('Body Recomposition')}</option>
-                  <option value="maintenance">{t('Weight Maintenance')}</option>
-                </select>
+            {/* Protein Card */}
+            <div className="card" style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.06)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--theme-accent, #E8B477)', textTransform: 'uppercase' }}>
+                {t('Protein Progress')}
               </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{t('Fat Loss Rate')}</label>
-                <select
-                  value={profile.target_rate}
-                  onChange={e => setProfile({ ...profile, target_rate: e.target.value })}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: '#1A1A1E', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
-                >
-                  <option value="conservative">{t('Conservative (Safe & Steady)')}</option>
-                  <option value="moderate">{t('Moderate (Recommended)')}</option>
-                  <option value="aggressive">{t('Aggressive (High Deficit)')}</option>
-                </select>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#FFFFFF', marginTop: 4 }}>
+                {consumedP}g <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.6)' }}>/ {targetP}g</span>
               </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 2 }}>{t('Dietary Preference')}</label>
-                <select
-                  value={profile.diet_preference}
-                  onChange={e => setProfile({ ...profile, diet_preference: e.target.value })}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, background: '#1A1A1E', border: '1px solid rgba(255,255,255,0.2)', color: '#FFFFFF', fontSize: 13 }}
-                >
-                  <option value="non_veg">{t('Non-Vegetarian (Eggs, Chicken, Fish)')}</option>
-                  <option value="eggetarian">{t('Eggetarian (Vegetarian + Eggs)')}</option>
-                  <option value="veg">{t('Vegetarian (Dairy, Dal, Soya)')}</option>
-                  <option value="vegan">{t('Vegan (Plant-based)')}</option>
-                </select>
+              <div style={{ width: '100%', height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)', marginTop: 8, overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(100, Math.round((consumedP / targetP) * 100))}%`, height: '100%', background: 'var(--theme-accent, #E8B477)', borderRadius: 3 }} />
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 6 }}>
+                {remainingP > 0 ? t('{0}g protein needed today', remainingP) : t('Target achieved!')}
               </div>
             </div>
 
-            <Button
-              variant="primary"
-              type="submit"
-              disabled={calculating}
-              style={{ width: '100%', padding: '10px', fontWeight: 700, borderRadius: 8 }}
-            >
-              {calculating ? t('Calculating BMR & Targets...') : t('Calculate & Update Nutrition Targets')}
-            </Button>
-          </form>
-        )}
-      </div>
-
-      {/* Target & Progress Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-        {/* Calories Card */}
-        <div className="card" style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.06)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--coral, #FF6B6B)', textTransform: 'uppercase' }}>
-            {t('Daily Calories')}
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#FFFFFF', marginTop: 4 }}>
-            {consumedKcal} <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.6)' }}>/ {targetKcal} kcal</span>
-          </div>
-          <div style={{ width: '100%', height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)', marginTop: 8, overflow: 'hidden' }}>
-            <div style={{ width: `${Math.min(100, Math.round((consumedKcal / targetKcal) * 100))}%`, height: '100%', background: 'var(--coral, #FF6B6B)', borderRadius: 3 }} />
-          </div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 6 }}>
-            {remainingKcal > 0 ? t('{0} kcal remaining', remainingKcal) : t('Target met!')}
-          </div>
-        </div>
-
-        {/* Protein Card */}
-        <div className="card" style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.06)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--theme-accent, #E8B477)', textTransform: 'uppercase' }}>
-            {t('Protein Progress')}
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#FFFFFF', marginTop: 4 }}>
-            {consumedP}g <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.6)' }}>/ {targetP}g</span>
-          </div>
-          <div style={{ width: '100%', height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)', marginTop: 8, overflow: 'hidden' }}>
-            <div style={{ width: `${Math.min(100, Math.round((consumedP / targetP) * 100))}%`, height: '100%', background: 'var(--theme-accent, #E8B477)', borderRadius: 3 }} />
-          </div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 6 }}>
-            {remainingP > 0 ? t('{0}g protein needed today', remainingP) : t('Target achieved!')}
-          </div>
-        </div>
-
-        {/* Carbs & Fat Card */}
-        <div className="card" style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.06)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--teal, #2EC4B6)', textTransform: 'uppercase' }}>
-            {t('Carbs & Fat Balance')}
-          </div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', marginTop: 6 }}>
-            {t('Carbs')}: {consumedC}g / {targetC}g ({remainingC}g left)
-          </div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', marginTop: 4 }}>
-            {t('Fat')}: {consumedF}g / {targetF}g ({remainingF}g left)
-          </div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>
-            {t('Internally consistent 4P / 4C / 9F macro split')}
-          </div>
-        </div>
-      </div>
-
-      {/* South Indian Recommendation Chips */}
-      <div className="card" style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.04)' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--theme-accent, #E8B477)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Icon name="apple" />
-          {t('Suggested South Indian Foods (Tailored to Your Remaining Macros)')}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
-          <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.05)', fontSize: 12, color: '#FFFFFF' }}>
-            <strong>3 Boiled Eggs (முட்டை)</strong>: 19g P · 234 kcal
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Instant complete protein & vitamins</div>
-          </div>
-          <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.05)', fontSize: 12, color: '#FFFFFF' }}>
-            <strong>100g Air-Fried Chicken (கோழி)</strong>: 31g P · 165 kcal
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Maximum protein density for fat loss</div>
-          </div>
-          <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.05)', fontSize: 12, color: '#FFFFFF' }}>
-            <strong>2 Chapatis (சப்பாத்தி) + Dal</strong>: 12g P · 330 kcal
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>High fibre, steady digestion</div>
-          </div>
-          <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.05)', fontSize: 12, color: '#FFFFFF' }}>
-            <strong>1 Cup Sundal (சுண்டல்)</strong>: 14g P · 220 kcal
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Affordable, slow-burning complex carbs</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Interactive AI Chat Assistant */}
-      <div className="card" style={{ padding: '16px 18px', background: 'rgba(18, 18, 22, 0.95)', border: '1px solid rgba(255,255,255,0.15)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <span style={{ color: 'var(--theme-accent, #E8B477)' }}><Icon name="sparkles" /></span>
-          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#FFFFFF' }}>{t('Ask Nutrition Coach')}</h3>
-        </div>
-
-        {/* Quick Suggestion Chips */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-          {[
-            'How much protein do I still need today?',
-            'What should I eat for breakfast?',
-            'Suggest a South Indian lunch',
-            'Can I eat dosa and still lose fat?',
-            'How many chapatis fit my target?',
-            'What should I eat before my workout?'
-          ].map((promptText, i) => (
-            <button
-              key={i}
-              type="button"
-              className="chip"
-              onClick={() => handleSendChat(promptText)}
-              disabled={sendingChat}
-              style={{
-                fontSize: 11,
-                padding: '4px 10px',
-                borderRadius: 9999,
-                background: 'rgba(255, 255, 255, 0.08)',
-                color: 'rgba(255, 255, 255, 0.85)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                cursor: 'pointer'
-              }}
-            >
-              {promptText}
-            </button>
-          ))}
-        </div>
-
-        {/* Message Thread */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 300, overflowY: 'auto', marginBottom: 14, paddingRight: 4 }}>
-          {messages.map((m, idx) => (
-            <div
-              key={idx}
-              style={{
-                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                maxWidth: '85%',
-                padding: '10px 14px',
-                borderRadius: 12,
-                fontSize: 13,
-                lineHeight: 1.45,
-                background: m.role === 'user' ? 'var(--theme-accent, #E8B477)' : 'rgba(255, 255, 255, 0.08)',
-                color: m.role === 'user' ? '#000000' : '#FFFFFF',
-                border: m.role === 'user' ? 'none' : '1px solid rgba(255, 255, 255, 0.12)',
-                whiteSpace: 'pre-line'
-              }}
-            >
-              {m.text}
+            {/* Carbs & Fat Card */}
+            <div className="card" style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.06)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--teal, #2EC4B6)', textTransform: 'uppercase' }}>
+                {t('Carbs & Fat Balance')}
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', marginTop: 6 }}>
+                {t('Carbs')}: {consumedC}g / {targetC}g ({remainingC}g left)
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF', marginTop: 4 }}>
+                {t('Fat')}: {consumedF}g / {targetF}g ({remainingF}g left)
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>
+                {t('Internally consistent 4P / 4C / 9F macro split')}
+              </div>
             </div>
-          ))}
-          {sendingChat && (
-            <div style={{ alignSelf: 'flex-start', padding: '8px 12px', borderRadius: 12, background: 'rgba(255, 255, 255, 0.08)', color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
-              {t('Analyzing your real logged food...')}
+          </div>
+
+          {/* South Indian Recommendation Chips */}
+          <div className="card" style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.04)' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--theme-accent, #E8B477)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Icon name="apple" />
+              {t('Suggested South Indian Foods (Tailored to Your Remaining Macros)')}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
+              <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.05)', fontSize: 12, color: '#FFFFFF' }}>
+                <strong>3 Boiled Eggs (முட்டை)</strong>: 19g P · 234 kcal
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Instant complete protein & vitamins</div>
+              </div>
+              <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.05)', fontSize: 12, color: '#FFFFFF' }}>
+                <strong>100g Air-Fried Chicken (கோழி)</strong>: 31g P · 165 kcal
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Maximum protein density for fat loss</div>
+              </div>
+              <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.05)', fontSize: 12, color: '#FFFFFF' }}>
+                <strong>2 Chapatis (சப்பாத்தி) + Dal</strong>: 12g P · 330 kcal
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>High fibre, steady digestion</div>
+              </div>
+              <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.05)', fontSize: 12, color: '#FFFFFF' }}>
+                <strong>1 Cup Sundal (சுண்டல்)</strong>: 14g P · 220 kcal
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>Affordable, slow-burning complex carbs</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Interactive AI Chat Assistant */}
+          <div className="card" style={{ padding: '16px 18px', background: 'rgba(18, 18, 22, 0.95)', border: '1px solid rgba(255,255,255,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ color: 'var(--theme-accent, #E8B477)' }}><Icon name="sparkles" /></span>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#FFFFFF' }}>{t('Ask Nutrition Coach')}</h3>
+            </div>
+
+            {/* Quick Suggestion Chips */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+              {[
+                'How much protein do I still need today?',
+                'What should I eat for breakfast?',
+                'Suggest a South Indian lunch',
+                'Can I eat dosa and still lose fat?',
+                'How many chapatis fit my target?',
+                'What should I eat before my workout?'
+              ].map((promptText, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className="chip"
+                  onClick={() => handleSendChat(promptText)}
+                  disabled={sendingChat}
+                  style={{
+                    fontSize: 11,
+                    padding: '4px 10px',
+                    borderRadius: 9999,
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: 'rgba(255, 255, 255, 0.85)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {promptText}
+                </button>
+              ))}
+            </div>
+
+            {/* Message Thread */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 300, overflowY: 'auto', marginBottom: 14, paddingRight: 4 }}>
+              {messages.map((m, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                    maxWidth: '85%',
+                    padding: '10px 14px',
+                    borderRadius: 12,
+                    fontSize: 13,
+                    lineHeight: 1.45,
+                    background: m.role === 'user' ? 'var(--theme-accent, #E8B477)' : 'rgba(255, 255, 255, 0.08)',
+                    color: m.role === 'user' ? '#000000' : '#FFFFFF',
+                    border: m.role === 'user' ? 'none' : '1px solid rgba(255, 255, 255, 0.12)',
+                    whiteSpace: 'pre-line'
+                  }}
+                >
+                  {m.text}
+                </div>
+              ))}
+              {sendingChat && (
+                <div style={{ alignSelf: 'flex-start', padding: '8px 12px', borderRadius: 12, background: 'rgba(255, 255, 255, 0.08)', color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
+                  {t('Analyzing your real logged food...')}
+                </div>
+              )}
+            </div>
+
+            {/* Chat Input Bar */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                placeholder={t('Ask anything e.g. "Can I eat 3 chapatis for dinner?"')}
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSendChat() }}
+                disabled={sendingChat}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#FFFFFF',
+                  fontSize: 13,
+                  outline: 'none'
+                }}
+              />
+              <Button
+                variant="primary"
+                onClick={() => handleSendChat()}
+                disabled={!chatInput.trim() || sendingChat}
+                style={{ borderRadius: 10, padding: '10px 18px', fontWeight: 700 }}
+              >
+                {t('Send')}
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* VIEW 2: VERIFIED FOODS EXPLORER */}
+      {activeSubTab === 'foods' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="card" style={{ padding: '16px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: 'var(--theme-accent, #E8B477)' }}><Icon name="apple" /></span>
+              {t('Verified Food Knowledge Database (2,799 Items)')}
+            </h3>
+            <p style={{ margin: '0 0 12px 0', fontSize: 12, color: 'rgba(255, 255, 255, 0.7)' }}>
+              {t('Source-grounded food compositions from ICMR-NIN 2017 & USDA FoodData Central. Exact per-100g lab values, regional Tamil/Hindi names, and preparation states.')}
+            </p>
+
+            {/* Search Input */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <input
+                type="text"
+                placeholder={t('Search food in English or Tamil (e.g. chapati, சப்பாத்தி, dosa, chicken breast, spinach)...')}
+                value={foodQuery}
+                onChange={e => setFoodQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') fetchVerifiedFoods(foodQuery, foodCategory, foodStateFilter) }}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#FFFFFF',
+                  fontSize: 13,
+                  outline: 'none'
+                }}
+              />
+              <Button
+                variant="primary"
+                onClick={() => fetchVerifiedFoods(foodQuery, foodCategory, foodStateFilter)}
+                style={{ borderRadius: 10, padding: '10px 16px', fontWeight: 700 }}
+              >
+                {t('Search')}
+              </Button>
+            </div>
+
+            {/* Category Pills */}
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6 }}>
+              <button
+                type="button"
+                onClick={() => { setFoodCategory(''); fetchVerifiedFoods(foodQuery, '', foodStateFilter); }}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: 9999,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  border: !foodCategory ? '1px solid var(--theme-accent, #E8B477)' : '1px solid rgba(255, 255, 255, 0.1)',
+                  background: !foodCategory ? 'rgba(232, 180, 119, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                  color: !foodCategory ? 'var(--theme-accent, #E8B477)' : 'rgba(255, 255, 255, 0.7)'
+                }}
+              >
+                {t('All Categories')}
+              </button>
+              {PHASE2_CATEGORIES.map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => { setFoodCategory(cat); fetchVerifiedFoods(foodQuery, cat, foodStateFilter); }}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 9999,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    cursor: 'pointer',
+                    border: foodCategory === cat ? '1px solid var(--theme-accent, #E8B477)' : '1px solid rgba(255, 255, 255, 0.1)',
+                    background: foodCategory === cat ? 'rgba(232, 180, 119, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                    color: foodCategory === cat ? 'var(--theme-accent, #E8B477)' : 'rgba(255, 255, 255, 0.7)'
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Results List */}
+          {loadingFoods ? (
+            <div style={{ padding: 30, textAlign: 'center', color: 'rgba(255,255,255,0.6)' }}>
+              {t('Loading verified food compositions...')}
+            </div>
+          ) : verifiedFoodsList.length === 0 ? (
+            <div style={{ padding: 30, textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>
+              {t('No verified foods found matching "{0}". Try a different name or category.', foodQuery)}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10 }}>
+              {verifiedFoodsList.map(food => (
+                <div
+                  key={food.food_id || food.id}
+                  className="card"
+                  style={{
+                    padding: '12px 14px',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: 12
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>{food.food_name || food.name}</div>
+                      {food.food_name_tamil && (
+                        <div style={{ fontSize: 12, color: 'var(--theme-accent, #E8B477)', fontWeight: 600 }}>{food.food_name_tamil}</div>
+                      )}
+                    </div>
+                    <span style={{
+                      fontSize: 10,
+                      padding: '2px 6px',
+                      borderRadius: 4,
+                      background: food.food_state === 'cooked' ? 'rgba(232, 180, 119, 0.2)' : 'rgba(46, 196, 182, 0.2)',
+                      color: food.food_state === 'cooked' ? 'var(--theme-accent, #E8B477)' : 'var(--teal, #2EC4B6)',
+                      fontWeight: 700,
+                      textTransform: 'uppercase'
+                    }}>
+                      {food.food_state}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+                    {food.category} · {food.source_name}
+                  </div>
+
+                  {/* Nutrients per 100g grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, background: 'rgba(0,0,0,0.3)', padding: '6px 8px', borderRadius: 8, textAlign: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)' }}>{t('Energy')}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{food.energy_kcal} <span style={{ fontSize: 9 }}>kcal</span></div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--theme-accent, #E8B477)' }}>{t('Protein')}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{food.protein_g}g</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--teal, #2EC4B6)' }}>{t('Carbs')}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{food.carb_g}g</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--coral, #FF6B6B)' }}>{t('Fat')}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{food.fat_g}g</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
+      )}
 
-        {/* Chat Input Bar */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            type="text"
-            placeholder={t('Ask anything e.g. "Can I eat 3 chapatis for dinner?"')}
-            value={chatInput}
-            onChange={e => setChatInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleSendChat() }}
-            disabled={sendingChat}
-            style={{
-              flex: 1,
-              padding: '10px 14px',
-              borderRadius: 10,
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              color: '#FFFFFF',
-              fontSize: 13,
-              outline: 'none'
-            }}
-          />
-          <Button
-            variant="primary"
-            onClick={() => handleSendChat()}
-            disabled={!chatInput.trim() || sendingChat}
-            style={{ borderRadius: 10, padding: '10px 18px', fontWeight: 700 }}
-          >
-            {t('Send')}
-          </Button>
+      {/* VIEW 3: VERIFIED RECIPES BROWSER */}
+      {activeSubTab === 'recipes' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="card" style={{ padding: '16px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: 'var(--theme-accent, #E8B477)' }}><Icon name="flame" /></span>
+              {t('Verified Indian & South Indian Recipes (1,014 Dishes)')}
+            </h3>
+            <p style={{ margin: '0 0 12px 0', fontSize: 12, color: 'rgba(255, 255, 255, 0.7)' }}>
+              {t('Authentic composite recipes with deterministic ingredient aggregation, cooking yield calculations, per-serving and per-100g nutritional breakdowns.')}
+            </p>
+
+            {/* Search Input */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                placeholder={t('Search recipes e.g. sambar, chicken curry, biryani, rasam, kootu...')}
+                value={recipeQuery}
+                onChange={e => setRecipeQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') fetchVerifiedRecipes(recipeQuery) }}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#FFFFFF',
+                  fontSize: 13,
+                  outline: 'none'
+                }}
+              />
+              <Button
+                variant="primary"
+                onClick={() => fetchVerifiedRecipes(recipeQuery)}
+                style={{ borderRadius: 10, padding: '10px 16px', fontWeight: 700 }}
+              >
+                {t('Search')}
+              </Button>
+            </div>
+          </div>
+
+          {/* Recipe List */}
+          {loadingRecipes ? (
+            <div style={{ padding: 30, textAlign: 'center', color: 'rgba(255,255,255,0.6)' }}>
+              {t('Loading verified recipes...')}
+            </div>
+          ) : verifiedRecipesList.length === 0 ? (
+            <div style={{ padding: 30, textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>
+              {t('No verified recipes found matching "{0}".', recipeQuery)}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10 }}>
+              {verifiedRecipesList.map(rec => (
+                <div
+                  key={rec.recipe_id}
+                  className="card"
+                  style={{
+                    padding: '14px 16px',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: 12,
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => handleSelectRecipe(rec)}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#FFFFFF' }}>{rec.recipe_name}</div>
+                      {rec.recipe_name_tamil && (
+                        <div style={{ fontSize: 12, color: 'var(--theme-accent, #E8B477)', fontWeight: 600 }}>{rec.recipe_name_tamil}</div>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 9999, background: 'rgba(232, 180, 119, 0.2)', color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}>
+                      {rec.cuisine || 'Indian Regional'}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+                    {rec.recipe_category} · {rec.serving_count} servings ({rec.serving_weight_g}g / serving)
+                  </div>
+
+                  {/* Nutrients Per Serving */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, background: 'rgba(0,0,0,0.3)', padding: '6px 8px', borderRadius: 8, textAlign: 'center', marginBottom: 6 }}>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)' }}>{t('Serving')}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{Math.round(rec.total_energy_kcal / (rec.serving_count || 1))} <span style={{ fontSize: 9 }}>kcal</span></div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--theme-accent, #E8B477)' }}>{t('Protein')}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{Math.round((rec.total_protein_g / (rec.serving_count || 1)) * 10) / 10}g</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--teal, #2EC4B6)' }}>{t('Carbs')}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{Math.round((rec.total_carbohydrate_g / (rec.serving_count || 1)) * 10) / 10}g</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--coral, #FF6B6B)' }}>{t('Fat')}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{Math.round((rec.total_fat_g / (rec.serving_count || 1)) * 10) / 10}g</div>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: 11, color: 'var(--theme-accent, #E8B477)', textAlign: 'right', fontWeight: 600 }}>
+                    {t('View Ingredients & Breakdown →')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Selected Recipe Detail Modal / Panel */}
+          {selectedRecipeItem && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.85)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              padding: 16
+            }}>
+              <div style={{
+                background: '#18181B',
+                border: '1px solid rgba(232, 180, 119, 0.4)',
+                borderRadius: 16,
+                padding: '20px 24px',
+                maxWidth: 550,
+                width: '100%',
+                maxHeight: '90vh',
+                overflowY: 'auto'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#FFFFFF' }}>{selectedRecipeItem.recipe_name}</h3>
+                    {selectedRecipeItem.recipe_name_tamil && (
+                      <div style={{ fontSize: 13, color: 'var(--theme-accent, #E8B477)', fontWeight: 600 }}>{selectedRecipeItem.recipe_name_tamil}</div>
+                    )}
+                  </div>
+                  <button className="iconbtn" onClick={() => setSelectedRecipeItem(null)}><Icon name="xmark" /></button>
+                </div>
+
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 14 }}>
+                  {selectedRecipeItem.cuisine} · {selectedRecipeItem.recipe_category} · {selectedRecipeItem.cooking_method || 'Standard cooking'}
+                </div>
+
+                {/* Serving & Total Details */}
+                <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '12px 14px', borderRadius: 10, marginBottom: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', marginBottom: 6 }}>
+                    {t('Per Serving Nutrition ({0}g / serving · {1} servings total)', selectedRecipeItem.serving_weight_g, selectedRecipeItem.serving_count)}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, textAlign: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>{t('Energy')}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>{Math.round(selectedRecipeItem.total_energy_kcal / (selectedRecipeItem.serving_count || 1))} kcal</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--theme-accent, #E8B477)' }}>{t('Protein')}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>{Math.round((selectedRecipeItem.total_protein_g / (selectedRecipeItem.serving_count || 1)) * 10) / 10}g</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--teal, #2EC4B6)' }}>{t('Carbs')}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>{Math.round((selectedRecipeItem.total_carbohydrate_g / (selectedRecipeItem.serving_count || 1)) * 10) / 10}g</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--coral, #FF6B6B)' }}>{t('Fat')}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>{Math.round((selectedRecipeItem.total_fat_g / (selectedRecipeItem.serving_count || 1)) * 10) / 10}g</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Raw Ingredients Breakdown */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF', marginBottom: 8 }}>
+                    {t('Raw Ingredients Breakdown')}
+                  </div>
+                  {Array.isArray(selectedRecipeItem.ingredient_list) && selectedRecipeItem.ingredient_list.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+                      {selectedRecipeItem.ingredient_list.map((ing, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.04)', fontSize: 12 }}>
+                          <div>
+                            <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{ing.ingredient_name}</span>
+                            <span style={{ color: 'rgba(255,255,255,0.5)', marginLeft: 6 }}>({ing.ingredient_weight_g}g)</span>
+                          </div>
+                          <div style={{ color: 'var(--theme-accent, #E8B477)', fontWeight: 600 }}>
+                            {ing.contribution_energy_kcal} kcal · {ing.contribution_protein_g}g P
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5 }}>
+                      {selectedRecipeItem.ingredients || selectedRecipeItem.ingredients_summary}
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  variant="primary"
+                  onClick={() => setSelectedRecipeItem(null)}
+                  style={{ width: '100%', padding: '10px', borderRadius: 10, fontWeight: 700 }}
+                >
+                  {t('Close')}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
+
+      {/* VIEW 4: NATURAL LANGUAGE MEAL LOGGER */}
+      {activeSubTab === 'nl_log' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="card" style={{ padding: '16px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: 'var(--theme-accent, #E8B477)' }}><Icon name="check" /></span>
+              {t('AI Fast Meal Logger (English & Tamil)')}
+            </h3>
+            <p style={{ margin: '0 0 12px 0', fontSize: 12, color: 'rgba(255, 255, 255, 0.7)' }}>
+              {t('Type what you ate in natural language. IRONX AI breaks it down into verified food codes, calculates exact calories and macros, and lets you verify before logging.')}
+            </p>
+
+            {/* Quick Example Chips */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+              {[
+                '2 chapatis and 100g chicken',
+                '3 boiled eggs and 1 cup oats',
+                '2 சப்பாத்தி மற்றும் 100 கிராம் சாதம்',
+                '3 இட்லி மற்றும் சாம்பார்',
+                '1 plate curd rice with pickle',
+                '150g cooked rice and 150g chicken gravy'
+              ].map((ex, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => { setNlText(ex); handleParseNL(ex); }}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 9999,
+                    fontSize: 11,
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: 'rgba(255, 255, 255, 0.85)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {ex}
+                </button>
+              ))}
+            </div>
+
+            {/* Input Textarea */}
+            <textarea
+              rows={3}
+              placeholder={t('Describe what you ate e.g. "I ate 2 chapatis, 100g cooked chicken breast and 1 boiled egg"...')}
+              value={nlText}
+              onChange={e => setNlText(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: 10,
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                color: '#FFFFFF',
+                fontSize: 13,
+                outline: 'none',
+                resize: 'none',
+                marginBottom: 10
+              }}
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{t('Target Meal:')}</span>
+                <select
+                  value={nlMealType}
+                  onChange={e => setNlMealType(e.target.value)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    background: '#1A1A1E',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    color: '#FFFFFF',
+                    fontSize: 12,
+                    fontWeight: 600
+                  }}
+                >
+                  <option value="breakfast">{t('Breakfast')}</option>
+                  <option value="lunch">{t('Lunch')}</option>
+                  <option value="dinner">{t('Dinner')}</option>
+                  <option value="snacks">{t('Snacks')}</option>
+                </select>
+              </div>
+
+              <Button
+                variant="primary"
+                onClick={() => handleParseNL(nlText)}
+                disabled={!nlText.trim() || parsingNl}
+                style={{ borderRadius: 10, padding: '8px 18px', fontWeight: 700 }}
+              >
+                {parsingNl ? t('Analyzing...') : t('Parse Meal')}
+              </Button>
+            </div>
+          </div>
+
+          {/* Parsed Results Preview */}
+          {nlParsedData && (
+            <div className="card" style={{ padding: '16px', background: 'rgba(232, 180, 119, 0.08)', border: '1px solid rgba(232, 180, 119, 0.35)', borderRadius: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#FFFFFF' }}>{t('Verified Meal Breakdown')}</h4>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>
+                    {t('Source: "{0}"', nlParsedData.source_text)}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--theme-accent, #E8B477)' }}>
+                    {nlParsedData.total_calories} <span style={{ fontSize: 12 }}>kcal</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>
+                    {nlParsedData.total_protein_g}g P · {nlParsedData.total_carbohydrate_g}g C · {nlParsedData.total_fat_g}g F
+                  </div>
+                </div>
+              </div>
+
+              {/* Items List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                {nlParsedData.parsed_items.map((item, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: 10,
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>
+                        {item.food_name}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>
+                        {item.serving_quantity} {item.serving_unit} ({item.serving_grams}g) · {item.source_name}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{item.energy_kcal} kcal</div>
+                      <div style={{ fontSize: 11, color: 'var(--theme-accent, #E8B477)', fontWeight: 600 }}>{item.protein_g}g P</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Save Batch Button */}
+              <Button
+                variant="primary"
+                onClick={handleLogParsedMeal}
+                disabled={loggingNl}
+                style={{ width: '100%', padding: '12px', borderRadius: 10, fontWeight: 800, fontSize: 14 }}
+              >
+                {loggingNl ? t('Logging...') : t('✓ Confirm & Log to {0}', nlMealType.toUpperCase())}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

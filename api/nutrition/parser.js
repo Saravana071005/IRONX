@@ -212,7 +212,16 @@ export function matchAndCalculate(parsedItem) {
   }
 
   // Search candidate foods
-  let candidates = searchFoods(lookupQuery, 5);
+  let candidates = [];
+  if (prepState) {
+    candidates = searchFoods(`${prepState} ${lookupQuery}`, 5);
+    if (!candidates.length) {
+      candidates = searchFoods(`${lookupQuery} ${prepState}`, 5);
+    }
+  }
+  if (!candidates.length) {
+    candidates = searchFoods(lookupQuery, 5);
+  }
 
   // If no match and multi-word query, search with non-modifier tokens
   if (!candidates.length && lookupQuery.includes(' ')) {

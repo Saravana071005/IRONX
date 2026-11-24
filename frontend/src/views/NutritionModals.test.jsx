@@ -105,6 +105,9 @@ describe('NutritionModals Component Suite', () => {
       />
     )
     expect(html).toContain('AI Nutrition Coach')
+    expect(html).toContain('Verified Foods (2,799)')
+    expect(html).toContain('Verified Recipes (1,014)')
+    expect(html).toContain('AI Fast Meal Log')
     expect(html).toContain('Context-Aware')
     expect(html).toContain('Daily Calories')
     expect(html).toContain('Protein Progress')
