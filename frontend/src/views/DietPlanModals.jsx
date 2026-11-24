@@ -1488,12 +1488,13 @@ export function CheatMealModal({ onLogged, close, toast }) {
               <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--secondary-label)', display: 'block', marginBottom: 4 }}>
                 {t('Notes')}
               </label>
-              <input
-                type="text"
-                className="input"
+              <textarea
+                className="input area"
+                rows={2}
                 placeholder="e.g. Birthday dinner with family"
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
+                style={{ resize: 'vertical', minHeight: 48 }}
               />
             </div>
           </div>
@@ -1511,17 +1512,17 @@ export function CheatMealModal({ onLogged, close, toast }) {
         /* Supportive Feedback Display */
         <div style={{ textAlign: 'center', padding: '10px 4px' }}>
           <div style={{
-            background: impactResult.is_above_target ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-            border: impactResult.is_above_target ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
+            background: 'var(--surface-2, #2B2B31)',
+            border: '1px solid var(--borders, #414149)',
             borderRadius: 14,
             padding: '18px 14px',
             marginBottom: 16
           }}>
-            <h4 style={{ margin: '0 0 8px 0', fontSize: 15, fontWeight: 700, color: 'var(--label)' }}>
-              {impactResult.is_above_target ? t('Supportive Guidance') : t('Meal Logged')}
+            <h4 style={{ margin: '0 0 8px 0', fontSize: 15, fontWeight: 700, color: 'var(--label, #FFFFFF)' }}>
+              {impactResult?.is_above_target ? t('Supportive Guidance') : t('Meal Logged')}
             </h4>
-            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--label)' }}>
-              {impactResult.supportive_message}
+            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--label-2, #E4E4E7)' }}>
+              {impactResult?.supportive_message || t('Meal recorded into your nutrition diary.')}
             </p>
           </div>
 
@@ -1529,7 +1530,8 @@ export function CheatMealModal({ onLogged, close, toast }) {
           <div style={{
             display: 'flex',
             justifyContent: 'space-around',
-            background: 'rgba(255, 255, 255, 0.02)',
+            background: 'var(--surface-1, #18181B)',
+            border: '1px solid var(--borders, #2E2E33)',
             padding: '12px',
             borderRadius: 10,
             marginBottom: 16,
@@ -1538,13 +1540,13 @@ export function CheatMealModal({ onLogged, close, toast }) {
             <div>
               <div style={{ color: 'var(--secondary-label)' }}>Daily Goal</div>
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--label)', marginTop: 2 }}>
-                {impactResult.daily_goal} kcal
+                {impactResult?.daily_goal ?? 0} kcal
               </div>
             </div>
             <div>
               <div style={{ color: 'var(--secondary-label)' }}>Actual Intake</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#00E5FF', marginTop: 2 }}>
-                {impactResult.actual_intake} kcal
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--label)', marginTop: 2 }}>
+                {impactResult?.actual_intake ?? 0} kcal
               </div>
             </div>
             <div>
@@ -1552,19 +1554,19 @@ export function CheatMealModal({ onLogged, close, toast }) {
               <div style={{
                 fontSize: 15,
                 fontWeight: 700,
-                color: impactResult.difference_from_goal > 0 ? '#F59E0B' : '#10B981',
+                color: 'var(--label-2)',
                 marginTop: 2
               }}>
-                {impactResult.difference_from_goal > 0 ? `+${impactResult.difference_from_goal}` : impactResult.difference_from_goal} kcal
+                {(impactResult?.difference_from_goal ?? 0) > 0 ? `+${impactResult?.difference_from_goal}` : (impactResult?.difference_from_goal ?? 0)} kcal
               </div>
             </div>
           </div>
 
           {/* Transparent Optional Activity Estimate */}
-          {impactResult.transparent_activity_reference && (
+          {impactResult?.transparent_activity_reference && (
             <div style={{
-              background: 'rgba(255, 255, 255, 0.02)',
-              border: '1px solid rgba(255, 255, 255, 0.05)',
+              background: 'var(--surface-1, #18181B)',
+              border: '1px solid var(--borders, #2E2E33)',
               borderRadius: 10,
               padding: '10px 12px',
               textAlign: 'left',
@@ -1576,10 +1578,10 @@ export function CheatMealModal({ onLogged, close, toast }) {
                 ℹ {t('Transparent Activity Reference (Optional)')}:
               </div>
               <div style={{ marginBottom: 4 }}>
-                • {t('Brisk walking estimate')}: ~{impactResult.transparent_activity_reference.brisk_walking_min} min
+                • {t('Brisk walking estimate')}: ~{impactResult.transparent_activity_reference.brisk_walking_min || 0} min
               </div>
               <div style={{ fontStyle: 'italic', fontSize: 10 }}>
-                {impactResult.transparent_activity_reference.disclaimer}
+                {impactResult.transparent_activity_reference.disclaimer || ''}
               </div>
             </div>
           )}

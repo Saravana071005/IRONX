@@ -33,9 +33,24 @@ export async function api(path, opts = {}) {
     headers || {}
   )
 
+  let body = rest.body
+  if (body !== undefined && body !== null) {
+    if (typeof body === 'object' && !(body instanceof FormData) && !(body instanceof Blob) && !(body instanceof URLSearchParams)) {
+      try {
+        body = JSON.stringify(body)
+      } catch (err) {
+        // preserve original body if stringify fails
+      }
+    }
+    if (body instanceof FormData) {
+      delete mergedHeaders['Content-Type']
+    }
+  }
+
   try {
     const r = await fetch(url, {
       ...rest,
+      body,
       credentials: 'include',
       headers: mergedHeaders,
       signal: controller.signal

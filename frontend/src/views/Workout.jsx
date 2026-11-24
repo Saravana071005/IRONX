@@ -63,11 +63,18 @@ function StartChooser() {
   }, [])
 
   const filteredExercises = useMemo(() => {
+    const q = (search || '').trim().toLowerCase()
     return allEx.filter(e => {
-      if (e.mode === 'cardio' || (e.bp && e.bp.toLowerCase() === 'cardio')) return false
-      const matchCat = selectedBp === 'All' || e.bp === selectedBp || e.category === selectedBp
-      const matchSearch = !search.trim() || e.name.toLowerCase().includes(search.toLowerCase().trim())
-      return matchCat && matchSearch
+      if (!e) return false
+      if (e.mode === 'cardio' || (e.bp && String(e.bp).toLowerCase() === 'cardio')) return false
+      const bp = String(e.bp || e.category || '')
+      const matchCat = selectedBp === 'All' || bp.toLowerCase() === selectedBp.toLowerCase()
+      if (!matchCat) return false
+      if (!q) return true
+      const name = String(e.name || e.n || '').toLowerCase()
+      const eq = String(e.eq || e.equipment || '').toLowerCase()
+      const tg = String(e.tg || e.target || '').toLowerCase()
+      return name.includes(q) || eq.includes(q) || tg.includes(q)
     })
   }, [allEx, selectedBp, search])
 
@@ -95,7 +102,7 @@ function StartChooser() {
       }
       return {
         id: ex.id,
-        name: ex.name,
+        name: ex.name || ex.n || t('Exercise'),
         target: { reps: rCount, weight: wCount, sets: sCount },
         sets
       }
@@ -105,7 +112,7 @@ function StartChooser() {
       id: uid(),
       d: todayStr,
       start: Date.now(),
-      name: selectedList.length === 1 ? selectedList[0].name : t('Custom Workout'),
+      name: selectedList.length === 1 ? (selectedList[0].name || selectedList[0].n || t('Custom Workout')) : t('Custom Workout'),
       bw: null,
       cur: 0,
       entries
@@ -123,6 +130,7 @@ function StartChooser() {
     const newEx = {
       id: 'cust_' + uid(),
       name: customForm.name.trim(),
+      n: customForm.name.trim(),
       category: customForm.category,
       bp: customForm.category,
       type: customForm.type,
@@ -437,11 +445,11 @@ function StartChooser() {
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--label)' }}>
-                        {ex.name}
+                        {ex.name || ex.n || t('Exercise')}
                       </div>
                       <div className="muted small" style={{ fontSize: 11, display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
                         <span style={{ textTransform: 'capitalize' }}>{ex.bp || ex.category || 'General'}</span>
-                        {ex.eq && <span>· {ex.eq}</span>}
+                        {(ex.eq || ex.equipment) && <span>· {ex.eq || ex.equipment}</span>}
                         {ex.type && <span>· {ex.type}</span>}
                       </div>
                     </div>

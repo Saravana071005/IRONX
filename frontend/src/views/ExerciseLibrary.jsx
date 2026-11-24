@@ -160,12 +160,17 @@ export default function ExerciseLibrary() {
   const filteredLibrary = useMemo(() => {
     const q = search.trim().toLowerCase()
     return library.filter(e => {
-      const matchCat = selectedCategory === 'All' || e.category === selectedCategory
+      if (!e) return false
+      const cat = e.category || e.bp || ''
+      const matchCat = selectedCategory === 'All' || cat.toLowerCase() === selectedCategory.toLowerCase()
+      const name = String(e.name || e.n || '').toLowerCase()
+      const eq = String(e.equipment || e.eq || '').toLowerCase()
+      const desc = String(e.description || e.desc || '').toLowerCase()
       const matchSearch =
         !q ||
-        e.name.toLowerCase().includes(q) ||
-        (e.equipment || '').toLowerCase().includes(q) ||
-        (e.description || '').toLowerCase().includes(q)
+        name.includes(q) ||
+        eq.includes(q) ||
+        desc.includes(q)
       return matchCat && matchSearch
     })
   }, [library, search, selectedCategory])
@@ -174,8 +179,12 @@ export default function ExerciseLibrary() {
   const filteredDatasetForCreate = useMemo(() => {
     const q = datasetSearch.trim().toLowerCase()
     return fullDataset.filter(e => {
-      const bpMatch = datasetBodyPart === 'All' || (e.bp || '').toLowerCase() === datasetBodyPart.toLowerCase()
-      const searchMatch = !q || (e.n || '').toLowerCase().includes(q) || (e.eq || '').toLowerCase().includes(q)
+      if (!e) return false
+      const bp = String(e.bp || e.category || '')
+      const bpMatch = datasetBodyPart === 'All' || bp.toLowerCase() === datasetBodyPart.toLowerCase()
+      const name = String(e.n || e.name || '').toLowerCase()
+      const eq = String(e.eq || e.equipment || '').toLowerCase()
+      const searchMatch = !q || name.includes(q) || eq.includes(q)
       return bpMatch && searchMatch
     })
   }, [fullDataset, datasetSearch, datasetBodyPart])
@@ -184,8 +193,12 @@ export default function ExerciseLibrary() {
   const filteredDatasetForAdd = useMemo(() => {
     const q = addExSearch.trim().toLowerCase()
     return fullDataset.filter(e => {
-      const bpMatch = addExBodyPart === 'All' || (e.bp || '').toLowerCase() === addExBodyPart.toLowerCase()
-      const searchMatch = !q || (e.n || '').toLowerCase().includes(q) || (e.eq || '').toLowerCase().includes(q)
+      if (!e) return false
+      const bp = String(e.bp || e.category || '')
+      const bpMatch = addExBodyPart === 'All' || bp.toLowerCase() === addExBodyPart.toLowerCase()
+      const name = String(e.n || e.name || '').toLowerCase()
+      const eq = String(e.eq || e.equipment || '').toLowerCase()
+      const searchMatch = !q || name.includes(q) || eq.includes(q)
       return bpMatch && searchMatch
     })
   }, [fullDataset, addExSearch, addExBodyPart])

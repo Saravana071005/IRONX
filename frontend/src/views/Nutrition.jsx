@@ -1047,10 +1047,7 @@ export default function Nutrition() {
       {activeTab === 'today_plan' ? (
         <DailyMealTracker
           date={date}
-          onOpenAddPdf={handleOpenAddDietPdf}
           onOpenGoals={() => setActiveTab('goals')}
-          onOpenCheatMeal={handleOpenCheatMeal}
-          onOpenAvailableFoods={handleOpenAvailableFoods}
           onMealStatusChanged={loadData}
           toast={toast}
         />
@@ -2124,45 +2121,6 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
       <h3 style={{ margin: '0 0 14px', fontSize: '1.25rem', fontWeight: 800, color: 'var(--label)' }}>
         {existing ? t('Edit Food Entry') : t('Add Food & Meal Builder')}
       </h3>
-
-      {/* AI Fast Log Bar */}
-      {!existing && (
-        <div style={{ background: 'var(--surface-2, #1E1E22)', border: '1px solid var(--borders, #303036)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--theme-accent, #F5F5F5)', marginBottom: 8 }}>
-            <span>⚡</span>
-            <span>{t('AI Fast Log (English, தமிழ், हिंदी)')}</span>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              type="text"
-              placeholder={t('e.g. 2 chapatis, 1 bowl dal, and 1 boiled egg')}
-              value={aiInput}
-              onChange={e => setAiInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAiFastLog())}
-              style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-1, #141416)', fontSize: 13, color: 'var(--label)' }}
-            />
-            <Button
-              type="button"
-              variant="acc"
-              disabled={parsingAi || !aiInput.trim()}
-              onClick={handleAiFastLog}
-              style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}
-            >
-              {parsingAi ? t('Parsing...') : t('Parse with AI')}
-            </Button>
-          </div>
-          {aiError && (
-            <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>
-              {aiError}
-            </div>
-          )}
-          {aiSuccessMsg && (
-            <div style={{ color: 'var(--teal)', fontSize: 12, marginTop: 6, fontWeight: 600 }}>
-              ✓ {aiSuccessMsg}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Multi-Item Meal Draft List */}
       {draftItems.length > 0 && (

@@ -1349,6 +1349,17 @@ h4.sec{
   padding: 4px 6px max(8px, env(safe-area-inset-bottom, 8px)) 6px;
   overflow: hidden;
   box-sizing: border-box;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+}
+
+/* Hide tab bar when typing on mobile keyboard to prevent overlapping focused inputs */
+body.keyboard-open #tabbar,
+body.input-focused #tabbar,
+body:has(input:focus:not([type="checkbox"]):not([type="radio"])) #tabbar,
+body:has(textarea:focus) #tabbar {
+  transform: translateY(120%) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 :root[data-theme="light"] #tabbar {
   background: #FFFFFF;
@@ -1916,7 +1927,9 @@ h4.sec{
   border-right:1px solid rgba(255, 255, 255, 0.1);
   box-shadow:0 -16px 54px rgba(0, 0, 0, 0.75), inset 0 1px 1.5px rgba(255, 255, 255, 0.25);
   padding:8px 18px calc(20px + var(--sab));
-  max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  max-height: min(90vh, calc(var(--vvh, 100vh) - 24px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   animation:sheetup .34s var(--ease);
   overscroll-behavior:contain;touch-action:pan-y;will-change:transform;
 }

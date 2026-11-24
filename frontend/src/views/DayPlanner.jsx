@@ -241,6 +241,9 @@ export default function DayPlanner() {
       id: 'cust_ex_' + uid(),
       ...customFormData,
       name: nameTrimmed,
+      n: nameTrimmed,
+      bp: customFormData.category,
+      eq: customFormData.equipment,
       isCustom: true,
       createdAt: new Date().toISOString()
     }

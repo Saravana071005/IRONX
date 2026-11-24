@@ -608,10 +608,18 @@ function ExercisePicker({ onPick, close }) {
   const [shown, setShown] = useState(50)
   const ql = q.toLowerCase().trim()
   const all = allExercises(st)
-  let base = all.filter(e =>
-    (bp === 'fav' ? favorites.includes(e.id) : bp === '★' ? usage[e.id] : (!bp || e.bp === bp)) &&
-    (!ql || e.n.toLowerCase().includes(ql) || e.tg.includes(ql) || e.eq.includes(ql) || (e.desc || '').toLowerCase().includes(ql)))
-  if (bp === '★') base = [...base].sort((a, b) => (usage[b.id] - usage[a.id]) || (a.n < b.n ? -1 : 1))
+  let base = all.filter(e => {
+    if (!e) return false
+    const matchBp = bp === 'fav' ? favorites.includes(e.id) : bp === '★' ? usage[e.id] : (!bp || e.bp === bp)
+    if (!matchBp) return false
+    if (!ql) return true
+    const name = String(e.n || e.name || '').toLowerCase()
+    const tg = String(e.tg || e.target || '').toLowerCase()
+    const eqStr = String(e.eq || e.equipment || '').toLowerCase()
+    const desc = String(e.desc || e.description || '').toLowerCase()
+    return name.includes(ql) || tg.includes(ql) || eqStr.includes(ql) || desc.includes(ql)
+  })
+  if (bp === '★') base = [...base].sort((a, b) => (usage[b.id] - usage[a.id]) || (String(a.n || a.name || '') < String(b.n || b.name || '') ? -1 : 1))
   const eqOpts = equipmentOf(base)
   // Drop the equipment filter if the search narrowed it away, so you never hit a dead end.
   const eqOn = eqOpts.includes(eq) ? eq : ''

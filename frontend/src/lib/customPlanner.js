@@ -867,12 +867,12 @@ export function getExerciseLibrary(S) {
  * Validates whether an exercise name already exists in the same category (case-insensitive).
  */
 export function isDuplicateExerciseName(library, name, category, excludeId = null) {
-  const normName = name.trim().toLowerCase()
-  const normCat = category.trim().toLowerCase()
-  return library.some(e =>
+  const normName = String(name || '').trim().toLowerCase()
+  const normCat = String(category || '').trim().toLowerCase()
+  return (library || []).some(e =>
     e.id !== excludeId &&
-    e.name.trim().toLowerCase() === normName &&
-    (e.category || '').trim().toLowerCase() === normCat &&
+    String(e.name || e.n || '').trim().toLowerCase() === normName &&
+    String(e.category || e.bp || '').trim().toLowerCase() === normCat &&
     !e.deleted
   )
 }

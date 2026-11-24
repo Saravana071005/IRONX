@@ -19,11 +19,18 @@ export default function Library() {
   const [favOnly, setFavOnly] = useState(false)
   const [shown, setShown] = useState(40)
   const ql = q.toLowerCase().trim()
-  const base = allExercises(S).filter(e =>
-    (!favOnly || favorites.includes(e.id)) &&
-    (!bp || e.bp === bp) &&
-    (!ql || e.n.toLowerCase().includes(ql) || e.tg.includes(ql) || e.eq.includes(ql) || (e.desc || '').toLowerCase().includes(ql))
-  )
+  const base = allExercises(S).filter(e => {
+    if (!e) return false
+    if (favOnly && !favorites.includes(e.id)) return false
+    const eBp = e.bp || e.category || ''
+    if (bp && eBp.toLowerCase() !== bp.toLowerCase()) return false
+    if (!ql) return true
+    const name = String(e.n || e.name || '').toLowerCase()
+    const tg = String(e.tg || e.target || '').toLowerCase()
+    const eqStr = String(e.eq || e.equipment || '').toLowerCase()
+    const desc = String(e.desc || e.description || '').toLowerCase()
+    return name.includes(ql) || tg.includes(ql) || eqStr.includes(ql) || desc.includes(ql)
+  })
   const eqOpts = equipmentOf(base)
   // Drop the equipment filter if the search narrowed it away, so you never hit a dead end.
   const eqOn = eqOpts.includes(eq) ? eq : ''

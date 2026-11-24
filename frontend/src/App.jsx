@@ -69,6 +69,55 @@ function Shell() {
   // bound to the workout, not to the route — checking Stats mid-session keeps the screen on
   useWakeLock(!!S.active && S.keepAwake !== false)
 
+  // Mobile visualViewport and virtual keyboard tracking
+  useEffect(() => {
+    const updateViewport = () => {
+      const vv = window.visualViewport
+      const height = vv ? vv.height : window.innerHeight
+      document.documentElement.style.setProperty('--vvh', `${height}px`)
+
+      const isKeyboard = height < window.innerHeight * 0.82
+      if (isKeyboard) {
+        document.body.classList.add('keyboard-open')
+      } else {
+        document.body.classList.remove('keyboard-open')
+      }
+    }
+
+    updateViewport()
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateViewport)
+      window.visualViewport.addEventListener('scroll', updateViewport)
+    }
+    window.addEventListener('resize', updateViewport)
+
+    const onFocusIn = (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
+        document.body.classList.add('input-focused')
+        setTimeout(() => {
+          if (document.activeElement === e.target && typeof e.target.scrollIntoView === 'function') {
+            e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+          }
+        }, 300)
+      }
+    }
+    const onFocusOut = () => {
+      document.body.classList.remove('input-focused')
+    }
+    window.addEventListener('focusin', onFocusIn)
+    window.addEventListener('focusout', onFocusOut)
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateViewport)
+        window.visualViewport.removeEventListener('scroll', updateViewport)
+      }
+      window.removeEventListener('resize', updateViewport)
+      window.removeEventListener('focusin', onFocusIn)
+      window.removeEventListener('focusout', onFocusOut)
+    }
+  }, [])
+
   const isAuthCallback = loc.pathname === '/auth-callback'
   const isProfileSetup = loc.pathname === '/profile-setup'
   const authed = user || isGuest
