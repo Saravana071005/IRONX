@@ -135,6 +135,69 @@ export function getDb() {
       DROP TABLE IF EXISTS user_diet_plans;
       DROP TABLE IF EXISTS user_ai_conversations;
       DROP TABLE IF EXISTS ai_usage_logs;
+      CREATE TABLE IF NOT EXISTS saved_diet_plans (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        is_active INTEGER DEFAULT 0,
+        meals_json TEXT NOT NULL,
+        source_pdf_name TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_saved_diet_plans_user ON saved_diet_plans(user_id);
+
+      CREATE TABLE IF NOT EXISTS daily_meal_plans (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        plan_id TEXT,
+        meals_json TEXT NOT NULL,
+        status_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_daily_meal_plans_user_date ON daily_meal_plans(user_id, date);
+
+      CREATE TABLE IF NOT EXISTS user_nutrition_goals (
+        user_id TEXT PRIMARY KEY,
+        profile_json TEXT NOT NULL,
+        calculated_targets_json TEXT NOT NULL,
+        custom_targets_json TEXT,
+        history_json TEXT,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS user_available_foods (
+        user_id TEXT PRIMARY KEY,
+        foods_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS cheat_meal_logs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        food_name TEXT NOT NULL,
+        serving_quantity REAL NOT NULL,
+        serving_unit TEXT NOT NULL,
+        serving_grams REAL NOT NULL,
+        energy_kcal REAL NOT NULL,
+        protein_g REAL NOT NULL,
+        carb_g REAL NOT NULL,
+        fat_g REAL NOT NULL,
+        fibre_g REAL NOT NULL,
+        notes TEXT,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_cheat_meal_logs_user_date ON cheat_meal_logs(user_id, date);
+
+      CREATE TABLE IF NOT EXISTS notification_preferences (
+        user_id TEXT PRIMARY KEY,
+        preferences_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
     `);
     try {
       db.exec("ALTER TABLE meal_logs ADD COLUMN notes TEXT");
@@ -835,6 +898,12 @@ export function clearAllNutritionDataForUser(userId) {
     try { d.prepare("DELETE FROM user_nutrition_targets WHERE user_id = ?").run(userId); } catch {}
     try { d.prepare("DELETE FROM daily_health_settings WHERE user_id = ?").run(userId); } catch {}
     try { d.prepare("DELETE FROM meal_templates WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM saved_diet_plans WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM daily_meal_plans WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM user_nutrition_goals WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM user_available_foods WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM cheat_meal_logs WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM notification_preferences WHERE user_id = ?").run(userId); } catch {}
     try { d.prepare("DELETE FROM custom_recipes WHERE user_id = ?").run(userId); } catch {}
   } catch (err) {
     console.error('Error clearing SQLite nutrition data for user:', err.message);
@@ -1531,4 +1600,419 @@ export function calculateDeterministicRecipe(ingredients = [], { cookingOilGrams
     nutrition_per_100g: per100gObj,
     per_100g: per100gObj
   };
+}
+
+/* ==================== MODULE 1, 2, 3: SAVED DIET PLANS & DAILY MEAL PLANS ==================== */
+
+export function getSavedDietPlans(userId) {
+  if (!userId) return [];
+  const d = getDb();
+  if (!d) return [];
+  try {
+    const rows = d.prepare("SELECT * FROM saved_diet_plans WHERE user_id = ? ORDER BY is_active DESC, updated_at DESC").all(userId);
+    return rows.map(r => ({
+      ...r,
+      is_active: Boolean(r.is_active),
+      meals: JSON.parse(r.meals_json || '{}')
+    }));
+  } catch (err) {
+    console.error('getSavedDietPlans error:', err.message);
+    return [];
+  }
+}
+
+export function getSavedDietPlanById(id, userId) {
+  if (!id || !userId) return null;
+  const d = getDb();
+  if (!d) return null;
+  try {
+    const row = d.prepare("SELECT * FROM saved_diet_plans WHERE id = ? AND user_id = ?").get(id, userId);
+    if (!row) return null;
+    return {
+      ...row,
+      is_active: Boolean(row.is_active),
+      meals: JSON.parse(row.meals_json || '{}')
+    };
+  } catch (err) {
+    console.error('getSavedDietPlanById error:', err.message);
+    return null;
+  }
+}
+
+export function saveSavedDietPlan(plan) {
+  if (!plan || !plan.id || !plan.user_id) return null;
+  const d = getDb();
+  if (!d) return null;
+  const now = new Date().toISOString();
+  const mealsJson = typeof plan.meals === 'string' ? plan.meals : JSON.stringify(plan.meals || {});
+  const isActive = plan.is_active ? 1 : 0;
+
+  try {
+    const existing = d.prepare("SELECT id FROM saved_diet_plans WHERE id = ? AND user_id = ?").get(plan.id, plan.user_id);
+    if (existing) {
+      d.prepare(`
+        UPDATE saved_diet_plans
+        SET name = ?, is_active = ?, meals_json = ?, source_pdf_name = ?, updated_at = ?
+        WHERE id = ? AND user_id = ?
+      `).run(plan.name || 'My Diet Plan', isActive, mealsJson, plan.source_pdf_name || null, now, plan.id, plan.user_id);
+    } else {
+      d.prepare(`
+        INSERT INTO saved_diet_plans (id, user_id, name, is_active, meals_json, source_pdf_name, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(plan.id, plan.user_id, plan.name || 'My Diet Plan', isActive, mealsJson, plan.source_pdf_name || null, plan.created_at || now, now);
+    }
+
+    if (isActive) {
+      // Unset other active plans for this user
+      d.prepare("UPDATE saved_diet_plans SET is_active = 0 WHERE user_id = ? AND id != ?").run(plan.user_id, plan.id);
+    }
+
+    return getSavedDietPlanById(plan.id, plan.user_id);
+  } catch (err) {
+    console.error('saveSavedDietPlan error:', err.message);
+    return null;
+  }
+}
+
+export function deleteSavedDietPlan(id, userId) {
+  if (!id || !userId) return false;
+  const d = getDb();
+  if (!d) return false;
+  try {
+    d.prepare("DELETE FROM saved_diet_plans WHERE id = ? AND user_id = ?").run(id, userId);
+    return true;
+  } catch (err) {
+    console.error('deleteSavedDietPlan error:', err.message);
+    return false;
+  }
+}
+
+export function setActiveDietPlan(id, userId) {
+  if (!id || !userId) return false;
+  const d = getDb();
+  if (!d) return false;
+  try {
+    d.prepare("UPDATE saved_diet_plans SET is_active = 0 WHERE user_id = ?").run(userId);
+    d.prepare("UPDATE saved_diet_plans SET is_active = 1, updated_at = ? WHERE id = ? AND user_id = ?").run(new Date().toISOString(), id, userId);
+    return true;
+  } catch (err) {
+    console.error('setActiveDietPlan error:', err.message);
+    return false;
+  }
+}
+
+export function getDailyMealPlan(userId, date) {
+  if (!userId || !date) return null;
+  const d = getDb();
+  if (!d) return null;
+  try {
+    const row = d.prepare("SELECT * FROM daily_meal_plans WHERE user_id = ? AND date = ?").get(userId, date);
+    if (!row) return null;
+    return {
+      ...row,
+      meals: JSON.parse(row.meals_json || '{}'),
+      status: JSON.parse(row.status_json || '{}')
+    };
+  } catch (err) {
+    console.error('getDailyMealPlan error:', err.message);
+    return null;
+  }
+}
+
+export function saveDailyMealPlan(plan) {
+  if (!plan || !plan.id || !plan.user_id || !plan.date) return null;
+  const d = getDb();
+  if (!d) return null;
+  const now = new Date().toISOString();
+  const mealsJson = typeof plan.meals === 'string' ? plan.meals : JSON.stringify(plan.meals || {});
+  const statusJson = typeof plan.status === 'string' ? plan.status : JSON.stringify(plan.status || {
+    breakfast: 'not_done',
+    lunch: 'not_done',
+    snacks: 'not_done',
+    dinner: 'not_done'
+  });
+
+  try {
+    const existing = d.prepare("SELECT id FROM daily_meal_plans WHERE user_id = ? AND date = ?").get(plan.user_id, plan.date);
+    if (existing) {
+      d.prepare(`
+        UPDATE daily_meal_plans
+        SET plan_id = ?, meals_json = ?, status_json = ?, updated_at = ?
+        WHERE id = ? AND user_id = ?
+      `).run(plan.plan_id || null, mealsJson, statusJson, now, existing.id, plan.user_id);
+    } else {
+      d.prepare(`
+        INSERT INTO daily_meal_plans (id, user_id, date, plan_id, meals_json, status_json, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(plan.id, plan.user_id, plan.date, plan.plan_id || null, mealsJson, statusJson, plan.created_at || now, now);
+    }
+    return getDailyMealPlan(plan.user_id, plan.date);
+  } catch (err) {
+    console.error('saveDailyMealPlan error:', err.message);
+    return null;
+  }
+}
+
+export function updateDailyMealItem(userId, date, mealType, itemId, updates) {
+  if (!userId || !date || !mealType || !itemId) return null;
+  const current = getDailyMealPlan(userId, date);
+  if (!current) return null;
+
+  const mType = String(mealType).toLowerCase();
+  const mealItems = Array.isArray(current.meals[mType]) ? current.meals[mType] : [];
+  const idx = mealItems.findIndex(i => i.id === itemId);
+  if (idx < 0) return null;
+
+  if (updates.remove) {
+    // Mark as removed for today only!
+    mealItems[idx].removed = true;
+  } else {
+    mealItems[idx] = { ...mealItems[idx], ...updates };
+  }
+
+  current.meals[mType] = mealItems;
+  return saveDailyMealPlan({
+    id: current.id,
+    user_id: userId,
+    date,
+    plan_id: current.plan_id,
+    meals: current.meals,
+    status: current.status
+  });
+}
+
+export function toggleDailyMealStatus(userId, date, mealType, status) {
+  if (!userId || !date || !mealType) return null;
+  let current = getDailyMealPlan(userId, date);
+  if (!current) {
+    const active = getDb().prepare("SELECT * FROM saved_diet_plans WHERE user_id = ? AND is_active = 1").get(userId);
+    current = {
+      id: 'dplan_' + Math.random().toString(36).slice(2, 10),
+      user_id: userId,
+      date,
+      meals: active ? JSON.parse(active.meals_json || '{}') : {},
+      status: { breakfast: 'not_done', lunch: 'not_done', snacks: 'not_done', dinner: 'not_done' }
+    };
+  }
+
+  const mType = String(mealType).toLowerCase();
+  current.status[mType] = status;
+
+  return saveDailyMealPlan({
+    id: current.id,
+    user_id: userId,
+    date,
+    plan_id: current.plan_id,
+    meals: current.meals,
+    status: current.status
+  });
+}
+
+/* ==================== MODULE 4: PERSONALIZED NUTRITION GOALS ==================== */
+
+export function getUserNutritionGoals(userId) {
+  if (!userId) return null;
+  const d = getDb();
+  if (!d) return null;
+  try {
+    const row = d.prepare("SELECT * FROM user_nutrition_goals WHERE user_id = ?").get(userId);
+    if (!row) return null;
+    return {
+      user_id: row.user_id,
+      profile: JSON.parse(row.profile_json || '{}'),
+      calculated_targets: JSON.parse(row.calculated_targets_json || '{}'),
+      custom_targets: row.custom_targets_json ? JSON.parse(row.custom_targets_json) : null,
+      history: row.history_json ? JSON.parse(row.history_json) : [],
+      updated_at: row.updated_at
+    };
+  } catch (err) {
+    console.error('getUserNutritionGoals error:', err.message);
+    return null;
+  }
+}
+
+export function saveUserNutritionGoals(userId, goalsData) {
+  if (!userId || !goalsData) return null;
+  const d = getDb();
+  if (!d) return null;
+  const now = new Date().toISOString();
+
+  const profileJson = JSON.stringify(goalsData.profile || {});
+  const calcJson = JSON.stringify(goalsData.calculated_targets || {});
+  const customJson = goalsData.custom_targets ? JSON.stringify(goalsData.custom_targets) : null;
+
+  try {
+    const existing = getUserNutritionGoals(userId);
+    const history = existing && Array.isArray(existing.history) ? [...existing.history] : [];
+    if (existing && existing.calculated_targets) {
+      history.unshift({
+        date: existing.updated_at || now,
+        targets: existing.custom_targets || existing.calculated_targets,
+        profile: existing.profile
+      });
+      if (history.length > 15) history.length = 15;
+    }
+    const historyJson = JSON.stringify(history);
+
+    d.prepare(`
+      INSERT INTO user_nutrition_goals (user_id, profile_json, calculated_targets_json, custom_targets_json, history_json, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        profile_json = excluded.profile_json,
+        calculated_targets_json = excluded.calculated_targets_json,
+        custom_targets_json = excluded.custom_targets_json,
+        history_json = excluded.history_json,
+        updated_at = excluded.updated_at
+    `).run(userId, profileJson, calcJson, customJson, historyJson, now);
+
+    return getUserNutritionGoals(userId);
+  } catch (err) {
+    console.error('saveUserNutritionGoals error:', err.message);
+    return null;
+  }
+}
+
+/* ==================== MODULE 5: USER AVAILABLE FOODS (PANTRY) ==================== */
+
+export function getUserAvailableFoods(userId) {
+  if (!userId) return [];
+  const d = getDb();
+  if (!d) return [];
+  try {
+    const row = d.prepare("SELECT foods_json FROM user_available_foods WHERE user_id = ?").get(userId);
+    return row ? JSON.parse(row.foods_json || '[]') : [];
+  } catch (err) {
+    console.error('getUserAvailableFoods error:', err.message);
+    return [];
+  }
+}
+
+export function saveUserAvailableFoods(userId, foods) {
+  if (!userId) return [];
+  const d = getDb();
+  if (!d) return [];
+  const now = new Date().toISOString();
+  const items = Array.isArray(foods) ? foods : [];
+  const foodsJson = JSON.stringify(items);
+  try {
+    d.prepare(`
+      INSERT INTO user_available_foods (user_id, foods_json, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        foods_json = excluded.foods_json,
+        updated_at = excluded.updated_at
+    `).run(userId, foodsJson, now);
+    return items;
+  } catch (err) {
+    console.error('saveUserAvailableFoods error:', err.message);
+    return [];
+  }
+}
+
+/* ==================== MODULE 6: CHEAT MEALS ==================== */
+
+export function getCheatMealLogs(userId, date) {
+  if (!userId) return [];
+  const d = getDb();
+  if (!d) return [];
+  try {
+    if (date) {
+      return d.prepare("SELECT * FROM cheat_meal_logs WHERE user_id = ? AND date = ? ORDER BY created_at ASC").all(userId, date);
+    }
+    return d.prepare("SELECT * FROM cheat_meal_logs WHERE user_id = ? ORDER BY date DESC, created_at DESC LIMIT 50").all(userId);
+  } catch (err) {
+    console.error('getCheatMealLogs error:', err.message);
+    return [];
+  }
+}
+
+export function addCheatMealLog(entry) {
+  if (!entry || !entry.id || !entry.user_id) return null;
+  const d = getDb();
+  if (!d) return null;
+  try {
+    d.prepare(`
+      INSERT INTO cheat_meal_logs (id, user_id, date, food_name, serving_quantity, serving_unit, serving_grams, energy_kcal, protein_g, carb_g, fat_g, fibre_g, notes, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      entry.id,
+      entry.user_id,
+      entry.date,
+      entry.food_name,
+      Number(entry.serving_quantity) || 1,
+      entry.serving_unit || 'serving',
+      Number(entry.serving_grams) || 100,
+      Number(entry.energy_kcal) || 0,
+      Number(entry.protein_g) || 0,
+      Number(entry.carb_g) || 0,
+      Number(entry.fat_g) || 0,
+      Number(entry.fibre_g) || 0,
+      entry.notes || null,
+      entry.created_at || new Date().toISOString()
+    );
+    return entry;
+  } catch (err) {
+    console.error('addCheatMealLog error:', err.message);
+    return null;
+  }
+}
+
+export function deleteCheatMealLog(id, userId) {
+  if (!id || !userId) return false;
+  const d = getDb();
+  if (!d) return false;
+  try {
+    d.prepare("DELETE FROM cheat_meal_logs WHERE id = ? AND user_id = ?").run(id, userId);
+    return true;
+  } catch (err) {
+    console.error('deleteCheatMealLog error:', err.message);
+    return false;
+  }
+}
+
+/* ==================== MODULE 7: NUTRITION NOTIFICATION PREFERENCES ==================== */
+
+export function getNotificationPreferences(userId) {
+  if (!userId) return null;
+  const d = getDb();
+  if (!d) return null;
+  const defaults = {
+    remind_breakfast: true,
+    remind_lunch: true,
+    remind_snacks: false,
+    remind_dinner: true,
+    alert_calorie_goal: true,
+    alert_protein_target: true,
+    alert_calorie_above: true,
+    alert_missing_values: true
+  };
+  try {
+    const row = d.prepare("SELECT preferences_json FROM notification_preferences WHERE user_id = ?").get(userId);
+    return row ? { ...defaults, ...JSON.parse(row.preferences_json || '{}') } : defaults;
+  } catch (err) {
+    console.error('getNotificationPreferences error:', err.message);
+    return defaults;
+  }
+}
+
+export function saveNotificationPreferences(userId, prefs) {
+  if (!userId) return null;
+  const d = getDb();
+  if (!d) return null;
+  const now = new Date().toISOString();
+  const current = getNotificationPreferences(userId) || {};
+  const updated = { ...current, ...(prefs || {}) };
+  try {
+    d.prepare(`
+      INSERT INTO notification_preferences (user_id, preferences_json, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        preferences_json = excluded.preferences_json,
+        updated_at = excluded.updated_at
+    `).run(userId, JSON.stringify(updated), now);
+    return updated;
+  } catch (err) {
+    console.error('saveNotificationPreferences error:', err.message);
+    return updated;
+  }
 }

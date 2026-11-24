@@ -10,6 +10,15 @@ import { exportDailyReportPdf } from '../lib/exportDailyReportPdf.js'
 import { cardioSheet, confirmSheet } from '../sheets.jsx'
 import { EXIDX } from '../lib/exercises.js'
 import {
+  AddDietPlanPdfModal,
+  MyDietPlansView,
+  MyNutritionGoalsView,
+  CheatMealModal,
+  AvailableFoodsModal,
+  NutritionNotificationsModal
+} from './DietPlanModals.jsx'
+import DailyMealTracker from '../components/DailyMealTracker.jsx'
+import {
   RepeatPreviousMealModal,
   SaveAsMyMealModal,
   MySavedMealsModal,
@@ -56,7 +65,50 @@ export default function Nutrition() {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const { openSheet, toast } = useUI()
-  const [activeTab, setActiveTab] = useState('log') // 'log' | 'coach' | 'saved'
+  const [activeTab, setActiveTab] = useState('today_plan') // 'today_plan' | 'log' | 'diet_plans' | 'goals' | 'coach' | 'saved'
+
+  const handleOpenAddDietPdf = () => {
+    openSheet(close => (
+      <AddDietPlanPdfModal
+        onPlanSaved={() => {
+          loadData()
+          setActiveTab('today_plan')
+        }}
+        close={close}
+        toast={toast}
+      />
+    ))
+  }
+
+  const handleOpenCheatMeal = () => {
+    openSheet(close => (
+      <CheatMealModal
+        onLogged={() => {
+          loadData()
+        }}
+        close={close}
+        toast={toast}
+      />
+    ))
+  }
+
+  const handleOpenAvailableFoods = () => {
+    openSheet(close => (
+      <AvailableFoodsModal
+        close={close}
+        toast={toast}
+      />
+    ))
+  }
+
+  const handleOpenNotificationsConfig = () => {
+    openSheet(close => (
+      <NutritionNotificationsModal
+        close={close}
+        toast={toast}
+      />
+    ))
+  }
 
   const userCalorieTarget = Number(S?.nutritionTargets?.calorie || S?.nutritionTargets?.calories || user?.calorie_target || user?.nutritionTargets?.calorie) || 1900
 
@@ -883,38 +935,139 @@ export default function Nutrition() {
         </Button>
       </div>
 
-      {/* View Switcher: Daily Log, IRONX AI, Saved Meals & Recipes */}
+      {/* Quick Action Bar for PDF Import, Cheat Meal, Pantry, Notifications */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className="btn small primary"
+          onClick={handleOpenAddDietPdf}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, borderRadius: 9999, padding: '6px 14px' }}
+        >
+          <Icon name="upload" />
+          {t('+ Add Diet Plan PDF')}
+        </button>
+        <button
+          type="button"
+          className="btn small"
+          onClick={handleOpenCheatMeal}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, borderRadius: 9999, padding: '6px 14px', color: '#EAB308' }}
+        >
+          ★ {t('+ Cheat Meal')}
+        </button>
+        <button
+          type="button"
+          className="btn small"
+          onClick={handleOpenAvailableFoods}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, borderRadius: 9999, padding: '6px 14px' }}
+        >
+          🥫 {t('Pantry Foods')}
+        </button>
+        <button
+          type="button"
+          className="btn small"
+          onClick={handleOpenNotificationsConfig}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, borderRadius: 9999, padding: '6px 14px' }}
+        >
+          🔔 {t('Notifications')}
+        </button>
+      </div>
+
+      {/* View Switcher: Today's Plan, Daily Log, My Diet Plans, Nutrition Goals, Food Database, Saved Meals */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 10, overflowX: 'auto' }}>
+        <button
+          type="button"
+          className={`btn small ${activeTab === 'today_plan' ? 'primary' : ''}`}
+          onClick={() => setActiveTab('today_plan')}
+          style={{ fontWeight: 700, borderRadius: 9999, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+        >
+          <Icon name="calendar" />
+          {t("Today's Plan")}
+        </button>
         <button
           type="button"
           className={`btn small ${activeTab === 'log' ? 'primary' : ''}`}
           onClick={() => setActiveTab('log')}
-          style={{ fontWeight: 700, borderRadius: 9999, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
+          style={{ fontWeight: 700, borderRadius: 9999, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
         >
           <Icon name="apple" />
           {t("Daily Log")}
         </button>
         <button
           type="button"
+          className={`btn small ${activeTab === 'diet_plans' ? 'primary' : ''}`}
+          onClick={() => setActiveTab('diet_plans')}
+          style={{ fontWeight: 700, borderRadius: 9999, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+        >
+          <Icon name="file" />
+          {t("My Diet Plans")}
+        </button>
+        <button
+          type="button"
+          className={`btn small ${activeTab === 'goals' ? 'primary' : ''}`}
+          onClick={() => setActiveTab('goals')}
+          style={{ fontWeight: 700, borderRadius: 9999, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+        >
+          <Icon name="target" />
+          {t("My Nutrition Goals")}
+        </button>
+        <button
+          type="button"
           className={`btn small ${activeTab === 'coach' ? 'primary' : ''}`}
           onClick={() => setActiveTab('coach')}
-          style={{ fontWeight: 700, borderRadius: 9999, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
+          style={{ fontWeight: 700, borderRadius: 9999, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
         >
-          <Icon name="apple" />
+          <Icon name="search" />
           {t("Food Database")}
         </button>
         <button
           type="button"
           className={`btn small ${activeTab === 'saved' ? 'primary' : ''}`}
           onClick={handleOpenMySavedMeals}
-          style={{ fontWeight: 700, borderRadius: 9999, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
+          style={{ fontWeight: 700, borderRadius: 9999, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
         >
           <Icon name="bookmark" />
           {t("My Saved Meals")}
         </button>
       </div>
 
-      {activeTab === 'coach' ? (
+      {activeTab === 'today_plan' ? (
+        <DailyMealTracker
+          date={date}
+          onOpenAddPdf={handleOpenAddDietPdf}
+          onOpenGoals={() => setActiveTab('goals')}
+          onOpenCheatMeal={handleOpenCheatMeal}
+          onOpenAvailableFoods={handleOpenAvailableFoods}
+          onMealStatusChanged={loadData}
+          toast={toast}
+        />
+      ) : activeTab === 'diet_plans' ? (
+        <MyDietPlansView
+          onOpenAddPdf={handleOpenAddDietPdf}
+          onApplyPlanToToday={(planId) => {
+            api('/api/nutrition/daily-plan/apply', {
+              method: 'POST',
+              body: { date, plan_id: planId }
+            }).then(() => {
+              if (toast) toast('Applied diet plan to today!', 'success')
+              setActiveTab('today_plan')
+              loadData()
+            }).catch(e => {
+              if (toast) toast('Apply error: ' + e.message, 'error')
+            })
+          }}
+          toast={toast}
+        />
+      ) : activeTab === 'goals' ? (
+        <MyNutritionGoalsView
+          toast={toast}
+          onTargetsSaved={(targets) => {
+            if (targets?.calorie_target) {
+              useStore.getState().setNutritionTargets(targets)
+            }
+            loadData()
+          }}
+        />
+      ) : activeTab === 'coach' ? (
         <AICoachView
           user={user}
           foods={foods}

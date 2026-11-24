@@ -7,7 +7,27 @@
 
 import crypto from 'node:crypto';
 import { getMongoDb } from '../db/mongo.js';
+import { extractTextFromPdf, parseDietPlanText } from './pdf_importer.js';
+import { calculateNutritionTargets, calculateMealPlanComparison, calculateCheatMealImpact } from './planner.js';
 import {
+  getSavedDietPlans,
+  getSavedDietPlanById,
+  saveSavedDietPlan,
+  deleteSavedDietPlan,
+  setActiveDietPlan,
+  getDailyMealPlan,
+  saveDailyMealPlan,
+  updateDailyMealItem,
+  toggleDailyMealStatus,
+  getUserNutritionGoals,
+  saveUserNutritionGoals,
+  getUserAvailableFoods,
+  saveUserAvailableFoods,
+  getCheatMealLogs,
+  addCheatMealLog,
+  deleteCheatMealLog,
+  getNotificationPreferences,
+  saveNotificationPreferences,
   searchFoods,
   getFoodById,
   getRecipeIngredients,
@@ -1315,6 +1335,738 @@ export function nutritionRoutes({ json, readBody, readSession }) {
           cookedBatchWeightG
         });
         json(res, 200, { ok: true, calculation });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ==================== MODULE 1: PDF DIET PLAN IMPORTER ==================== */
+    'POST /api/nutrition/pdf/parse': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      try {
+        const body = await readBody(req);
+        let text = body.text || '';
+
+        if (!text && body.pdfBase64) {
+          const pdfBuffer = Buffer.from(body.pdfBase64, 'base64');
+          text = await extractTextFromPdf(pdfBuffer);
+        }
+
+        if (!text || text.trim().length === 0) {
+          return json(res, 400, { error: 'No text or valid PDF document could be extracted' });
+        }
+
+        const parsedPlan = parseDietPlanText(text);
+        json(res, 200, { ok: true, ...parsedPlan });
+      } catch (err) {
+        console.error('PDF parse error:', err);
+        json(res, 500, { error: err.message || 'Failed to parse diet plan PDF' });
+      }
+    },
+
+    /* ==================== MODULE 2: SAVED DIET PLANS ==================== */
+    'GET /api/nutrition/plans': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      try {
+        const plans = getSavedDietPlans(user.id);
+        json(res, 200, { ok: true, plans });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'GET /api/nutrition/plans/item': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const url = new URL(req.url, 'http://x');
+      const id = url.searchParams.get('id');
+      if (!id) return json(res, 400, { error: 'Plan id is required' });
+
+      try {
+        const plan = getSavedDietPlanById(id, user.id);
+        if (!plan) return json(res, 404, { error: 'Diet plan not found' });
+        json(res, 200, { ok: true, plan });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/plans/save': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      if (!body.name || !body.meals) {
+        return json(res, 400, { error: 'Plan name and meals are required' });
+      }
+
+      const id = body.id || genId();
+      const plan = {
+        id,
+        user_id: user.id,
+        name: String(body.name).trim(),
+        is_active: Boolean(body.is_active),
+        meals: body.meals,
+        source_pdf_name: body.source_pdf_name ? String(body.source_pdf_name).trim() : null,
+        created_at: body.created_at || new Date().toISOString()
+      };
+
+      try {
+        const saved = saveSavedDietPlan(plan);
+
+        // MongoDB sync
+        if (process.env.MONGODB_URI) {
+          try {
+            const mongo = await getMongoDb();
+            if (mongo) {
+              await mongo.collection('saved_diet_plans').updateOne(
+                { id: saved.id, user_id: user.id },
+                { $set: { ...saved, updatedAt: new Date().toISOString() } },
+                { upsert: true }
+              );
+            }
+          } catch (e) {
+            console.error('Mongo saved_diet_plans sync error:', e.message);
+          }
+        }
+
+        json(res, 200, { ok: true, plan: saved });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/plans/active': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      if (!body.id) return json(res, 400, { error: 'Plan id is required' });
+
+      try {
+        const ok = setActiveDietPlan(body.id, user.id);
+        if (!ok) return json(res, 404, { error: 'Diet plan not found' });
+        json(res, 200, { ok: true });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/plans/duplicate': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      if (!body.id) return json(res, 400, { error: 'Plan id is required' });
+
+      try {
+        const existing = getSavedDietPlanById(body.id, user.id);
+        if (!existing) return json(res, 404, { error: 'Diet plan not found' });
+
+        const copyPlan = {
+          id: genId(),
+          user_id: user.id,
+          name: existing.name + ' (Copy)',
+          is_active: false,
+          meals: existing.meals,
+          source_pdf_name: existing.source_pdf_name,
+          created_at: new Date().toISOString()
+        };
+
+        const saved = saveSavedDietPlan(copyPlan);
+        json(res, 200, { ok: true, plan: saved });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/plans/delete': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      if (!body.id) return json(res, 400, { error: 'Plan id is required' });
+
+      try {
+        deleteSavedDietPlan(body.id, user.id);
+        if (process.env.MONGODB_URI) {
+          try {
+            const mongo = await getMongoDb();
+            if (mongo) {
+              await mongo.collection('saved_diet_plans').deleteOne({ id: body.id, user_id: user.id });
+            }
+          } catch {}
+        }
+        json(res, 200, { ok: true });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ==================== MODULE 3: DAILY HOME PAGE MEAL TRACKER ==================== */
+    'GET /api/nutrition/daily-plan': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const url = new URL(req.url, 'http://x');
+      const date = url.searchParams.get('date') || new Date().toISOString().slice(0, 10);
+
+      try {
+        let dailyPlan = getDailyMealPlan(user.id, date);
+        if (!dailyPlan) {
+          // If no daily plan seeded yet for today, seed from active saved plan if exists
+          const plans = getSavedDietPlans(user.id);
+          const active = plans.find(p => p.is_active) || (plans.length > 0 ? plans[0] : null);
+          dailyPlan = {
+            id: genId(),
+            user_id: user.id,
+            date,
+            plan_id: active ? active.id : null,
+            meals: active ? JSON.parse(JSON.stringify(active.meals)) : { breakfast: [], lunch: [], snacks: [], dinner: [] },
+            status: { breakfast: 'not_done', lunch: 'not_done', snacks: 'not_done', dinner: 'not_done' }
+          };
+          saveDailyMealPlan(dailyPlan);
+        }
+
+        const actualConsumed = getMealLogs(user.id, date);
+        const goals = getUserNutritionGoals(user.id) || {};
+        const availableFoods = getUserAvailableFoods(user.id);
+
+        const comparison = calculateMealPlanComparison({
+          plannedMeals: dailyPlan.meals,
+          consumedMeals: actualConsumed,
+          goals: goals.custom_targets || goals.calculated_targets || { calorie_target: 2000, protein_target: 140 },
+          availableFoods,
+          dietaryRestrictions: goals.profile?.dietary_restrictions || []
+        });
+
+        json(res, 200, {
+          ok: true,
+          date,
+          dailyPlan,
+          actualConsumed,
+          comparison
+        });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/daily-plan/apply': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      const date = body.date || new Date().toISOString().slice(0, 10);
+      const planId = body.plan_id;
+
+      if (!planId) return json(res, 400, { error: 'plan_id is required' });
+
+      try {
+        const plan = getSavedDietPlanById(planId, user.id);
+        if (!plan) return json(res, 404, { error: 'Saved plan not found' });
+
+        const dailyPlan = {
+          id: genId(),
+          user_id: user.id,
+          date,
+          plan_id: plan.id,
+          meals: JSON.parse(JSON.stringify(plan.meals)),
+          status: { breakfast: 'not_done', lunch: 'not_done', snacks: 'not_done', dinner: 'not_done' }
+        };
+
+        const saved = saveDailyMealPlan(dailyPlan);
+        json(res, 200, { ok: true, dailyPlan: saved });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/daily-plan/update-item': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      const date = body.date || new Date().toISOString().slice(0, 10);
+      const mealType = body.meal_type;
+      const itemId = body.item_id;
+      const updates = body.updates || {};
+
+      if (!mealType || !itemId) {
+        return json(res, 400, { error: 'meal_type and item_id are required' });
+      }
+
+      try {
+        // Updates only today's daily meal plan! Saved template remains untouched.
+        const updated = updateDailyMealItem(user.id, date, mealType, itemId, updates);
+        if (!updated) return json(res, 404, { error: 'Item or plan not found' });
+        json(res, 200, { ok: true, dailyPlan: updated });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/daily-plan/toggle-status': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      const date = body.date || new Date().toISOString().slice(0, 10);
+      const mealType = String(body.meal_type || '').toLowerCase();
+      const status = body.status; // 'not_done' | 'partially_completed' | 'completed'
+
+      if (!mealType || !status) {
+        return json(res, 400, { error: 'meal_type and status are required' });
+      }
+
+      try {
+        const updated = toggleDailyMealStatus(user.id, date, mealType, status);
+
+        // When a meal is marked completed, synchronize its active (non-removed) foods into actual meal_logs!
+        if (status === 'completed' && updated?.meals?.[mealType]) {
+          const activeItems = updated.meals[mealType].filter(i => !i.removed);
+          for (const item of activeItems) {
+            const entryId = 'cmeal_' + item.id + '_' + date;
+            const logEntry = {
+              id: entryId,
+              user_id: user.id,
+              date,
+              meal_type: mealType,
+              food_id: item.food_id || null,
+              food_name: item.food_name,
+              serving_quantity: Number(item.serving_quantity) || 1,
+              serving_unit: item.serving_unit || 'g',
+              serving_grams: Number(item.serving_grams) || 100,
+              energy_kcal: Number(item.energy_kcal) || 0,
+              protein_g: Number(item.protein_g) || 0,
+              carb_g: Number(item.carb_g) || 0,
+              fat_g: Number(item.fat_g) || 0,
+              fibre_g: Number(item.fibre_g) || 0,
+              notes: 'Logged from Daily Meal Plan',
+              created_at: new Date().toISOString()
+            };
+            addMealLog(logEntry);
+          }
+        } else if (status === 'not_done' && updated?.meals?.[mealType]) {
+          // If reverted to not done, clear corresponding completed meal logs
+          const activeItems = updated.meals[mealType];
+          for (const item of activeItems) {
+            const entryId = 'cmeal_' + item.id + '_' + date;
+            deleteMealLog(entryId, user.id);
+          }
+        }
+
+        json(res, 200, { ok: true, dailyPlan: updated });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ==================== MODULE 4: MY NUTRITION GOALS ==================== */
+    'GET /api/nutrition/goals': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      try {
+        const goals = getUserNutritionGoals(user.id);
+        json(res, 200, { ok: true, goals });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/goals/calculate': async (req, res) => {
+      const body = await readBody(req);
+      try {
+        const calculated = calculateNutritionTargets(body.profile || body);
+        json(res, 200, { ok: true, calculated_targets: calculated });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/goals/save': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      const profile = body.profile || {};
+      const customTargets = body.custom_targets || null;
+
+      try {
+        const calculated = calculateNutritionTargets(profile);
+        const goalsData = {
+          profile,
+          calculated_targets: calculated,
+          custom_targets: customTargets
+        };
+
+        const saved = saveUserNutritionGoals(user.id, goalsData);
+
+        // Update daily health settings calorie target
+        const activeCalorieTarget = customTargets?.calorie_target || calculated.calorie_target;
+        setDailyHealthSettings(user.id, { calorie_target: activeCalorieTarget });
+
+        // MongoDB sync
+        if (process.env.MONGODB_URI) {
+          try {
+            const mongo = await getMongoDb();
+            if (mongo) {
+              await mongo.collection('user_nutrition_goals').updateOne(
+                { user_id: user.id },
+                { $set: { ...saved, updatedAt: new Date().toISOString() } },
+                { upsert: true }
+              );
+            }
+          } catch (e) {
+            console.error('Mongo user_nutrition_goals sync error:', e.message);
+          }
+        }
+
+        json(res, 200, { ok: true, goals: saved });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ==================== MODULE 5: MEAL PLAN VS GOAL RECOMMENDATIONS ==================== */
+    'GET /api/nutrition/recommendations': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const url = new URL(req.url, 'http://x');
+      const date = url.searchParams.get('date') || new Date().toISOString().slice(0, 10);
+
+      try {
+        const dailyPlan = getDailyMealPlan(user.id, date) || { meals: {} };
+        const consumedMeals = getMealLogs(user.id, date);
+        const goals = getUserNutritionGoals(user.id) || {};
+        const availableFoods = getUserAvailableFoods(user.id);
+
+        const comparison = calculateMealPlanComparison({
+          plannedMeals: dailyPlan.meals,
+          consumedMeals,
+          goals: goals.custom_targets || goals.calculated_targets || { calorie_target: 2000, protein_target: 140 },
+          availableFoods,
+          dietaryRestrictions: goals.profile?.dietary_restrictions || []
+        });
+
+        json(res, 200, { ok: true, ...comparison });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ==================== MODULE 5: USER AVAILABLE FOODS ==================== */
+    'GET /api/nutrition/available-foods': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      try {
+        const items = getUserAvailableFoods(user.id);
+        json(res, 200, { ok: true, items });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/available-foods': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      const items = Array.isArray(body.items) ? body.items : (Array.isArray(body.foods) ? body.foods : []);
+
+      try {
+        const saved = saveUserAvailableFoods(user.id, items);
+        if (process.env.MONGODB_URI) {
+          try {
+            const mongo = await getMongoDb();
+            if (mongo) {
+              await mongo.collection('user_available_foods').updateOne(
+                { user_id: user.id },
+                { $set: { foods: saved, updatedAt: new Date().toISOString() } },
+                { upsert: true }
+              );
+            }
+          } catch {}
+        }
+        json(res, 200, { ok: true, items: saved });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ==================== MODULE 6: CHEAT MEAL TRACKER ==================== */
+    'GET /api/nutrition/cheat-meals': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const url = new URL(req.url, 'http://x');
+      const date = url.searchParams.get('date');
+
+      try {
+        const cheatMeals = getCheatMealLogs(user.id, date);
+        json(res, 200, { ok: true, cheatMeals });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/cheat-meals/save': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      if (!body.food_name || !body.date) {
+        return json(res, 400, { error: 'food_name and date are required' });
+      }
+
+      const id = body.id || genId();
+      let energyKcal = Number(body.energy_kcal != null ? body.energy_kcal : (body.calories != null ? body.calories : 0));
+      let proteinG = Number(body.protein_g != null ? body.protein_g : (body.protein != null ? body.protein : 0));
+      let carbG = Number(body.carb_g != null ? body.carb_g : (body.carb != null ? body.carb : (body.carbs != null ? body.carbs : 0)));
+      let fatG = Number(body.fat_g != null ? body.fat_g : (body.fat != null ? body.fat : 0));
+      let fibreG = Number(body.fibre_g != null ? body.fibre_g : (body.fibre != null ? body.fibre : 0));
+      let servingGrams = Number(body.serving_grams || body.grams) || 100;
+
+      // Auto-lookup in verified dataset if macros not provided
+      if (!energyKcal && body.food_name) {
+        const matches = searchFoods(body.food_name, 1);
+        if (matches && matches.length > 0) {
+          const f = matches[0];
+          const factor = servingGrams / (f.serving_basis_g || 100);
+          energyKcal = Math.round((Number(f.energy_kcal) * factor) * 10) / 10;
+          proteinG = Math.round((Number(f.protein_g) * factor) * 10) / 10;
+          carbG = Math.round((Number(f.carb_g) * factor) * 10) / 10;
+          fatG = Math.round((Number(f.fat_g) * factor) * 10) / 10;
+          fibreG = Math.round((Number(f.fibre_g) * factor) * 10) / 10;
+        }
+      }
+
+      const entry = {
+        id,
+        user_id: user.id,
+        date: String(body.date).slice(0, 10),
+        food_name: String(body.food_name).trim(),
+        serving_quantity: Number(body.serving_quantity) || 1,
+        serving_unit: body.serving_unit || 'serving',
+        serving_grams: servingGrams,
+        energy_kcal: energyKcal,
+        protein_g: proteinG,
+        carb_g: carbG,
+        fat_g: fatG,
+        fibre_g: fibreG,
+        notes: body.notes ? String(body.notes).trim() : 'Cheat Meal / Extra Intake',
+        created_at: new Date().toISOString()
+      };
+
+      try {
+        const saved = addCheatMealLog(entry);
+
+        // Also add to actual consumption in meal_logs so daily totals include it!
+        const logEntry = {
+          id: 'cheat_log_' + entry.id,
+          user_id: user.id,
+          date: entry.date,
+          meal_type: 'snacks',
+          food_id: null,
+          food_name: '★ Extra / Cheat: ' + entry.food_name,
+          serving_quantity: entry.serving_quantity,
+          serving_unit: entry.serving_unit,
+          serving_grams: entry.serving_grams,
+          energy_kcal: entry.energy_kcal,
+          protein_g: entry.protein_g,
+          carb_g: entry.carb_g,
+          fat_g: entry.fat_g,
+          fibre_g: entry.fibre_g,
+          notes: entry.notes,
+          created_at: entry.created_at
+        };
+        addMealLog(logEntry);
+
+        // Calculate impact
+        const currentTotals = { calories_consumed: 0 };
+        const dayMeals = getMealLogs(user.id, entry.date);
+        dayMeals.forEach(m => { currentTotals.calories_consumed += Number(m.energy_kcal) || 0; });
+        const goals = getUserNutritionGoals(user.id);
+        const target = goals?.custom_targets?.calorie_target || goals?.calculated_targets?.calorie_target || 2000;
+
+        const impact = calculateCheatMealImpact(entry, currentTotals, target);
+
+        // MongoDB sync
+        if (process.env.MONGODB_URI) {
+          try {
+            const mongo = await getMongoDb();
+            if (mongo) {
+              await mongo.collection('cheat_meal_logs').updateOne(
+                { id: entry.id, user_id: user.id },
+                { $set: { ...entry, updatedAt: new Date().toISOString() } },
+                { upsert: true }
+              );
+            }
+          } catch {}
+        }
+
+        json(res, 201, { ok: true, cheatMeal: saved, impact });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/cheat-meals/delete': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      if (!body.id) return json(res, 400, { error: 'Cheat meal id is required' });
+
+      try {
+        deleteCheatMealLog(body.id, user.id);
+        deleteMealLog('cheat_log_' + body.id, user.id);
+
+        if (process.env.MONGODB_URI) {
+          try {
+            const mongo = await getMongoDb();
+            if (mongo) {
+              await mongo.collection('cheat_meal_logs').deleteOne({ id: body.id, user_id: user.id });
+            }
+          } catch {}
+        }
+
+        json(res, 200, { ok: true });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ==================== MODULE 7: NUTRITION NOTIFICATIONS ==================== */
+    'GET /api/nutrition/notifications/config': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      try {
+        const preferences = getNotificationPreferences(user.id);
+        json(res, 200, { ok: true, preferences });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/notifications/config': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      try {
+        const updated = saveNotificationPreferences(user.id, body.preferences || body);
+        json(res, 200, { ok: true, preferences: updated });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'GET /api/nutrition/notifications/check': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+
+      const url = new URL(req.url, 'http://x');
+      const date = url.searchParams.get('date') || new Date().toISOString().slice(0, 10);
+
+      try {
+        const prefs = getNotificationPreferences(user.id);
+        const dailyPlan = getDailyMealPlan(user.id, date);
+        const consumed = getMealLogs(user.id, date);
+        const goals = getUserNutritionGoals(user.id) || {};
+        const targetKcal = goals.custom_targets?.calorie_target || goals.calculated_targets?.calorie_target || 2000;
+        const targetProtein = goals.custom_targets?.protein_target || goals.calculated_targets?.protein_target || 140;
+
+        let totalConsumedKcal = 0;
+        let totalConsumedProtein = 0;
+        consumed.forEach(c => {
+          totalConsumedKcal += Number(c.energy_kcal) || 0;
+          totalConsumedProtein += Number(c.protein_g) || 0;
+        });
+
+        const notifications = [];
+        const nowHour = new Date().getHours();
+
+        // Check meal completion status
+        const status = dailyPlan?.status || {};
+
+        if (prefs.remind_breakfast && status.breakfast !== 'completed' && nowHour >= 10) {
+          notifications.push({
+            id: 'notif_breakfast_' + date,
+            type: 'meal_reminder',
+            meal: 'breakfast',
+            title: 'Breakfast Pending',
+            message: 'You have not marked Breakfast as completed for today.',
+            severity: 'info'
+          });
+        }
+
+        if (prefs.remind_lunch && status.lunch !== 'completed' && nowHour >= 14) {
+          notifications.push({
+            id: 'notif_lunch_' + date,
+            type: 'meal_reminder',
+            meal: 'lunch',
+            title: 'Lunch Pending',
+            message: 'You have not marked Lunch as completed for today.',
+            severity: 'info'
+          });
+        }
+
+        if (prefs.remind_dinner && status.dinner !== 'completed' && nowHour >= 21) {
+          notifications.push({
+            id: 'notif_dinner_' + date,
+            type: 'meal_reminder',
+            meal: 'dinner',
+            title: 'Dinner Pending',
+            message: 'You have not marked Dinner as completed for today.',
+            severity: 'info'
+          });
+        }
+
+        // Calorie goal alerts
+        if (prefs.alert_calorie_goal && totalConsumedKcal >= targetKcal && totalConsumedKcal <= targetKcal + 100) {
+          notifications.push({
+            id: 'notif_calorie_reached_' + date,
+            type: 'goal_reached',
+            title: 'Daily Calorie Goal Reached',
+            message: `You have hit your daily calorie target (${Math.round(totalConsumedKcal)} / ${targetKcal} kcal)!`,
+            severity: 'success'
+          });
+        }
+
+        if (prefs.alert_calorie_above && totalConsumedKcal > targetKcal + 100) {
+          notifications.push({
+            id: 'notif_calorie_above_' + date,
+            type: 'calorie_above',
+            title: 'Intake Above Target',
+            message: `Today's intake (${Math.round(totalConsumedKcal)} kcal) is above your target (${targetKcal} kcal). Return to your normal plan tomorrow.`,
+            severity: 'warning'
+          });
+        }
+
+        if (prefs.alert_protein_target && totalConsumedProtein < targetProtein && (nowHour >= 19 || totalConsumedKcal >= targetKcal * 0.8)) {
+          const proteinShort = Math.round(targetProtein - totalConsumedProtein);
+          if (proteinShort > 15) {
+            notifications.push({
+              id: 'notif_protein_short_' + date,
+              type: 'protein_target',
+              title: 'Protein Target Pending',
+              message: `You are ${proteinShort}g short of your daily protein goal (${Math.round(totalConsumedProtein)}/${targetProtein}g).`,
+              severity: 'info'
+            });
+          }
+        }
+
+        json(res, 200, { ok: true, notifications });
       } catch (err) {
         json(res, 500, { error: err.message });
       }

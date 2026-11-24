@@ -19,6 +19,7 @@ import {
 } from '../lib/customPlanner.js'
 import { unlockAudio } from '../lib/sound.js'
 import MuscleBalanceChart from '../components/MuscleBalanceChart.jsx'
+import DailyMealTracker from '../components/DailyMealTracker.jsx'
 
 /**
  * WidgetBoundary isolates failures in individual dashboard sections
@@ -671,11 +672,19 @@ export default function Home() {
         </div>
       </div>
 
-      {coachOn && (
-        <WidgetBoundary title={t('AI Coach')}>
-          <CoachCard nav={nav} />
-        </WidgetBoundary>
-      )}
+      {/* Daily Meal Tracker (Breakfast, Lunch, Snacks, Dinner) */}
+      <WidgetBoundary title={t('Daily Meal Tracker')}>
+        <div style={{ marginBottom: 18 }}>
+          <DailyMealTracker
+            date={todayISO()}
+            onOpenAddPdf={() => nav('/nutrition')}
+            onOpenGoals={() => nav('/nutrition')}
+            onOpenCheatMeal={() => nav('/nutrition')}
+            onOpenAvailableFoods={() => nav('/nutrition')}
+            toast={(msg, type) => {}}
+          />
+        </div>
+      </WidgetBoundary>
 
       {/* 2. Today's Schedule / Session (Full-width Hero Card) */}
       <WidgetBoundary title={t('Workout')}>
