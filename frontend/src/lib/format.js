@@ -28,7 +28,7 @@ export const fmtNum = n => (Math.round(n * 10) / 10).toLocaleString(dateLocale()
 // Volume stays in the profile's unit throughout: the old shorthand turned anything over
 // 10 000 into "t", which is wrong for a pound profile and made one list mix "18.8t" with
 // "7'535 kg" — two numbers you can't compare at a glance.
-export const fmtVol = (v, unit) => fmtNum(v) + ' ' + unit
+export const fmtVol = (v, unit = 'kg') => fmtNum(v || 0) + ' ' + (unit || 'kg')
 // Plural forms are not automatic when the English string is the key.
 export const exCount = n => t(n === 1 ? '{0} exercise' : '{0} exercises', n)
 

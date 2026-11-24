@@ -119,18 +119,12 @@ function Shell() {
         <main className="layout-main">
           {authed && (
             <header className="mobile-header-bar" role="banner">
-              <button
-                className="mobile-header-btn"
-                onClick={() => setMobileDrawerOpen(true)}
-                aria-label={t('Open navigation menu')}
-              >
-                <Icon name="bars" />
-              </button>
-              <div className="mobile-header-brand" onClick={() => navigate('/home')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', background: 'transparent', border: 'none', boxShadow: 'none' }}>
+              <div className="mobile-header-left" style={{ width: 38, minWidth: 38, display: 'flex', alignItems: 'center' }} />
+              <div className="mobile-header-brand" onClick={() => navigate('/home')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flex: 1, background: 'transparent', border: 'none', boxShadow: 'none' }}>
                 <IronXLogo size={28} />
-                <span className="sidebar-brand-title" style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '0.04em', color: 'var(--label)' }}>IRONX</span>
+                <span className="sidebar-brand-title" style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '0.04em', color: '#FFFFFF' }}>IRONX</span>
               </div>
-              <div className="mobile-header-actions">
+              <div className="mobile-header-actions" style={{ minWidth: 38, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                 {S.active ? (
                   <button
                     className="mobile-header-active-pill"

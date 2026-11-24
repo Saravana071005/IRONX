@@ -28,8 +28,9 @@ describe('MuscleBalanceChart & Anatomical Muscle Body Map', () => {
     expect(html).toContain('Anterior (Front)')
     expect(html).toContain('Posterior (Back)')
     expect(html).toContain('bodymap')
-    expect(html).toContain('Anterior / Front Muscles')
-    expect(html).toContain('Posterior / Back Muscles')
+    // Textual list chips below the chart are removed per UI cleanup specification
+    expect(html).not.toContain('Anterior / Front Muscles')
+    expect(html).not.toContain('Posterior / Back Muscles')
   })
 
   it('accurately maps standard exercises to primary and secondary muscle groups', () => {
@@ -121,8 +122,8 @@ describe('MuscleBalanceChart & Anatomical Muscle Body Map', () => {
     expect(html).toContain('Muscle Groups Stimulated')
     expect(html).toContain('Anterior (Front)')
     expect(html).toContain('Posterior (Back)')
-    expect(html).toContain('Anterior / Front Muscles')
-    expect(html).toContain('Posterior / Back Muscles')
+    expect(html).not.toContain('Anterior / Front Muscles')
+    expect(html).not.toContain('Posterior / Back Muscles')
   })
 
   it('correctly handles ISO timestamps in workout dates without dropping entries', () => {

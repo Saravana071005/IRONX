@@ -4,7 +4,7 @@ import { useStore, getHealthStorageKey } from '../store/useStore.js'
 import { effectiveRoutine, effectiveRoutineId, streakWeeks, lastBW } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
-import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, bwDeltaColor, cardioSheet } from '../sheets.jsx'
+import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, bwDeltaColor, cardioSheet, weightProgressSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
@@ -19,7 +19,7 @@ import {
 } from '../lib/customPlanner.js'
 import { unlockAudio } from '../lib/sound.js'
 import MuscleBalanceChart from '../components/MuscleBalanceChart.jsx'
-import DailyMealTracker from '../components/DailyMealTracker.jsx'
+import HomeMealTracker from '../components/HomeMealTracker.jsx'
 
 /**
  * WidgetBoundary isolates failures in individual dashboard sections
@@ -132,7 +132,7 @@ function CoachCard({ nav }) {
           </div>
         </div>
         {ready ? (
-          <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 9999, background: '#10B981', color: '#0F1115', fontWeight: 700 }}>
+          <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 9999, background: '#FFFFFF', color: '#09090B', fontWeight: 700 }}>
             {t('Review')}
           </span>
         ) : (
@@ -173,6 +173,15 @@ export default function Home() {
     ? Number((bw.w - prevBW.w).toFixed(1))
     : null
   const deltaFormatted = delta !== null ? (delta > 0 ? `+${delta.toFixed(1)}` : `${delta.toFixed(1)}`) : null
+
+  const allBW = (S?.bodyweight || []).slice().sort((a, b) => (a.d < b.d ? -1 : (a.d > b.d ? 1 : 0)))
+  const firstBW = allBW.length > 0 ? allBW[0] : null
+  const totalWeightDelta = (allBW.length > 1 && firstBW && bw)
+    ? Number((bw.w - firstBW.w).toFixed(1))
+    : null
+  const progressDisplay = totalWeightDelta !== null
+    ? (totalWeightDelta > 0 ? `+${totalWeightDelta} ${weightUnit}` : `${totalWeightDelta} ${weightUnit}`)
+    : (hasBW ? `${currentWeightVal} ${weightUnit}` : '—')
 
   // Read today's scheduled workout from weekly planner
   const todayScheduled = useMemo(() => {
@@ -466,8 +475,8 @@ export default function Home() {
                 width: 6,
                 height: 6,
                 borderRadius: '50%',
-                background: '#10B981',
-                boxShadow: '0 0 6px #10B981'
+                background: '#FFFFFF',
+                boxShadow: '0 0 6px #FFFFFF'
               }}
             />
           </button>
@@ -499,11 +508,11 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 2. Metric Summary Strip (Liquid Glass 4-Pill Row from Reference) */}
+      {/* Metric Summary Strip (Strict 3-Pill Row: Day Streak, Workouts, Progress) */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
+          gridTemplateColumns: 'repeat(3, 1fr)',
           gap: 8,
           marginBottom: 16
         }}
@@ -514,12 +523,10 @@ export default function Home() {
           className="card"
           style={{
             padding: '12px 6px',
-            borderRadius: 16,
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.10)',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.14)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
+            borderRadius: 14,
+            background: '#1C1C20',
+            border: '1px solid #303036',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -528,13 +535,13 @@ export default function Home() {
             gap: 2
           }}
         >
-          <div style={{ color: '#F5F5F5', marginBottom: 2 }}>
+          <div style={{ color: '#FFFFFF', marginBottom: 2 }}>
             <Icon name="flame" size={17} />
           </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#F5F5F5', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
-            {streakCount > 0 ? streakCount : 3}
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+            {streakCount > 0 ? streakCount : 0}
           </span>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#A5A5A5', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#A1A1AA', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
             {t('Day Streak')}
           </span>
         </div>
@@ -544,12 +551,10 @@ export default function Home() {
           className="card"
           style={{
             padding: '12px 6px',
-            borderRadius: 16,
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.10)',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.14)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
+            borderRadius: 14,
+            background: '#1C1C20',
+            border: '1px solid #303036',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -558,135 +563,52 @@ export default function Home() {
             gap: 2
           }}
         >
-          <div style={{ color: '#F5F5F5', marginBottom: 2 }}>
+          <div style={{ color: '#FFFFFF', marginBottom: 2 }}>
             <Icon name="dumbbell" size={17} />
           </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#F5F5F5', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
-            {wThisWeek > 0 ? wThisWeek : (S?.workouts?.length || 12)}
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+            {wThisWeek > 0 ? wThisWeek : (S?.workouts?.length || 0)}
           </span>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#A5A5A5', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#A1A1AA', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
             {t('Workouts')}
           </span>
         </div>
 
-        {/* Pill 3: Progress */}
+        {/* Pill 3: Progress (Clickable -> WeightProgressModal) */}
         <div
           className="card"
+          onClick={() => weightProgressSheet()}
+          role="button"
+          tabIndex={0}
+          title={t('View and log body weight progress')}
           style={{
             padding: '12px 6px',
-            borderRadius: 16,
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.10)',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.14)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
+            borderRadius: 14,
+            background: '#1C1C20',
+            border: '1px solid #303036',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             textAlign: 'center',
-            gap: 2
+            gap: 2,
+            cursor: 'pointer'
           }}
         >
-          <div style={{ color: '#F5F5F5', marginBottom: 2 }}>
+          <div style={{ color: '#FFFFFF', marginBottom: 2 }}>
             <Icon name="chartLine" size={17} />
           </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#F5F5F5', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
-            {deltaFormatted ? `${deltaFormatted}` : '+4.2 kg'}
+          <span style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', padding: '0 4px' }}>
+            {progressDisplay}
           </span>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#A5A5A5', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#A1A1AA', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
             {t('Progress')}
           </span>
         </div>
-
-        {/* Pill 4: Personal Records */}
-        <div
-          className="card"
-          style={{
-            padding: '12px 6px',
-            borderRadius: 16,
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.10)',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.14)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-            gap: 2
-          }}
-        >
-          <div style={{ color: '#F5F5F5', marginBottom: 2 }}>
-            <Icon name="bolt" size={17} />
-          </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#F5F5F5', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
-            {S?.prVault?.length || 8}
-          </span>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#A5A5A5', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
-            {t('Records')}
-          </span>
-        </div>
       </div>
 
-      {/* Target & Streak Ticker Card (Google Stitch Design Transfer) */}
-      <div
-        className="card"
-        style={{
-          padding: '14px 18px',
-          borderRadius: 14,
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%)',
-          backdropFilter: 'blur(24px)',
-          WebkitBackdropFilter: 'blur(24px)',
-          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.45), inset 0 1px 1px 0 rgba(255, 255, 255, 0.14)',
-          border: '1px solid rgba(255, 255, 255, 0.07)',
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 6,
-          marginBottom: 16
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            <span style={{ color: '#10B981' }}>🎯</span>
-            <span>{t('Target Today')}</span>
-          </span>
-          <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--theme-accent, #F5F5F5)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            {t('Day {0} of 30', Math.min(30, (streakCount || 1) + 1))}
-          </span>
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#F9FAFB' }}>
-          {S?.active?.name || scheduledTemplate?.name || (todayWorkout ? todayWorkout.name : t('Daily Workout Session'))}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px solid rgba(255, 255, 255, 0.05)', fontSize: 13 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#F9FAFB' }}>
-            <span>🔥</span>
-            <span>{streakCount > 0 ? `${streakCount}-Day Streak` : 'Streak Active'}</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#9CA3AF', fontWeight: 600 }}>
-            <Icon name="bolt" size={14} style={{ color: '#34D399' }} />
-            <span>{exerciseCaloriesBurned > 0 ? `${exerciseCaloriesBurned} kcal burned` : `${Math.round(loggedCalories || 380)} kcal burned`}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Daily Meal Tracker (Breakfast, Lunch, Snacks, Dinner) */}
-      <WidgetBoundary title={t('Daily Meal Tracker')}>
-        <div style={{ marginBottom: 18 }}>
-          <DailyMealTracker
-            date={todayISO()}
-            onOpenAddPdf={() => nav('/nutrition')}
-            onOpenGoals={() => nav('/nutrition')}
-            onOpenCheatMeal={() => nav('/nutrition')}
-            onOpenAvailableFoods={() => nav('/nutrition')}
-            toast={(msg, type) => {}}
-          />
-        </div>
-      </WidgetBoundary>
-
-      {/* 2. Today's Schedule / Session (Full-width Hero Card) */}
+      {/* 1. Today's Schedule / Session (Full-width Hero Card) */}
       <WidgetBoundary title={t('Workout')}>
         <div
           className="card"
@@ -884,12 +806,13 @@ export default function Home() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  background: '#10B981', color: '#0F1115',
+                  background: '#FFFFFF',
+                  color: '#09090B',
                   fontWeight: 800,
                   fontSize: 14,
-                  border: 'none',
+                  border: '1px solid #303036',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)',
+                  boxShadow: '0 4px 16px rgba(255, 255, 255, 0.2)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
@@ -906,12 +829,13 @@ export default function Home() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  background: '#10B981', color: '#0F1115',
+                  background: '#FFFFFF',
+                  color: '#09090B',
                   fontWeight: 800,
                   fontSize: 14,
-                  border: 'none',
+                  border: '1px solid #303036',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)',
+                  boxShadow: '0 4px 16px rgba(255, 255, 255, 0.2)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
@@ -928,12 +852,13 @@ export default function Home() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  background: '#10B981', color: '#0F1115',
+                  background: '#FFFFFF',
+                  color: '#09090B',
                   fontWeight: 800,
                   fontSize: 14,
-                  border: 'none',
+                  border: '1px solid #303036',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)',
+                  boxShadow: '0 4px 16px rgba(255, 255, 255, 0.2)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
@@ -950,12 +875,13 @@ export default function Home() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  background: '#10B981', color: '#0F1115',
+                  background: '#FFFFFF',
+                  color: '#09090B',
                   fontWeight: 800,
                   fontSize: 14,
-                  border: 'none',
+                  border: '1px solid #303036',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)',
+                  boxShadow: '0 4px 16px rgba(255, 255, 255, 0.2)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
@@ -1033,7 +959,7 @@ export default function Home() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#10B981'
+                  color: '#FFFFFF'
                 }}
               >
                 <Icon name="dumbbell" size={18} />
@@ -1075,7 +1001,7 @@ export default function Home() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#059669'
+                  color: '#FFFFFF'
                 }}
               >
                 <Icon name="apple" size={18} />
@@ -1117,7 +1043,7 @@ export default function Home() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#34D399'
+                  color: '#FFFFFF'
                 }}
               >
                 <Icon name="figureRun" size={18} />
@@ -1129,7 +1055,7 @@ export default function Home() {
 
             {/* Action 4: Body Stats */}
             <button
-              onClick={() => bwSheet()}
+              onClick={() => weightProgressSheet()}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -1159,7 +1085,7 @@ export default function Home() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: 'var(--theme-accent, #F5F5F5)'
+                  color: '#FFFFFF'
                 }}
               >
                 <Icon name="scale" size={18} />
@@ -1200,7 +1126,7 @@ export default function Home() {
               style={{
                 fontSize: 12,
                 fontWeight: 600,
-                color: '#10B981',
+                color: '#FFFFFF',
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
@@ -1235,7 +1161,7 @@ export default function Home() {
                   flex: 1
                 }}
               >
-                {/* Vertical Pill Bar Track (#1E2024 Track with #10B981 Active Fill) */}
+                {/* Vertical Pill Bar Track (Monochrome) */}
                 <div
                   style={{
                     width: 12,
@@ -1255,7 +1181,7 @@ export default function Home() {
                       height: `${item.fillH}%`,
                       borderRadius: 9999,
                       background: item.active
-                        ? '#10B981'
+                        ? '#FFFFFF'
                         : 'rgba(255, 255, 255, 0.08)',
                       boxShadow: item.active ? '0 0 12px rgba(255, 255, 255, 0.4)' : 'none',
                       transition: 'height 0.4s ease'
@@ -1267,7 +1193,7 @@ export default function Home() {
                   style={{
                     fontSize: 11,
                     fontWeight: item.isToday ? 800 : 600,
-                    color: item.isToday ? '#10B981' : '#9CA3AF'
+                    color: item.isToday ? '#FFFFFF' : '#71717A'
                   }}
                 >
                   {item.label}
@@ -1299,7 +1225,7 @@ export default function Home() {
               {t('Your Progress')}
             </span>
             <button
-              onClick={() => bwSheet()}
+              onClick={() => weightProgressSheet()}
               style={{
                 padding: '5px 12px',
                 borderRadius: 10,
@@ -1331,16 +1257,17 @@ export default function Home() {
                 {t('Add your first body weight entry to start tracking progress.')}
               </div>
               <button
-                onClick={() => bwSheet()}
+                onClick={() => weightProgressSheet()}
                 style={{
                   padding: '8px 22px',
                   borderRadius: 9999,
-                  background: '#10B981', color: '#0F1115',
+                  background: '#FFFFFF',
+                  color: '#09090B',
                   fontWeight: 800,
                   fontSize: 13,
-                  border: 'none',
+                  border: '1px solid #303036',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.30)'
+                  boxShadow: '0 4px 14px rgba(255, 255, 255, 0.2)'
                 }}
               >
                 {t('Add Weight')}
@@ -1353,7 +1280,7 @@ export default function Home() {
                   {currentWeightVal} {weightUnit}
                 </div>
                 {deltaFormatted ? (
-                  <div style={{ fontSize: 12, color: '#10B981', fontWeight: 600, marginTop: 4 }}>
+                  <div style={{ fontSize: 12, color: '#FFFFFF', fontWeight: 600, marginTop: 4 }}>
                     ▽ {deltaFormatted} kg ({t('Last change')})
                   </div>
                 ) : (
@@ -1368,8 +1295,8 @@ export default function Home() {
                 <svg width={chartWidth} height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ overflow: 'visible' }}>
                   <defs>
                     <linearGradient id="chartAccentGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10B981" stopOpacity="0.30" />
-                      <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
+                      <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
                   {/* Gradient Area under curve */}
@@ -1379,9 +1306,9 @@ export default function Home() {
                     <path
                       d={pathD}
                       fill="none"
-                      stroke="#10B981" strokeWidth="2.5"
+                      stroke="#FFFFFF" strokeWidth="2.5"
                       strokeLinecap="round"
-                      style={{ filter: 'drop-shadow(0 2px 8px var(--theme-accent-glow, var(--borders, #303036)))' }}
+                      style={{ filter: 'drop-shadow(0 2px 8px rgba(255, 255, 255, 0.3))' }}
                     />
                   ) : null}
                   {/* Data Points */}
@@ -1440,7 +1367,7 @@ export default function Home() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Icon name="vital" size={18} style={{ color: '#10B981' }} />
+                  <Icon name="vital" size={18} style={{ color: '#FFFFFF' }} />
                   <span style={{ fontSize: 16, fontWeight: 700, color: '#F9FAFB' }}>
                     {t('Daily Bio-Metrics')} · {t('Calories Overview')}
                   </span>
@@ -1453,7 +1380,7 @@ export default function Home() {
                     gap: 4,
                     fontSize: 12,
                     fontWeight: 700,
-                    color: '#10B981',
+                    color: '#FFFFFF',
                     background: 'none',
                     border: 'none',
                     cursor: 'pointer'
@@ -1492,7 +1419,7 @@ export default function Home() {
                       <path
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         fill="none"
-                        stroke="#10B981"
+                        stroke="#FFFFFF"
                         strokeDasharray={`${Math.min(100, Math.round((proteinGrams / 180) * 100))}, 100`}
                         strokeLinecap="round"
                         strokeWidth="3.5"
@@ -1566,7 +1493,7 @@ export default function Home() {
                       <path
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         fill="none"
-                        stroke="#34D399"
+                        stroke="#A1A1AA"
                         strokeDasharray={`${Math.min(100, Math.round((carbsGrams / 250) * 100))}, 100`}
                         strokeLinecap="round"
                         strokeWidth="3.5"
@@ -1643,7 +1570,7 @@ export default function Home() {
                   style={{
                     fontSize: 12,
                     fontWeight: 700,
-                    color: '#10B981',
+                    color: '#FFFFFF',
                     background: 'none',
                     border: 'none',
                     cursor: 'pointer',
@@ -1674,14 +1601,14 @@ export default function Home() {
                   if (hasCompleted) {
                     titleText = sched.template?.name || t('Workout')
                     statusBadge = (
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#10B981', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 4 }}>
                         ✓ {t('Completed')}
                       </span>
                     )
                   } else if (sched.template) {
                     titleText = sched.template.name
                     statusBadge = (
-                      <span style={{ fontSize: 12, color: 'var(--theme-accent, #F5F5F5)', fontWeight: 600 }}>
+                      <span style={{ fontSize: 12, color: '#A1A1AA', fontWeight: 600 }}>
                         {t('Scheduled')}
                       </span>
                     )
@@ -1701,7 +1628,8 @@ export default function Home() {
                       style={{
                         padding: '10px 14px',
                         borderRadius: 12,
-                        background: isDayToday ? 'rgba(16, 185, 129, 0.12)' : '#1E2024', border: isDayToday ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.05)',
+                        background: isDayToday ? '#242429' : '#1C1C20',
+                        border: isDayToday ? '1px solid #FFFFFF' : '1px solid #303036',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -1711,7 +1639,7 @@ export default function Home() {
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 64 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: isDayToday ? '#10B981' : '#9CA3AF' }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: isDayToday ? '#FFFFFF' : '#71717A' }}>
                             {dayNameLabel}
                           </span>
                           {isDayToday && (
@@ -1722,7 +1650,8 @@ export default function Home() {
                                 textTransform: 'uppercase',
                                 padding: '2px 5px',
                                 borderRadius: 9999,
-                                background: '#10B981', color: '#0F1115'
+                                background: '#FFFFFF',
+                                color: '#09090B'
                               }}
                             >
                               {t('Today')}
@@ -1746,155 +1675,54 @@ export default function Home() {
         </WidgetBoundary>
       </div>
 
-      {/* 7b. Horizontal Statistics Overview Strip Card (Google Stitch Design Transfer) */}
-      <WidgetBoundary title={t('Statistics')}>
+      {/* 8. Target Today Card (Strict Monochrome) */}
+      <WidgetBoundary title={t('Target Today')}>
         <div
           className="card"
           style={{
-            padding: '20px 24px',
-            borderRadius: 16,
-            background: 'rgba(255, 255, 255, 0.06)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.07)',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
-            background: 'var(--surface)',
-            backgroundImage: 'var(--grad-glass-surface)',
-            backdropFilter: 'var(--glass-blur)',
-            WebkitBackdropFilter: 'var(--glass-blur)',
-            border: '1px solid var(--theme-accent-border, var(--border-gold))',
-            boxShadow: 'var(--card-shadow), var(--glass-highlight)',
-            marginBottom: 24
+            padding: '16px 18px',
+            borderRadius: 14,
+            background: '#1C1C20',
+            border: '1px solid #303036',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            marginBottom: 16
           }}
         >
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: 20,
-              alignItems: 'center'
-            }}
-          >
-            {/* Metric 1: Weight */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div
-                style={{
-                  width: 46,
-                  height: 46,
-                  borderRadius: 14,
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flex: 'none'
-                }}
-              >
-                <Icon name="scale" size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--label)', lineHeight: 1.1 }}>
-                  {hasBW ? `${currentWeightVal} ${weightUnit}` : `-- ${weightUnit}`}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 2 }}>{t('Weight')}</div>
-                {deltaFormatted ? (
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#10B981', marginTop: 2 }}>
-                    ▽ {deltaFormatted} kg
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 11, color: 'var(--label-3)', marginTop: 2 }}>
-                    {hasBW ? t('First entry') : t('No record')}
-                  </div>
-                )}
-              </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#A1A1AA', display: 'flex', alignItems: 'center', gap: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <span>🎯</span>
+              <span>{t('Target Today')}</span>
+            </span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              {t('Day {0} of 30', Math.min(30, (streakCount || 0) + 1))}
+            </span>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF' }}>
+            {S?.active?.name || scheduledTemplate?.name || (todayWorkout ? todayWorkout.name : t('Daily Workout Session'))}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #303036', fontSize: 13 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#FFFFFF' }}>
+              <span>🔥</span>
+              <span>{streakCount > 0 ? `${streakCount}-Day Streak` : 'Streak Active'}</span>
             </div>
-
-            {/* Metric 2: Daily Target */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div
-                style={{
-                  width: 46,
-                  height: 46,
-                  borderRadius: 14,
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flex: 'none'
-                }}
-              >
-                <Icon name="flame" size={22} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--label)', lineHeight: 1.1 }}>
-                  {targetCalories.toLocaleString()} kcal
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 2 }}>{t('Daily Target')}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                  <div style={{ flex: 1, height: 5, borderRadius: 9999, background: 'var(--surface-3)', overflow: 'hidden' }}>
-                    <div style={{ width: `${caloriePct}%`, height: '100%', background: '#10B981', borderRadius: 9999 }} />
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--label-2)' }}>{caloriePct}%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Metric 3: Workouts */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div
-                style={{
-                  width: 46,
-                  height: 46,
-                  borderRadius: 14,
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flex: 'none'
-                }}
-              >
-                <Icon name="dumbbell" size={22} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--label)', lineHeight: 1.1 }}>
-                  {wThisWeek} / {plannedPerWeek || 5}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 2 }}>{t('Workouts')}</div>
-                <div style={{ marginTop: 4, height: 5, borderRadius: 9999, background: 'var(--surface-3)', overflow: 'hidden' }}>
-                  <div style={{ width: `${Math.min(100, Math.round((wThisWeek / (plannedPerWeek || 5)) * 100))}%`, height: '100%', background: '#10B981', borderRadius: 9999 }} />
-                </div>
-              </div>
-            </div>
-
-            {/* Metric 4: Streak */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div
-                style={{
-                  width: 46,
-                  height: 46,
-                  borderRadius: 14,
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.14)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#10B981',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flex: 'none'
-                }}
-              >
-                <Icon name="bolt" size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--label)', lineHeight: 1.1 }}>
-                  {streakCount} {t('Days')}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 2 }}>
-                  {t('Streak')} 🔥
-                </div>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#A1A1AA', fontWeight: 600 }}>
+              <Icon name="bolt" size={14} style={{ color: '#FFFFFF' }} />
+              <span>{exerciseCaloriesBurned > 0 ? `${exerciseCaloriesBurned} kcal burned` : `${Math.round(loggedCalories || 0)} kcal burned`}</span>
             </div>
           </div>
+        </div>
+      </WidgetBoundary>
+
+      {/* 9. Today's Meal Tracker (4 Strict Meal Rows) */}
+      <WidgetBoundary title={t("Today's Meal Tracker")}>
+        <div style={{ marginBottom: 24 }}>
+          <HomeMealTracker
+            date={todayISO()}
+            onNavigateNutrition={() => nav('/nutrition')}
+          />
         </div>
       </WidgetBoundary>
     </div>

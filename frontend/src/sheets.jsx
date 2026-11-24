@@ -22,6 +22,7 @@ import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE, shareExport } from './lib/mobile.js'
 import CardioModal from './components/CardioModal.jsx'
+import WeightProgressModal from './components/WeightProgressModal.jsx'
 import { PREDEFINED_WORKOUT_GROUPS } from './lib/customPlanner.js'
 
 const S = () => useStore.getState().S
@@ -246,6 +247,10 @@ function BwSheet({ required, onDone, close }) {
 export function bwSheet(opts = {}) {
   const h = ui().openSheet(close => <BwSheet {...opts} close={close} />, { locked: !!opts.required })
   return h
+}
+
+export function weightProgressSheet() {
+  return ui().openSheet(close => <WeightProgressModal close={close} />)
 }
 
 /* ============================ import from another app ============================ */
