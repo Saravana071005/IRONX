@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useStore } from '../store/useStore.js'
 import { api } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { todayISO, fmtNum } from '../lib/format.js'
@@ -18,22 +19,40 @@ export default function HomeMealTracker({ date = todayISO(), onNavigateNutrition
     snacks: 'not_done',
     dinner: 'not_done'
   })
-  const [consumedCalories, setConsumedCalories] = useState(0)
-  const [targetCalories, setTargetCalories] = useState(2000)
+  const hookS = useStore(s => s.S)
+  const S = (typeof window === 'undefined' && useStore.getState().S) ? useStore.getState().S : hookS
+  const canonicalGoal = Number(S?.nutritionTargets?.calorie || S?.nutritionTargets?.calories) || 2000
+  const initialConsumed = () => {
+    try {
+      return (S?.meals || [])
+        .filter(m => m && (m.d === date || m.date === date))
+        .reduce((acc, m) => acc + (Number(m.calories || m.energy_kcal || m.calorie) || 0), 0)
+    } catch {
+      return 0
+    }
+  }
+  const [consumedCalories, setConsumedCalories] = useState(initialConsumed)
+  const [targetCalories, setTargetCalories] = useState(canonicalGoal)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    setTargetCalories(canonicalGoal)
+  }, [canonicalGoal])
 
   const loadMealData = async () => {
     try {
       const res = await api(`/api/nutrition/daily-plan?date=${date}`)
       if (res?.ok) {
-        const statuses = {
+        let statuses = {
           breakfast: 'not_done',
           lunch: 'not_done',
           snacks: 'not_done',
           dinner: 'not_done'
         }
 
-        if (Array.isArray(res.dailyPlan)) {
+        if (res.dailyPlan?.status && typeof res.dailyPlan.status === 'object') {
+          statuses = { ...statuses, ...res.dailyPlan.status }
+        } else if (Array.isArray(res.dailyPlan)) {
           res.dailyPlan.forEach(p => {
             if (p.meal_type && statuses[p.meal_type] !== undefined) {
               statuses[p.meal_type] = p.status || 'not_done'
@@ -45,12 +64,14 @@ export default function HomeMealTracker({ date = todayISO(), onNavigateNutrition
         if (res.comparison?.consumed?.calories !== undefined) {
           setConsumedCalories(Math.round(res.comparison.consumed.calories))
         } else if (Array.isArray(res.actualConsumed)) {
-          const totalCals = res.actualConsumed.reduce((acc, c) => acc + (Number(c.calories) || 0), 0)
+          const totalCals = res.actualConsumed.reduce((acc, c) => acc + (Number(c.calories || c.energy_kcal) || 0), 0)
           setConsumedCalories(Math.round(totalCals))
         }
 
         if (res.comparison?.goals?.calories) {
-          setTargetCalories(Math.round(res.comparison.goals.calories))
+          const gCals = Math.round(res.comparison.goals.calories)
+          setTargetCalories(gCals)
+          useStore.getState().setCalorieTarget(gCals)
         }
       }
     } catch (err) {
@@ -77,7 +98,7 @@ export default function HomeMealTracker({ date = todayISO(), onNavigateNutrition
         method: 'POST',
         body: JSON.stringify({
           date,
-          mealType: mealId,
+          meal_type: mealId,
           status: newStatus
         })
       })
@@ -215,7 +236,7 @@ export default function HomeMealTracker({ date = todayISO(), onNavigateNutrition
         <div className="row between" style={{ alignItems: 'baseline', marginBottom: 6 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--label-2)' }}>
             {t('Consumed')}: <strong style={{ color: 'var(--label)', fontSize: 14 }}>{fmtNum(consumedCalories)} kcal</strong>
-            <span style={{ color: 'var(--label-3)', fontSize: 12 }}> / {fmtNum(targetCalories)} kcal</span>
+            <span style={{ color: 'var(--label-3)', fontSize: 12 }}> / {fmtNum(canonicalGoal || targetCalories)} kcal</span>
           </div>
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)' }}>
             {pct}%

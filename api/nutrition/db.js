@@ -2048,3 +2048,228 @@ export function saveNotificationPreferences(userId, prefs) {
     return updated;
   }
 }
+
+
+/* ==================== MODULE 8: CANONICAL CALORIE GOAL ENGINE ==================== */
+
+export function getCanonicalUserNutritionGoals(userId) {
+  const fallback = {
+    calorie_target: 2000,
+    calories: 2000,
+    protein_target: 140,
+    protein: 140,
+    carb_target: 220,
+    carbs: 220,
+    fat_target: 60,
+    fat: 60,
+    fibre_target: 28,
+    fiber: 28,
+    source: 'system_default',
+    updated_at: new Date().toISOString(),
+    profile: {},
+    history: []
+  };
+
+  if (!userId) return fallback;
+
+  const d = getDb();
+  if (!d) return fallback;
+
+  try {
+    // 1. Fetch from user_nutrition_goals
+    let userGoals = null;
+    const goalsRow = d.prepare("SELECT * FROM user_nutrition_goals WHERE user_id = ?").get(userId);
+    if (goalsRow) {
+      userGoals = {
+        profile: JSON.parse(goalsRow.profile_json || '{}'),
+        calculated_targets: JSON.parse(goalsRow.calculated_targets_json || '{}'),
+        custom_targets: goalsRow.custom_targets_json ? JSON.parse(goalsRow.custom_targets_json) : null,
+        history: goalsRow.history_json ? JSON.parse(goalsRow.history_json) : [],
+        updated_at: goalsRow.updated_at
+      };
+    }
+
+    // 2. Fetch from daily_health_settings
+    const dhsRow = d.prepare("SELECT * FROM daily_health_settings WHERE user_id = ?").get(userId);
+
+    // 3. Fetch from user_targets
+    const utRow = d.prepare("SELECT * FROM user_targets WHERE user_id = ?").get(userId);
+
+    // Collect candidates with timestamp and priority
+    const candidates = [];
+
+    if (userGoals?.custom_targets?.calorie_target != null) {
+      const v = Number(userGoals.custom_targets.calorie_target);
+      if (v > 0) {
+        candidates.push({ val: v, src: 'user_nutrition_goals.custom_targets', time: userGoals.updated_at || '', prio: 4 });
+      }
+    }
+
+    if (dhsRow?.calorie_target != null && dhsRow.updated_at) {
+      const v = Number(dhsRow.calorie_target);
+      if (v > 0) {
+        candidates.push({ val: v, src: 'daily_health_settings', time: dhsRow.updated_at, prio: 3 });
+      }
+    }
+
+    if (utRow?.calorie_target != null && utRow.updated_at) {
+      const v = Number(utRow.calorie_target);
+      if (v > 0) {
+        candidates.push({ val: v, src: 'user_targets', time: utRow.updated_at, prio: 2 });
+      }
+    }
+
+    if (userGoals?.calculated_targets?.calorie_target != null) {
+      const v = Number(userGoals.calculated_targets.calorie_target);
+      if (v > 0) {
+        candidates.push({ val: v, src: 'user_nutrition_goals.calculated_targets', time: userGoals.updated_at || '', prio: 1 });
+      }
+    }
+
+    let activeCalorie = 2000;
+    let source = 'system_default';
+    let updatedAt = new Date().toISOString();
+
+    if (candidates.length > 0) {
+      // Sort candidates primarily by timestamp (most recent), then by priority
+      candidates.sort((a, b) => {
+        if (a.time && b.time && a.time !== b.time) {
+          return a.time < b.time ? 1 : -1;
+        }
+        return b.prio - a.prio;
+      });
+      activeCalorie = Math.round(candidates[0].val);
+      source = candidates[0].src;
+      updatedAt = candidates[0].time || updatedAt;
+    } else if (dhsRow?.calorie_target != null && Number(dhsRow.calorie_target) > 0) {
+      activeCalorie = Math.round(Number(dhsRow.calorie_target));
+      source = 'daily_health_settings_default';
+      updatedAt = dhsRow.updated_at || updatedAt;
+    }
+
+    const activeProtein = Number(userGoals?.custom_targets?.protein_target || userGoals?.calculated_targets?.protein_target || utRow?.protein_target_g) || 140;
+    const activeCarb = Number(userGoals?.custom_targets?.carb_target || userGoals?.calculated_targets?.carb_target || utRow?.carb_target_g) || 220;
+    const activeFat = Number(userGoals?.custom_targets?.fat_target || userGoals?.calculated_targets?.fat_target || utRow?.fat_target_g) || 60;
+    const activeFibre = Number(userGoals?.custom_targets?.fibre_target || userGoals?.calculated_targets?.fibre_target || utRow?.fibre_target_g) || 28;
+
+    return {
+      calorie_target: activeCalorie,
+      calories: activeCalorie,
+      protein_target: activeProtein,
+      protein: activeProtein,
+      carb_target: activeCarb,
+      carbs: activeCarb,
+      fat_target: activeFat,
+      fat: activeFat,
+      fibre_target: activeFibre,
+      fiber: activeFibre,
+      source,
+      updated_at: updatedAt,
+      profile: userGoals?.profile || {},
+      history: userGoals?.history || []
+    };
+  } catch (err) {
+    console.error('getCanonicalUserNutritionGoals error:', err.message);
+    return fallback;
+  }
+}
+
+export function saveCanonicalCalorieGoal(userId, newCalorieTarget) {
+  if (!userId) throw new Error('User ID is required');
+  const target = Math.round(Number(newCalorieTarget));
+  if (isNaN(target) || target < 500 || target > 10000) {
+    throw new Error('Calorie target must be between 500 and 10,000 kcal');
+  }
+
+  const d = getDb();
+  if (!d) throw new Error('Database unavailable');
+  const now = new Date().toISOString();
+
+  try {
+    // 1. Update daily_health_settings
+    d.prepare(`
+      INSERT INTO daily_health_settings (user_id, calorie_target, water_goal_litres, updated_at)
+      VALUES (?, ?, 2.5, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        calorie_target = excluded.calorie_target,
+        updated_at = excluded.updated_at
+    `).run(userId, target, now);
+
+    // 2. Update user_targets
+    d.prepare(`
+      INSERT INTO user_targets (user_id, calorie_target, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        calorie_target = excluded.calorie_target,
+        updated_at = excluded.updated_at
+    `).run(userId, target, now);
+
+    // 3. Update user_nutrition_goals custom_targets and history
+    const existing = getUserNutritionGoals(userId) || {};
+    const existingCustom = existing.custom_targets || {};
+    const updatedCustom = {
+      ...existingCustom,
+      calorie_target: target
+    };
+    const history = Array.isArray(existing.history) ? [...existing.history] : [];
+    if (existing.custom_targets || existing.calculated_targets) {
+      history.unshift({
+        date: existing.updated_at || now,
+        calorie_target: existing.custom_targets?.calorie_target || existing.calculated_targets?.calorie_target,
+        targets: existing.custom_targets || existing.calculated_targets
+      });
+      if (history.length > 20) history.length = 20;
+    }
+
+    const profileJson = JSON.stringify(existing.profile || {});
+    const calcJson = JSON.stringify(existing.calculated_targets || {});
+    const customJson = JSON.stringify(updatedCustom);
+    const historyJson = JSON.stringify(history);
+
+    d.prepare(`
+      INSERT INTO user_nutrition_goals (user_id, profile_json, calculated_targets_json, custom_targets_json, history_json, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        custom_targets_json = excluded.custom_targets_json,
+        history_json = excluded.history_json,
+        updated_at = excluded.updated_at
+    `).run(userId, profileJson, calcJson, customJson, historyJson, now);
+
+    // 4. Sync to MongoDB if available
+    if (process.env.MONGODB_URI) {
+      getMongoDb().then(async mongo => {
+        if (!mongo) return;
+        try {
+          await mongo.collection('daily_health_settings').updateOne(
+            { user_id: userId },
+            { $set: { user_id: userId, calorie_target: target, updated_at: now } },
+            { upsert: true }
+          );
+          await mongo.collection('user_nutrition_goals').updateOne(
+            { user_id: userId },
+            {
+              $set: {
+                user_id: userId,
+                custom_targets: updatedCustom,
+                history,
+                updatedAt: now
+              }
+            },
+            { upsert: true }
+          );
+          await mongo.collection('states').updateOne(
+            { userId },
+            { $set: { 'state.nutritionTargets.calorie': target, 'state.nutritionTargets.calories': target, updatedAt: now } }
+          );
+        } catch (mErr) {
+          console.error('Mongo canonical goal sync error:', mErr.message);
+        }
+      }).catch(() => {});
+    }
+
+    return getCanonicalUserNutritionGoals(userId);
+  } catch (err) {
+    console.error('saveCanonicalCalorieGoal error:', err.message);
+    throw err;
+  }
+}

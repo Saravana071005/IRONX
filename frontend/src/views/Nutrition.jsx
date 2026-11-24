@@ -61,11 +61,13 @@ const EXAMPLE_ENTRIES = [
   }
 ]
 
-export default function Nutrition() {
-  const S = useStore(s => s.S)
-  const user = useStore(s => s.user)
+export default function Nutrition({ initialTab = 'today_plan' } = {}) {
+  const hookS = useStore(s => s.S)
+  const hookUser = useStore(s => s.user)
+  const S = (typeof window === 'undefined' && useStore.getState().S) ? useStore.getState().S : hookS
+  const user = (typeof window === 'undefined' && useStore.getState().user) ? useStore.getState().user : hookUser
   const { openSheet, toast } = useUI()
-  const [activeTab, setActiveTab] = useState('today_plan') // 'today_plan' | 'log' | 'diet_plans' | 'goals' | 'coach' | 'saved'
+  const [activeTab, setActiveTab] = useState(initialTab) // 'today_plan' | 'log' | 'diet_plans' | 'goals' | 'coach' | 'saved'
 
   const handleOpenAddDietPdf = () => {
     openSheet(close => (
@@ -110,14 +112,76 @@ export default function Nutrition() {
     ))
   }
 
-  const userCalorieTarget = Number(S?.nutritionTargets?.calorie || S?.nutritionTargets?.calories || user?.calorie_target || user?.nutritionTargets?.calorie) || 1900
+  const canonicalTarget = Number(S?.nutritionTargets?.calorie || S?.nutritionTargets?.calories || user?.calorie_target || user?.nutritionTargets?.calorie) || 2000
+  const [userCalorieTarget, setUserCalorieTarget] = useState(canonicalTarget)
+  const [isEditingGoal, setIsEditingGoal] = useState(false)
+  const [editingCalorieGoal, setEditingCalorieGoal] = useState(canonicalTarget)
+  const [savingGoal, setSavingGoal] = useState(false)
+
+  useEffect(() => {
+    setUserCalorieTarget(canonicalTarget)
+    if (!isEditingGoal) setEditingCalorieGoal(canonicalTarget)
+  }, [canonicalTarget])
+
+  const handleSaveDailyCalorieGoal = async () => {
+    const val = Math.round(Number(editingCalorieGoal))
+    if (!val || isNaN(val) || val < 500 || val > 10000) {
+      toast(t('Please enter a valid daily calorie goal between 500 and 10,000 kcal.'))
+      return
+    }
+    try {
+      setSavingGoal(true)
+      const res = await api('/api/nutrition/daily-goal', {
+        method: 'POST',
+        body: JSON.stringify({ calorie_target: val })
+      })
+      if (res?.ok) {
+        useStore.getState().setCalorieTarget(val)
+        setUserCalorieTarget(val)
+        setIsEditingGoal(false)
+        toast(t('Daily Calorie Goal updated to {0} kcal', val.toLocaleString()))
+        loadDayData(date)
+      } else {
+        toast(res?.error || t('Failed to update calorie goal'))
+      }
+    } catch (err) {
+      toast(t('Error updating calorie goal: {0}', err.message))
+    } finally {
+      setSavingGoal(false)
+    }
+  }
 
   const [date, setDate] = useState(todayISO())
   const [loading, setLoading] = useState(false)
   const [showExamples, setShowExamples] = useState(false)
 
   // Daily records
-  const [foods, setFoods] = useState([])
+  const [foods, setFoods] = useState(() => {
+    try {
+      const d = todayISO()
+      return (S?.meals || []).filter(m => m && (m.date === d || m.d === d)).map(m => ({
+        id: m.id,
+        user_id: m.user_id,
+        meal_type: m.meal_type || m.type || 'breakfast',
+        food_name: m.food_name || m.name || 'Food entry',
+        serving_quantity: Number(m.serving_quantity || m.qty) || 100,
+        serving_unit: m.serving_unit || m.unit || 'g',
+        energy_kcal: Number(m.energy_kcal || m.calories || m.calorie) || 0,
+        calories: Number(m.energy_kcal || m.calories || m.calorie) || 0,
+        protein_g: Number(m.protein_g || m.protein) || 0,
+        protein: Number(m.protein_g || m.protein) || 0,
+        carb_g: Number(m.carb_g || m.carbs || m.carb) || 0,
+        carbs: Number(m.carb_g || m.carbs || m.carb) || 0,
+        fat_g: Number(m.fat_g || m.fat) || 0,
+        fat: Number(m.fat_g || m.fat) || 0,
+        notes: m.notes || null,
+        date: m.date || m.d || d,
+        created_at: m.created_at || m.createdAt || null
+      }))
+    } catch {
+      return []
+    }
+  })
   const [water, setWater] = useState([])
   const [cardio, setCardio] = useState([])
   const [strength, setStrength] = useState([])
@@ -229,6 +293,11 @@ export default function Nutrition() {
           setWater(res.water || [])
           setCardio(res.cardio || [])
           setStrength(res.strength || [])
+          if (res.settings && res.settings.calorie_target != null) {
+            const calT = Math.round(Number(res.settings.calorie_target))
+            setUserCalorieTarget(calT)
+            useStore.getState().setCalorieTarget(calT)
+          }
           if (res.settings && res.settings.water_goal_litres != null) {
             setWaterGoalL(res.settings.water_goal_litres)
             setWaterGoalDraft(String(res.settings.water_goal_litres))
@@ -1152,16 +1221,44 @@ export default function Nutrition() {
       </div>
 
       {/* Calorie Goal & Overview Card — Inspired by Phone 6 in reference image */}
-      <div className="calorie-goal-card">
-        <div className="row between" style={{ alignItems: 'baseline', marginBottom: 4 }}>
+      <div className="calorie-goal-card" style={{ position: 'relative' }}>
+        <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 6 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--label-2)', textTransform: 'uppercase' }}>
-              {t('Calorie Goal')}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label-2)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {t('Daily Calorie Goal')}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingCalorieGoal(userCalorieTarget)
+                  setIsEditingGoal(!isEditingGoal)
+                }}
+                style={{
+                  background: isEditingGoal ? 'var(--surface-3)' : 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid var(--borders)',
+                  borderRadius: 6,
+                  padding: '2px 8px',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'var(--theme-accent, #F5F5F5)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4
+                }}
+                aria-label={t('Edit Daily Calorie Goal')}
+                title={t('Edit Daily Calorie Goal')}
+              >
+                <Icon name="pencil" size={11} />
+                <span>{isEditingGoal ? t('Cancel') : t('Edit')}</span>
+              </button>
             </div>
-            <div className="big" style={{ fontSize: 26, fontWeight: 800, marginTop: 2 }}>
+            
+            <div className="big" style={{ fontSize: 26, fontWeight: 800, marginTop: 4 }}>
               {totals.food_calories > 0 ? (
                 <>
-                  {totals.food_calories} <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--label-2)' }}>/ {userCalorieTarget.toLocaleString()} kcal</span>
+                  {`${totals.food_calories.toLocaleString()} `}<span style={{ fontSize: 15, fontWeight: 500, color: 'var(--label-2)' }}>{`/ ${userCalorieTarget.toLocaleString()} kcal`}</span>
                 </>
               ) : (
                 <>
@@ -1170,10 +1267,97 @@ export default function Nutrition() {
               )}
             </div>
           </div>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--label-2)' }}>
-            {totals.food_count > 0 ? t('{0} foods recorded · {1} kcal left', totals.food_count, Math.max(0, userCalorieTarget - totals.food_calories)) : t('No foods recorded')}
-          </span>
+
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: (userCalorieTarget - totals.food_calories) < 0 ? '#F59E0B' : 'var(--label)' }}>
+              {`${Math.max(0, userCalorieTarget - totals.food_calories).toLocaleString()} kcal`}
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--label-2)' }}>
+              {t('Remaining')}
+            </div>
+          </div>
         </div>
+
+        {/* Inline Edit Form when user selects Edit */}
+        {isEditingGoal && (
+          <div
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--borders)',
+              borderRadius: 12,
+              padding: '12px 14px',
+              marginTop: 10,
+              marginBottom: 10
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)', marginBottom: 6 }}>
+              {t('Edit Daily Calorie Goal')}
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+              <input
+                type="number"
+                min="500"
+                max="10000"
+                step="10"
+                value={editingCalorieGoal}
+                onChange={e => setEditingCalorieGoal(e.target.value)}
+                style={{
+                  flex: 1,
+                  minWidth: 120,
+                  background: '#242429',
+                  color: '#FFFFFF',
+                  border: '1px solid #38383F',
+                  borderRadius: 8,
+                  padding: '8px 12px',
+                  fontSize: 15,
+                  fontWeight: 700
+                }}
+                placeholder="e.g. 2000"
+                autoFocus
+              />
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--label-2)' }}>kcal</span>
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={savingGoal}
+                onClick={handleSaveDailyCalorieGoal}
+              >
+                {savingGoal ? t('Saving...') : t('Save')}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={savingGoal}
+                onClick={() => setIsEditingGoal(false)}
+              >
+                {t('Cancel')}
+              </Button>
+            </div>
+            {/* Quick Presets */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: 'var(--label-3)' }}>{t('Quick Presets')}:</span>
+              {[1800, 1900, 2000, 2200, 2500].map(pVal => (
+                <button
+                  key={pVal}
+                  type="button"
+                  onClick={() => setEditingCalorieGoal(pVal)}
+                  style={{
+                    background: Number(editingCalorieGoal) === pVal ? 'var(--label)' : 'rgba(255, 255, 255, 0.06)',
+                    color: Number(editingCalorieGoal) === pVal ? 'var(--bg)' : 'var(--label)',
+                    border: '1px solid var(--borders)',
+                    borderRadius: 9999,
+                    padding: '2px 8px',
+                    fontSize: 10,
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {pVal.toLocaleString()} kcal
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Progress Bar */}
         <div className="calorie-bar-wrap">

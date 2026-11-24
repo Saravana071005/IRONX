@@ -334,7 +334,7 @@ export function calculateMealPlanComparison({
   availableFoods = [],
   dietaryRestrictions = []
 }) {
-  const calorieTarget = Number(goals.calorie_target || goals.calories) || 2000;
+  const calorieTarget = Number(goals.calorie_target || goals.calories || goals.calorie) || 2000;
   const proteinTarget = Number(goals.protein_target || goals.protein) || 140;
   const carbTarget = Number(goals.carb_target || goals.carbs) || 220;
   const fatTarget = Number(goals.fat_target || goals.fat) || 60;

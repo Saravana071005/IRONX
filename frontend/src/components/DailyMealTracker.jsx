@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { useStore } from '../store/useStore.js'
 import Icon from './Icon.jsx'
 import { Button } from './ui.jsx'
 import { api } from '../lib/api.js'
@@ -26,6 +27,9 @@ export default function DailyMealTracker({
   const [comparison, setComparison] = useState(null)
   const [actualConsumed, setActualConsumed] = useState([])
   const [activePlanName, setActivePlanName] = useState('')
+  const hookS = useStore(s => s.S)
+  const S = (typeof window === 'undefined' && useStore.getState().S) ? useStore.getState().S : hookS
+  const storeCalorieTarget = Number(S?.nutritionTargets?.calorie || S?.nutritionTargets?.calories) || 2000
 
   // Load today's planned and actual meals
   const loadDailyData = async () => {
@@ -36,6 +40,9 @@ export default function DailyMealTracker({
         setDailyPlan(res.dailyPlan)
         setComparison(res.comparison)
         setActualConsumed(res.actualConsumed || [])
+        if (res.comparison?.goals?.calories) {
+          useStore.getState().setCalorieTarget(res.comparison.goals.calories)
+        }
       }
 
       // Check active plan name
@@ -159,7 +166,13 @@ export default function DailyMealTracker({
   }, [meals, statusMap, actualConsumed])
 
   // Overall day metrics
-  const dayGoals = comparison?.goals || { calories: 2000, protein: 140, carbs: 220, fat: 60, fiber: 28 }
+  const dayGoals = comparison?.goals || {
+    calories: storeCalorieTarget,
+    protein: Number(S?.nutritionTargets?.protein) || 140,
+    carbs: Number(S?.nutritionTargets?.carb || S?.nutritionTargets?.carbs) || 220,
+    fat: Number(S?.nutritionTargets?.fat) || 60,
+    fiber: Number(S?.nutritionTargets?.fibre || S?.nutritionTargets?.fiber) || 28
+  }
   const dayPlanned = comparison?.planned || { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
   const dayConsumed = comparison?.consumed || { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
   const dayRemaining = comparison?.remaining || {
@@ -247,12 +260,12 @@ export default function DailyMealTracker({
           <div>
             <span style={{ fontSize: 12, color: 'var(--secondary-label)' }}>{t('Consumed')}: </span>
             <strong style={{ fontSize: 16, color: '#00E5FF' }}>{dayConsumed.calories} kcal</strong>
-            <span style={{ fontSize: 12, color: 'var(--secondary-label)' }}> / {dayGoals.calories} kcal</span>
+            <span style={{ fontSize: 12, color: 'var(--secondary-label)' }}>{` / ${dayGoals.calories} kcal`}</span>
           </div>
           <div style={{ fontSize: 12 }}>
             <span style={{ color: 'var(--secondary-label)' }}>{t('Remaining Balance')}: </span>
             <strong style={{ color: dayRemaining.calories > 0 ? '#10B981' : '#F59E0B', fontSize: 14 }}>
-              {dayRemaining.calories} kcal
+              {`${dayRemaining.calories} kcal`}
             </strong>
           </div>
         </div>

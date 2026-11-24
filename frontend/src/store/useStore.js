@@ -30,7 +30,7 @@ export const DEF = {
   restAlertVolume: 1.0,
   restVibrationEnabled: true,
   restNotifications: false,
-  nutritionTargets: { calorie: 1900, calories: 1900, protein: 140, carb: 220, carbs: 220, fat: 65, fibre: 30, diet: 'all', waterGoal: 2.5 },
+  nutritionTargets: { calorie: 2000, calories: 2000, protein: 140, carb: 220, carbs: 220, fat: 65, fibre: 30, diet: 'all', waterGoal: 2.5 },
   meals: [],
   workoutTemplates: [],
   cardioLogs: [],
@@ -253,8 +253,21 @@ export const useStore = create((set, get) => {
     },
     setNutritionTargets(targets) {
       get().update(s => {
-        s.nutritionTargets = { ...(s.nutritionTargets || {}), ...targets }
+        const cal = targets?.calorie_target != null ? targets.calorie_target : (targets?.calorie != null ? targets.calorie : targets?.calories);
+        s.nutritionTargets = {
+          ...(s.nutritionTargets || {}),
+          ...targets,
+          ...(cal != null ? { calorie: Math.round(Number(cal)), calories: Math.round(Number(cal)) } : {})
+        };
       })
+    },
+    setCalorieTarget(target) {
+      const val = Math.round(Number(target)) || 2000;
+      get().update(s => {
+        s.nutritionTargets = s.nutritionTargets || {};
+        s.nutritionTargets.calorie = val;
+        s.nutritionTargets.calories = val;
+      });
     },
     toggleStealthMode() {
       get().update(s => {

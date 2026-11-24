@@ -11,7 +11,7 @@ import {
 } from '@simplewebauthn/server';
 import webpush from 'web-push';
 import { nutritionRoutes } from './nutrition/routes.js';
-import { clearAllNutritionDataForUser } from './nutrition/db.js';
+import { clearAllNutritionDataForUser, getCanonicalUserNutritionGoals } from './nutrition/db.js';
 import { getMongoDb, pingMongo } from './db/mongo.js';
 import {
   calculateAge,
@@ -1177,6 +1177,23 @@ const routes = {
           }
 
           if (state) {
+            // Hydrate canonical nutritionTargets
+            try {
+              const canonical = getCanonicalUserNutritionGoals(user.id);
+              if (canonical && canonical.calorie_target) {
+                state.nutritionTargets = {
+                  ...(state.nutritionTargets || {}),
+                  calorie: canonical.calorie_target,
+                  calories: canonical.calorie_target,
+                  protein: canonical.protein_target || state.nutritionTargets?.protein || 140,
+                  carb: canonical.carb_target || state.nutritionTargets?.carb || 220,
+                  carbs: canonical.carb_target || state.nutritionTargets?.carbs || 220,
+                  fat: canonical.fat_target || state.nutritionTargets?.fat || 60,
+                  fibre: canonical.fibre_target || state.nutritionTargets?.fibre || 28
+                };
+              }
+            } catch (e) {}
+
             // Apply account-isolated settings
             state.themePreset = settings.themePreset || state.themePreset || 'warm-gold';
             state.bgTheme = settings.themePreset || state.bgTheme || 'warm-gold';

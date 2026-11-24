@@ -1,7 +1,7 @@
 import { Component, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore, getHealthStorageKey } from '../store/useStore.js'
-import { effectiveRoutine, effectiveRoutineId, streakWeeks, lastBW } from '../lib/history.js'
+import { effectiveRoutine, effectiveRoutineId, streakWeeks, lastBW, setsDone } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, bwDeltaColor, cardioSheet, weightProgressSheet } from '../sheets.jsx'
@@ -144,8 +144,10 @@ function CoachCard({ nav }) {
 
 export default function Home() {
   const nav = useNavigate()
-  const S = useStore(s => s.S)
-  const user = useStore(s => s.user)
+  const hookS = useStore(s => s.S)
+  const hookUser = useStore(s => s.user)
+  const S = (typeof window === 'undefined' && useStore.getState().S) ? useStore.getState().S : hookS
+  const user = (typeof window === 'undefined' && useStore.getState().user) ? useStore.getState().user : hookUser
   const config = useStore(s => s.config)
   const update = useStore(s => s.update)
   const coachOn = coachAvailable(config, user, { demo: DEMO, mobile: MOBILE })
@@ -207,7 +209,7 @@ export default function Home() {
     return null
   }, [user?.id, todayStr, S?.meals])
 
-  const foodsToday = todayHealth?.foods || (S?.meals || []).filter(m => m && (m.d === todayStr || m.date === todayStr))
+  const foodsToday = (todayHealth?.foods && todayHealth.foods.length > 0) ? todayHealth.foods : (S?.meals || []).filter(m => m && (m.d === todayStr || m.date === todayStr))
   const foodCount = foodsToday.length
 
   // Calculate calories and macros for donut chart (0 if no foods logged)
@@ -232,9 +234,19 @@ export default function Home() {
   const carbsPct = totalMacroGrams > 0 ? Math.round((carbsGrams / totalMacroGrams) * 100) : 0
   const fatsPct = totalMacroGrams > 0 ? Math.max(0, 100 - proteinPct - carbsPct) : 0
 
-  const targetCalories = Number(S?.nutritionTargets?.calorie || S?.nutritionTargets?.calories || user?.calorie_target || user?.nutritionTargets?.calorie) || 1900
+  const targetCalories = Number(S?.nutritionTargets?.calorie || S?.nutritionTargets?.calories || user?.calorie_target || user?.nutritionTargets?.calorie) || 2000
   const caloriePct = targetCalories > 0 ? Math.min(100, Math.max(0, Math.round((loggedCalories / targetCalories) * 100))) : 0
   const remainingCalories = Math.max(0, targetCalories - loggedCalories)
+
+  const isCardioOnDay = (c, targetIso) => {
+    if (!c || !targetIso) return false
+    if (c.d === targetIso || c.date === targetIso) return true
+    if (typeof c.createdAt === 'string') return c.createdAt.slice(0, 10) === targetIso
+    if (typeof c.createdAt === 'number') {
+      try { return new Date(c.createdAt).toISOString().slice(0, 10) === targetIso } catch { return false }
+    }
+    return false
+  }
 
   // Separate exercise calories burned (strength + cardio)
   const exerciseCaloriesBurned = useMemo(() => {
@@ -243,7 +255,7 @@ export default function Home() {
     if (todayW) {
       burned += Math.round((Number(todayW.dur) || 0) / 60000 * 6)
     }
-    const cardioToday = (S?.cardioLogs || []).filter(c => c && (c.d === todayStr || (c.createdAt && c.createdAt.slice(0, 10) === todayStr)))
+    const cardioToday = (S?.cardioLogs || []).filter(c => isCardioOnDay(c, todayStr))
     for (const c of cardioToday) {
       burned += Number(c.calories_burned) || Number(c.caloriesBurned) || 0
     }
@@ -283,7 +295,7 @@ export default function Home() {
       const iso = isoOf(d)
       const isToday = iso === todayStr
       const doneWorkout = (S?.workouts || []).some(w => w && w.d === iso)
-      const doneCardio = (S?.cardioLogs || []).some(c => c && (c.d === iso || (c.createdAt && c.createdAt.slice(0, 10) === iso)))
+      const doneCardio = (S?.cardioLogs || []).some(c => isCardioOnDay(c, iso))
       const done = doneWorkout || doneCardio
       const sched = (S && d) ? (getTodayScheduledWorkout(S, d) || { isRest: false, isUnscheduled: true, template: null }) : { isRest: false, isUnscheduled: true, template: null }
       const hasPlan = !sched.isRest && !sched.isUnscheduled && !!sched.template
@@ -385,7 +397,8 @@ export default function Home() {
   return (
     <div className="dashboard-layout" style={{ maxWidth: 1240, margin: '0 auto', width: '100%' }}>
       
-      {/* 1. Main Dashboard Header & Greeting (Liquid Glass UI) */}
+      {/* 1. Main Dashboard Header & Greeting (Liquid Glass UI) & Metric Summary Strip */}
+      <WidgetBoundary title={t('Dashboard Overview')}>
       <div
         style={{
           display: 'flex',
@@ -607,6 +620,7 @@ export default function Home() {
           </span>
         </div>
       </div>
+      </WidgetBoundary>
 
       {/* 3. Target Today */}
       {/* 8. Target Today Card (Strict Monochrome) */}
@@ -772,7 +786,7 @@ export default function Home() {
                     </span>
                   </div>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)', lineHeight: 1.1 }}>
-                    {`${(loggedCalories / 1000).toFixed(1)}k / ${(targetCalories / 1000).toFixed(1)}k`}
+                    {`${loggedCalories.toLocaleString()} / ${targetCalories.toLocaleString()} kcal`}
                   </span>
                   <span style={{ fontSize: 10, color: 'var(--label-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
                     {t('Calories')}
@@ -832,10 +846,10 @@ export default function Home() {
               }}
             >
               <span>
-                {t('Remaining')}: <strong style={{ color: 'var(--theme-accent, #F5F5F5)' }}>{remainingCalories} kcal</strong>
+                {t('Remaining')}: <strong style={{ color: 'var(--theme-accent, #F5F5F5)' }}>{`${remainingCalories.toLocaleString()} kcal`}</strong>
               </span>
               <span>
-                {t('Exercise Burned')}: <strong style={{ color: 'var(--label)' }}>{exerciseCaloriesBurned} kcal</strong>
+                {t('Exercise Burned')}: <strong style={{ color: 'var(--label)' }}>{`${exerciseCaloriesBurned} kcal`}</strong>
               </span>
             </div>
           </div>
@@ -973,11 +987,7 @@ export default function Home() {
                 : t('No Workout Scheduled')}
             </div>
 
-            {!hasTemplates ? (
-              <div style={{ color: 'var(--label-2)', fontSize: 13, marginTop: 10, maxWidth: 520, lineHeight: 1.45 }}>
-                {t('Create your workout template to start tracking your fitness journey.')}
-              </div>
-            ) : todayWorkout ? (
+            {todayWorkout ? (
               /* Fitness Metrics for Completed Workout */
               <div
                 style={{
@@ -1004,6 +1014,10 @@ export default function Home() {
                     <span>{`${setsDone(todayWorkout)} ${t('sets completed')}`}</span>
                   </div>
                 )}
+              </div>
+            ) : !hasTemplates ? (
+              <div style={{ color: 'var(--label-2)', fontSize: 13, marginTop: 10, maxWidth: 520, lineHeight: 1.45 }}>
+                {t('Create your workout template to start tracking your fitness journey.')}
               </div>
             ) : S?.active || scheduledTemplate ? (
               /* Clean Fitness Metrics Row */
@@ -1042,7 +1056,30 @@ export default function Home() {
             )}
 
             {/* Action Button */}
-            {!hasTemplates ? (
+            {todayWorkout ? (
+              <button
+                onClick={() => nav('/nutrition')}
+                style={{
+                  marginTop: 22,
+                  padding: '12px 24px',
+                  borderRadius: 9999,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: 'var(--label)',
+                  color: 'var(--bg)',
+                  fontWeight: 800,
+                  fontSize: 14,
+                  border: '1px solid var(--borders)',
+                  cursor: 'pointer',
+                  boxShadow: 'var(--card-shadow)',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                }}
+              >
+                <Icon name="check" size={15} />
+                <span>{t('View in Health Log')}</span>
+              </button>
+            ) : !hasTemplates ? (
               <button
                 onClick={() => nav('/library')}
                 style={{
@@ -1088,29 +1125,7 @@ export default function Home() {
                 <span>{t('Resume Workout')}</span>
                 <Icon name="arrowRight" size={15} />
               </button>
-            ) : todayWorkout ? (
-              <button
-                onClick={() => nav('/nutrition')}
-                style={{
-                  marginTop: 22,
-                  padding: '12px 24px',
-                  borderRadius: 9999,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  background: 'var(--label)',
-                  color: 'var(--bg)',
-                  fontWeight: 800,
-                  fontSize: 14,
-                  border: '1px solid var(--borders)',
-                  cursor: 'pointer',
-                  boxShadow: 'var(--card-shadow)',
-                  transition: 'transform 0.15s ease, box-shadow 0.15s ease'
-                }}
-              >
-                <Icon name="check" size={15} />
-                <span>{t('View in Health Log')}</span>
-              </button>
+            
             ) : scheduledTemplate ? (
               <button
                 onClick={handleStartTodayWorkout}

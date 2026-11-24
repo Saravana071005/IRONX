@@ -21,6 +21,8 @@ import {
   toggleDailyMealStatus,
   getUserNutritionGoals,
   saveUserNutritionGoals,
+  getCanonicalUserNutritionGoals,
+  saveCanonicalCalorieGoal,
   getUserAvailableFoods,
   saveUserAvailableFoods,
   getCheatMealLogs,
@@ -1534,15 +1536,15 @@ export function nutritionRoutes({ json, readBody, readSession }) {
         }
 
         const actualConsumed = getMealLogs(user.id, date);
-        const goals = getUserNutritionGoals(user.id) || {};
+        const canonicalGoals = getCanonicalUserNutritionGoals(user.id);
         const availableFoods = getUserAvailableFoods(user.id);
 
         const comparison = calculateMealPlanComparison({
           plannedMeals: dailyPlan.meals,
           consumedMeals: actualConsumed,
-          goals: goals.custom_targets || goals.calculated_targets || { calorie_target: 2000, protein_target: 140 },
+          goals: canonicalGoals,
           availableFoods,
-          dietaryRestrictions: goals.profile?.dietary_restrictions || []
+          dietaryRestrictions: canonicalGoals.profile?.dietary_restrictions || []
         });
 
         json(res, 200, {
@@ -1667,6 +1669,50 @@ export function nutritionRoutes({ json, readBody, readSession }) {
       }
     },
 
+    
+    /* ==================== MODULE 8: UNIFIED CANONICAL CALORIE GOAL CONTROL ==================== */
+    'POST /api/nutrition/daily-goal': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      try {
+        const body = await readBody(req);
+        const targetVal = Number(body.calorie_target || body.calories || body.target);
+        if (!targetVal || isNaN(targetVal) || targetVal < 500 || targetVal > 10000) {
+          return json(res, 400, { error: 'Calorie target must be between 500 and 10,000 kcal' });
+        }
+        const updated = saveCanonicalCalorieGoal(user.id, Math.round(targetVal));
+        json(res, 200, {
+          ok: true,
+          calorie_target: updated.calorie_target,
+          calories: updated.calorie_target,
+          canonical_goals: updated
+        });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/calorie-goal': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      try {
+        const body = await readBody(req);
+        const targetVal = Number(body.calorie_target || body.calories || body.target);
+        if (!targetVal || isNaN(targetVal) || targetVal < 500 || targetVal > 10000) {
+          return json(res, 400, { error: 'Calorie target must be between 500 and 10,000 kcal' });
+        }
+        const updated = saveCanonicalCalorieGoal(user.id, Math.round(targetVal));
+        json(res, 200, {
+          ok: true,
+          calorie_target: updated.calorie_target,
+          calories: updated.calorie_target,
+          canonical_goals: updated
+        });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
     /* ==================== MODULE 4: MY NUTRITION GOALS ==================== */
     'GET /api/nutrition/goals': async (req, res) => {
       const user = requireUser(req, res);
@@ -1674,7 +1720,8 @@ export function nutritionRoutes({ json, readBody, readSession }) {
 
       try {
         const goals = getUserNutritionGoals(user.id);
-        json(res, 200, { ok: true, goals });
+        const canonical_goals = getCanonicalUserNutritionGoals(user.id);
+        json(res, 200, { ok: true, goals, canonical_goals, calorie_target: canonical_goals.calorie_target });
       } catch (err) {
         json(res, 500, { error: err.message });
       }

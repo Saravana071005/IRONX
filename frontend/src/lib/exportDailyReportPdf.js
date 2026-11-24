@@ -112,7 +112,9 @@ export function buildDailyReportDoc(data) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.setTextColor(...mutedTextColor);
-  doc.text(`Date: ${date}  |  Daily Calorie Target: 1,900 kcal  |  Exported: ${new Date().toLocaleTimeString()}`, margin + 14, currentY + 42);
+  const targetKcal = data.settings?.calorie_target || data.totals?.calorie_target || data.calorieTarget || 2000;
+  const targetKcalFormatted = `${Number(targetKcal).toLocaleString()} kcal`;
+  doc.text(`Date: ${date}  |  Daily Calorie Target: ${targetKcalFormatted}  |  Exported: ${new Date().toLocaleTimeString()}`, margin + 14, currentY + 42);
 
   currentY += 66;
 
