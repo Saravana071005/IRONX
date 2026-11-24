@@ -41,41 +41,56 @@
   --font-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-sans:    'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-  /* Surfaces — Liquid Glass Dark Palette */
-  --bg:        #050505;
-  --bg-secondary: #0A0A0C;
-  --bg-el:     #0A0A0C;
-  --surface:   rgba(255, 255, 255, 0.07);
-  --surface-2: rgba(255, 255, 255, 0.11);
-  --surface-3: rgba(255, 255, 255, 0.15);
-  --surface-base: #050505;
-  --surface-raised: rgba(255, 255, 255, 0.07);
-  --surface-container: rgba(255, 255, 255, 0.11);
-  --surface-container-high: rgba(255, 255, 255, 0.15);
-  --surface-overlay: rgba(12, 14, 18, 0.88);
+  /* Primary Athletic Dark Tokens (from Reference Screenshots) */
+  --bg:             #09090B;
+  --bg-secondary:   #111114;
+  --bg-el:          #111114;
+  --surface:        #1C1C20;
+  --surface-2:      #242429;
+  --surface-3:      #2E2E36;
+  --surface-base:   #09090B;
+  --surface-raised: #1C1C20;
+  --surface-container: #242429;
+  --surface-container-high: #2E2E36;
+  --surface-overlay:#18181B;
+  --card-bg:        #1C1C20;
+  --elevated-card:  #242429;
 
-  /* Minimal Monochrome & Accent Hierarchy */
-  --primary:    #F5F5F5;
-  --secondary:  #A5A5A5;
-  --tertiary:   #737373;
-  --subtle-accent: #D9D9D9;
-  --brand-gold: #E8B477;
+  /* Typography Tokens */
+  --primary:        #F5F5F5;
+  --secondary:      #A1A1AA;
+  --tertiary:       #71717A;
+  --subtle-accent:  #A1A1AA;
+  --brand-gold:     #F5F5F5;
+  --label:          #F5F5F5;
+  --label-2:        #A1A1AA;
+  --label-3:        #71717A;
+  --label-4:        #52525B;
+  --muted-text:     #71717A;
 
-  /* Primary text & secondary text (Liquid Glass Specification) */
-  --label:     #F5F5F5;
-  --label-2:   #A5A5A5;
-  --label-3:   #737373;
-  --label-4:   #525252;
+  /* Borders & Dividers */
+  --borders:        #303036;
+  --sep:            #303036;
+  --sep-op:         rgba(255, 255, 255, 0.05);
+  --hair:           1px;
+  --border-specular:#303036;
+  --border-gold:    #303036;
+  --border-gold-hover: #52525B;
+  --border-glass:   #303036;
+  --border-glass-subtle: #242429;
+  --card-border:    1px solid #303036;
+  --card-shadow:    0 4px 20px rgba(0, 0, 0, 0.45);
 
-  /* Lines & separators */
-  --sep:       rgba(255, 255, 255, 0.08);
-  --sep-op:    rgba(255, 255, 255, 0.04);
-  --hair:      1px;
-  --border-specular: rgba(255, 255, 255, 0.12);
-  --border-gold: rgba(255, 255, 255, 0.12);
-  --border-gold-hover: rgba(255, 255, 255, 0.22);
-  --border-glass: rgba(255, 255, 255, 0.12);
-  --border-glass-subtle: rgba(255, 255, 255, 0.08);
+  /* Input Tokens */
+  --input-bg:       #18181B;
+  --input-text:     #FFFFFF;
+  --input-border:   #303036;
+  --focus-border:   #A1A1AA;
+
+  /* Anatomical Muscle Map */
+  --bm-base:        #22222A;
+  --bm-stroke:      #3E3E4C;
+  --bm-inert:       #2E2E38;
 
   /* Primary Accent maps to Emerald #10B981 for body fat & active states */
   --acc:        #10B981;
@@ -141,30 +156,53 @@
 }
 
 :root[data-theme="light"] {
-  /* light theme compatibility */
-  --bg:        #f6f8fb;
-  --bg-el:     #ffffff;
-  --surface:   rgba(255, 255, 255, 0.85);
-  --surface-2: rgba(241, 245, 249, 0.90);
-  --surface-3: rgba(226, 232, 240, 0.95);
+  /* Clean Minimal Athletic Light Mode */
+  --bg:             #F4F4F5;
+  --bg-secondary:   #FFFFFF;
+  --bg-el:          #FFFFFF;
+  --surface:        #FFFFFF;
+  --surface-2:      #F4F4F5;
+  --surface-3:      #E4E4E7;
+  --surface-base:   #F4F4F5;
+  --surface-raised: #FFFFFF;
+  --surface-container: #F4F4F5;
+  --surface-container-high: #E4E4E7;
+  --surface-overlay:#FFFFFF;
+  --card-bg:        #FFFFFF;
+  --elevated-card:  #F4F4F5;
 
-  --label:     #0f172a;
-  --label-2:   rgba(15, 23, 42, 0.70);
-  --label-3:   rgba(15, 23, 42, 0.42);
-  --label-4:   rgba(15, 23, 42, 0.20);
+  --primary:        #09090B;
+  --secondary:      #52525B;
+  --tertiary:       #71717A;
+  --subtle-accent:  #71717A;
+  --brand-gold:     #09090B;
+  --label:          #09090B;
+  --label-2:        #52525B;
+  --label-3:        #71717A;
+  --label-4:        #A1A1AA;
+  --muted-text:     #71717A;
 
-  --sep:       rgba(15, 23, 42, 0.08);
-  --sep-op:    rgba(15, 23, 42, 0.04);
+  --borders:        #E4E4E7;
+  --sep:            #E4E4E7;
+  --sep-op:         rgba(0, 0, 0, 0.04);
+  --card-border:    1px solid #E4E4E7;
+  --card-shadow:    0 2px 8px rgba(0, 0, 0, 0.05);
+  --glass-border:   1px solid #E4E4E7;
+  --glass-shadow:   0 2px 8px rgba(0, 0, 0, 0.05);
+  --glass-highlight:none;
 
-  --acc:  #0284c7;
-  --acc-2:#0369a1;
-  --on-acc:#ffffff;
+  --input-bg:       #FFFFFF;
+  --input-text:     #09090B;
+  --input-border:   #E4E4E7;
+  --focus-border:   #18181B;
 
-  --card-shadow: 0 10px 28px -4px rgba(15, 23, 42, 0.08), 0 2px 8px -2px rgba(15, 23, 42, 0.04);
-  --card-border: 1px solid rgba(15, 23, 42, 0.08);
-  --glass-border: 1px solid rgba(15, 23, 42, 0.08);
-  --glass-shadow: 0 10px 28px -4px rgba(15, 23, 42, 0.08);
-  --glass-highlight: inset 0 1px 1px 0 rgba(255, 255, 255, 0.8);
+  --acc:            #18181B;
+  --acc-2:          #27272A;
+  --on-acc:         #FFFFFF;
+
+  --bm-base:        #CBD5E1;
+  --bm-stroke:      #94A3B8;
+  --bm-inert:       #E2E8F0;
 }
 
 /* accents */
@@ -231,7 +269,26 @@ body{
   position:relative;
 }
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;letter-spacing:inherit}
-input,select,textarea{font:inherit;color:var(--label);letter-spacing:inherit}
+input, select, textarea, .field, .input {
+  font: inherit;
+  color: var(--input-text, var(--label)) !important;
+  background-color: var(--input-bg, var(--surface)) !important;
+  border: 1px solid var(--borders, #303036) !important;
+  letter-spacing: inherit;
+}
+input::placeholder, textarea::placeholder {
+  color: var(--muted-text, #71717A) !important;
+  opacity: 1;
+}
+select option {
+  background-color: var(--input-bg, #18181B);
+  color: var(--input-text, #FFFFFF);
+}
+input:focus, select:focus, textarea:focus, .field:focus, .input:focus {
+  border-color: var(--focus-border, #A1A1AA) !important;
+  outline: none;
+  box-shadow: 0 0 0 1px var(--focus-border, #A1A1AA) !important;
+}
 img{max-width:100%}
 a{color:var(--acc);text-decoration:none}
 :focus{outline:none}
@@ -1118,33 +1175,32 @@ h4.sec{
 .btn.xs{padding:5px 10px;width:auto;font-size:12px;border-radius:7px;gap:4px}
 .btn:disabled{opacity:.35;pointer-events:none}
 
-/* ----------------------------------------------------------- tab bar (Liquid Glass Dock) ----- */
+/* ----------------------------------------------------------- Tab Bar (Athletic Mobile Bottom Nav) ----- */
 #tabbar.liquid-glass-tabbar, #tabbar {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(10px + var(--sab, 0px));
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   z-index: 50;
-  width: calc(100% - 20px);
-  max-width: 620px;
-  border-radius: 9999px;
-  background: rgba(10, 10, 12, 0.78);
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.16);
-  padding: 5px 6px;
+  width: calc(100% - 16px);
+  max-width: 600px;
+  border-radius: 18px;
+  background: #111114;
+  border: 1px solid #303036;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  padding: 4px 6px;
   overflow: hidden;
 }
 :root[data-theme="light"] #tabbar {
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #FFFFFF;
+  border: 1px solid #E4E4E7;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 .tabbar-scroll-track {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 4px;
+  justify-content: space-around;
+  gap: 2px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -1158,37 +1214,47 @@ h4.sec{
   display: none;
 }
 .tabbar-scroll-track .tab-btn {
-  flex-shrink: 0;
-  min-width: 68px;
+  flex: 1;
+  min-width: 52px;
+  max-width: 82px;
   min-height: 48px;
-  padding: 6px 10px;
-  border-radius: 20px;
+  padding: 5px 4px;
+  border-radius: 12px;
   background: transparent;
   border: 1px solid transparent;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  color: #737373;
-  font-size: 11px;
+  gap: 2px;
+  color: #71717A;
+  font-size: 10px;
   font-weight: 500;
   font-family: var(--font-heading);
   cursor: pointer;
   position: relative;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.15s ease;
 }
 .tabbar-scroll-track .tab-btn:hover {
-  color: #A5A5A5;
-  background: rgba(255, 255, 255, 0.04);
+  color: #A1A1AA;
+  background: #1C1C20;
+}
+:root[data-theme="light"] .tabbar-scroll-track .tab-btn:hover {
+  color: #09090B;
+  background: #F4F4F5;
 }
 .tabbar-scroll-track .tab-btn.on,
 .tabbar-scroll-track .tab-btn.active {
-  color: #F5F5F5;
+  color: #FFFFFF;
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.22), 0 2px 8px rgba(0, 0, 0, 0.35);
+  background: #242429;
+  border: 1px solid #303036;
+}
+:root[data-theme="light"] .tabbar-scroll-track .tab-btn.on,
+:root[data-theme="light"] .tabbar-scroll-track .tab-btn.active {
+  color: #09090B;
+  background: #F4F4F5;
+  border: 1px solid #E4E4E7;
 }
 .tabbar-scroll-track .tab-btn .tab-icon-wrap {
   position: relative;
@@ -1197,30 +1263,32 @@ h4.sec{
   justify-content: center;
 }
 .tabbar-scroll-track .tab-btn .icn {
-  font-size: 20px;
-  --icon-stroke: 1.8;
+  font-size: 18px;
   color: currentColor;
-  transition: transform 0.2s ease;
+  transition: transform 0.15s ease;
 }
 .tabbar-scroll-track .tab-btn.on .icn {
-  --icon-stroke: 2.1;
-  transform: scale(1.06);
-  color: #F5F5F5;
+  color: #FFFFFF;
+  transform: scale(1.05);
+}
+:root[data-theme="light"] .tabbar-scroll-track .tab-btn.on .icn {
+  color: #09090B;
 }
 .tabbar-scroll-track .tab-label {
   white-space: nowrap;
   letter-spacing: 0.01em;
+  font-size: 10px;
+  line-height: 1.1;
 }
 .tab-badge {
   position: absolute;
-  top: 6px;
-  right: calc(50% - 14px);
-  width: 7px;
-  height: 7px;
+  top: 4px;
+  right: calc(50% - 12px);
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: #10B981;
-  box-shadow: 0 0 8px #10B981;
-  animation: ping 1.9s var(--ease) infinite;
+  background: #FFFFFF;
+  box-shadow: 0 0 6px #FFFFFF;
 }
 #tabbar button.start{margin-top:-14px}
 #tabbar button.start .cir{
@@ -1784,94 +1852,127 @@ h4.sec{
 }
 .hm-legend .hm-c{width:10px;height:10px}
 
-/* --- muscle map --- */
-/* Reuses the .hm-c level ramp above, so one accent scale means one thing app-wide. */
-/* An untrained muscle is derived from the text colour rather than a fixed surface, so
-   the body keeps the same contrast in both themes — pinned to --surface-2 it was all
-   but invisible on a white card. */
-.bodymap{
+/* --- muscle map (Athletic High-Contrast Anatomical Body Map) --- */
+.bodymap {
   display: flex;
-  gap: 16px;
+  gap: 20px;
   justify-content: center;
   align-items: flex-start;
   width: 100%;
-  max-width: 540px;
+  max-width: 520px;
   margin: 0 auto;
-  --bm-base: #1c1c22;
-  --bm-stroke: #0b0b0e;
-  --bm-inert: #131317;
+  --bm-base: #242430;
+  --bm-stroke: #4A4A5C;
+  --bm-inert: #2E2E3A;
 }
-.bm-col{
+:root[data-theme="light"] .bodymap {
+  --bm-base: #CBD5E1;
+  --bm-stroke: #94A3B8;
+  --bm-inert: #E2E8F0;
+}
+.bm-col {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
-.bm-label{
+.bm-label {
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--label-2);
-  margin-bottom: 10px;
-  padding: 4px 12px;
+  margin-bottom: 12px;
+  padding: 4px 14px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--surface-2);
+  border: 1px solid var(--borders);
   white-space: nowrap;
 }
-.bm-v{
+.bm-v {
   width: 100%;
   height: auto;
-  max-height: min(48vh, 380px);
-  filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.75));
+  max-height: min(46vh, 360px);
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.5));
 }
-.bm-ph{
+.bm-ph {
   height: 280px;
 }
-.bm-v path{
+.bm-v path {
   stroke: var(--bm-stroke);
-  stroke-width: 2.2;
+  stroke-width: 2;
   stroke-linejoin: round;
-  transition: fill 0.25s ease, stroke 0.25s ease, filter 0.25s ease;
+  transition: fill 0.2s ease, stroke 0.2s ease, filter 0.2s ease;
 }
-.bm-sil{
+/* Neutral body silhouette (Head, Neck, Hands, Feet, Inert regions) */
+.bm-sil {
   fill: var(--bm-inert);
+  stroke: var(--bm-stroke);
 }
-.bm-m{
+/* Untrained muscle group (Distinct visible dark slate, NOT invisible black) */
+.bm-m {
   fill: var(--bm-base);
   cursor: pointer;
 }
-.bm-m:hover{
-  filter: brightness(1.35);
-  stroke: var(--theme-accent, #10B981);
+.bm-m:hover {
+  filter: brightness(1.3);
+  stroke: #FFFFFF;
   stroke-width: 2.8;
 }
-.bm-m.l1{
-  fill: color-mix(in srgb, var(--theme-accent, #10B981) 36%, var(--bm-base));
-  stroke: color-mix(in srgb, var(--theme-accent, #10B981) 40%, var(--bm-stroke));
+:root[data-theme="light"] .bm-m:hover {
+  stroke: #09090B;
 }
-.bm-m.l2{
-  fill: color-mix(in srgb, var(--theme-accent, #10B981) 58%, var(--bm-base));
-  stroke: color-mix(in srgb, var(--theme-accent, #10B981) 65%, var(--bm-stroke));
+/* Level 1: Lightly trained (clear cool tint) */
+.bm-m.l1 {
+  fill: #3E4256;
+  stroke: #64748B;
 }
-.bm-m.l3{
-  fill: color-mix(in srgb, var(--theme-accent, #10B981) 80%, var(--bm-base));
-  stroke: color-mix(in srgb, var(--theme-accent, #10B981) 85%, var(--bm-stroke));
-  filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.4));
+:root[data-theme="light"] .bm-m.l1 {
+  fill: #93C5FD;
+  stroke: #60A5FA;
 }
-.bm-m.l4{
-  fill: var(--theme-accent, #10B981);
-  stroke: var(--theme-accent, #10B981);
-  filter: drop-shadow(0 0 8px var(--theme-accent-glow, rgba(16, 185, 129, 0.6)));
+/* Level 2: Moderately trained (clear visible active blue) */
+.bm-m.l2 {
+  fill: #2563EB;
+  stroke: #60A5FA;
 }
-.bm-m.sel{
+:root[data-theme="light"] .bm-m.l2 {
+  fill: #3B82F6;
+  stroke: #1D4ED8;
+}
+/* Level 3: Well trained (vibrant sky azure) */
+.bm-m.l3 {
+  fill: #0284C7;
+  stroke: #38BDF8;
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.4));
+}
+:root[data-theme="light"] .bm-m.l3 {
+  fill: #1D4ED8;
+  stroke: #1E40AF;
+}
+/* Level 4: Primary trained target (bright crisp contrast) */
+.bm-m.l4 {
+  fill: #38BDF8;
+  stroke: #BAE6FD;
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.6));
+}
+:root[data-theme="light"] .bm-m.l4 {
+  fill: #0F172A;
+  stroke: #000000;
+}
+/* Selected muscle group */
+.bm-m.sel {
   stroke: #FFFFFF !important;
-  stroke-width: 4 !important;
-  filter: drop-shadow(0 0 10px var(--theme-accent, #10B981)) !important;
+  stroke-width: 3.5 !important;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.7)) !important;
 }
-.bodymap.tappable .bm-m{cursor: pointer}
+:root[data-theme="light"] .bm-m.sel {
+  stroke: #09090B !important;
+  stroke-width: 3.5 !important;
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.4)) !important;
+}
+.bodymap.tappable .bm-m { cursor: pointer; }
 
 .mrow{display:flex;align-items:center;gap:9px;padding:5px 0}
 .mrow .nm{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2369,32 +2470,71 @@ h4.sec{
     min-width: 0;
     display: flex;
     flex-direction: column;
+    padding-bottom: 30px;
   }
 
-  /* Desktop default expanded sidebar */
+  /* Desktop Left Fixed/Sticky Sidebar */
   #sidebar {
     display: flex !important;
     flex-direction: column;
-    width: 260px;
-    min-width: 260px;
+    width: 250px;
+    min-width: 250px;
     height: 100vh;
     position: sticky;
     top: 0;
     z-index: 40;
     transform: none !important;
-    background: rgba(8, 11, 18, 0.82);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 4px 0 28px rgba(0, 0, 0, 0.45);
-    padding: 24px 14px 20px;
+    background: #111114;
+    border-right: 1px solid #303036;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+    padding: 20px 12px 18px;
     overflow-y: auto;
     overflow-x: hidden;
   }
   :root[data-theme="light"] #sidebar {
-    background: rgba(255, 255, 255, 0.92);
-    border-right: 1px solid rgba(15, 23, 42, 0.08);
-    box-shadow: 4px 0 28px rgba(15, 23, 42, 0.05);
+    background: #FFFFFF;
+    border-right: 1px solid #E4E4E7;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Desktop collapsed sidebar */
+  #sidebar.collapsed {
+    width: 68px;
+    min-width: 68px;
+    padding: 20px 6px 18px;
+  }
+  #sidebar.collapsed .sidebar-header {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  #sidebar.collapsed .sidebar-brand {
+    justify-content: center;
+    padding: 0;
+  }
+  #sidebar.collapsed .sidebar-start-btn {
+    padding: 10px;
+    border-radius: 10px;
+  }
+  #sidebar.collapsed .sidebar-start-btn span {
+    display: none;
+  }
+  #sidebar.collapsed .sidebar-active-btn {
+    padding: 10px;
+    justify-content: center;
+  }
+  #sidebar.collapsed .sidebar-active-btn svg:last-child {
+    display: none;
+  }
+  #sidebar.collapsed .sidebar-nav-item {
+    justify-content: center;
+    padding: 10px 0;
+    border-radius: 10px;
+  }
+  #sidebar.collapsed .sidebar-user-card {
+    justify-content: center;
+    padding: 8px 0;
   }
 
   /* Desktop collapsed sidebar */
@@ -2555,4 +2695,27 @@ h4.sec{
 }
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+@media (max-width: 859px) {
+  .layout-main {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 12px)) !important;
+  }
+  #app {
+    padding-bottom: 20px;
+  }
+  .mobile-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: #111114;
+    border-bottom: 1px solid #303036;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+  :root[data-theme="light"] .mobile-header-bar {
+    background: #FFFFFF;
+    border-bottom: 1px solid #E4E4E7;
+  }
 }

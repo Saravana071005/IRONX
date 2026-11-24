@@ -103,15 +103,15 @@ export default function Settings() {
         <Row icon="rocket" iconTint="var(--indigo)" title={t('Self-host IRONX')} subtitle={t('Google sign-in, sync across your devices, your own data.')} accessory="chevron"
           onClick={() => window.open(REPO, '_blank', 'noopener')} />
       </> : DEMO ? <>
-        <Row icon="sparkles" iconTint="var(--theme-accent, #E8B477)" title={t('You’re in the demo')} subtitle={t('Example data, stored only in this browser — change anything you like.')} />
-        <Row icon="reset" iconTint="var(--theme-accent, #E8B477)" title={t('Reset demo data')} accessory="chevron"
+        <Row icon="sparkles" iconTint="var(--theme-accent, #F5F5F5)" title={t('You’re in the demo')} subtitle={t('Example data, stored only in this browser — change anything you like.')} />
+        <Row icon="reset" iconTint="var(--theme-accent, #F5F5F5)" title={t('Reset demo data')} accessory="chevron"
           onClick={() => confirmSheet({ title: t('Reset demo data?'), message: t('Puts the example plan, workouts and weigh-ins back the way they started.'), confirmText: t('Reset'), onConfirm: () => { resetDemo(); nav('/home'); toast(t('Demo data reset')) } })} />
-        <Row icon="rocket" iconTint="var(--theme-accent, #E8B477)" title={t('Self-host IRONX')} subtitle={t('Google sign-in, sync across your devices, your own data.')} accessory="chevron"
+        <Row icon="rocket" iconTint="var(--theme-accent, #F5F5F5)" title={t('Self-host IRONX')} subtitle={t('Google sign-in, sync across your devices, your own data.')} accessory="chevron"
           onClick={() => window.open(REPO, '_blank', 'noopener')} />
       </> : user ? <>
         <Row
           icon={user.picture ? null : "personCircle"}
-          iconTint="var(--theme-accent, #E8B477)"
+          iconTint="var(--theme-accent, #F5F5F5)"
           title={user.name}
           subtitle={user.email ? `${user.email} · Google Account` : t('Signed in with Google')}
         >
@@ -121,26 +121,26 @@ export default function Settings() {
         </Row>
         <Row
           icon="heart"
-          iconTint="var(--theme-accent, #E8B477)"
+          iconTint="var(--theme-accent, #F5F5F5)"
           title={t('Personal Fitness Profile')}
           subtitle={user.profile?.fitnessGoal ? t('Goal: {0}', user.profile.fitnessGoal.replace(/_/g, ' ')) : t('Set height, weight, and fitness goals')}
           accessory="chevron"
           onClick={() => nav('/profile-setup')}
         />
-        {user.admin && <Row icon="wrench" iconTint="var(--theme-accent, #E8B477)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
+        {user.admin && <Row icon="wrench" iconTint="var(--theme-accent, #F5F5F5)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
         <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({ title: t('Sign out?'), message: t('Your data is synced to your profile first, then cleared from this device.'), confirmText: t('Sign out'), danger: true, onConfirm: () => { signOut(); nav('/home') } })} />
         <Row icon="shield" iconTint="var(--red)" title={t('Sign out everywhere')} subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
       </> : (
         <>
           <Row
             icon="lock"
-            iconTint="var(--theme-accent, #E8B477)"
+            iconTint="var(--theme-accent, #F5F5F5)"
             title={t('Guest Mode (Local Only)')}
             subtitle={t('Workouts and health logs live only on this browser.')}
           />
           <Row
             icon="sparkles"
-            iconTint="var(--theme-accent, #E8B477)"
+            iconTint="var(--theme-accent, #F5F5F5)"
             title={t('Save My Progress with Google')}
             subtitle={t('Back up workouts, custom exercises, and health logs to your Google profile.')}
             accessory="chevron"
@@ -200,14 +200,14 @@ export default function Settings() {
     {/* ---------- general ---------- */}
     <Section title={t('General')} footer={t('Note: switching units only changes the label — logged numbers are not converted.')}>
       <SelectRow
-        icon="globe" iconTint="var(--theme-accent, #E8B477)" title={t('Language')}
+        icon="globe" iconTint="var(--theme-accent, #F5F5F5)" title={t('Language')}
         value={S.lang || 'en'} onChange={v => update(s => { s.lang = v })}
         options={Object.entries(LANGS).map(([k, name]) => ({
           value: k, label: name,
           subtitle: INSTR_LANGS.includes(k) ? null : t("Exercise instructions aren't available in this language yet — they stay in English."),
         }))}
       />
-      <Row icon="scale" iconTint="var(--theme-accent, #E8B477)" title={t('Weight unit')}>
+      <Row icon="scale" iconTint="var(--theme-accent, #F5F5F5)" title={t('Weight unit')}>
         <Segmented className="seg-inline"
           options={[{ value: 'kg', label: 'kg' }, { value: 'lb', label: 'lb' }]}
           value={S.unit} onChange={v => update(s => { s.unit = v })} />
@@ -216,11 +216,11 @@ export default function Settings() {
 
     {/* ---------- during a workout ---------- */}
     <Section title={t('During a workout')} footer={wakeOK ? t('The screen stays on while a workout is running, so you don’t have to unlock your phone between sets.') : null}>
-      <SelectRow icon="timer" iconTint="var(--theme-accent, #E8B477)" title={t('Rest timer')}
+      <SelectRow icon="timer" iconTint="var(--theme-accent, #F5F5F5)" title={t('Rest timer')}
         value={S.restSec} onChange={v => update(s => { s.restSec = v })}
         options={[60, 90, 120, 150, 180].map(v => ({ value: v, label: v + 's' }))} />
       {(wakeOK || !MOBILE) && (
-        <Row icon="sun" iconTint="var(--theme-accent, #E8B477)" title={t('Keep screen awake')}
+        <Row icon="sun" iconTint="var(--theme-accent, #F5F5F5)" title={t('Keep screen awake')}
           subtitle={wakeOK ? null : t('Not supported in this browser.')}>
           <Switch checked={wakeOK && S.keepAwake !== false} disabled={!wakeOK}
             onChange={v => update(s => { s.keepAwake = v })} />
@@ -228,7 +228,7 @@ export default function Settings() {
       )}
       <Row
         icon="bell"
-        iconTint="var(--theme-accent, #E8B477)"
+        iconTint="var(--theme-accent, #F5F5F5)"
         title={t('Sounds')}
         subtitle={t('Workout audio effects (beeps, countdowns, alarms)')}
       >
@@ -260,7 +260,7 @@ export default function Settings() {
       </Row>
       {/* Two names for the same judgement, so the column asks in the scale you already think in.
           The (i) sits before the control — you read it on the way to the choice, not after it. */}
-      <Row icon="target" iconTint="var(--theme-accent, #E8B477)" title={t('Effort per set')}>
+      <Row icon="target" iconTint="var(--theme-accent, #F5F5F5)" title={t('Effort per set')}>
         <button className="helpbtn" aria-label={t('What are RIR and RPE?')} onClick={effortHelpSheet}><Icon name="info" /></button>
         <Segmented className="seg-inline"
           options={[{ value: 'none', label: t('Off') }, { value: 'rir', label: t('RIR') }, { value: 'rpe', label: t('RPE') }]}
@@ -275,7 +275,7 @@ export default function Settings() {
     >
       <Row
         icon="speakerWave"
-        iconTint="var(--theme-accent, #E8B477)"
+        iconTint="var(--theme-accent, #F5F5F5)"
         title={t('Rest timer alert sound')}
         subtitle={t('Audible workout alarm when countdown reaches zero (plays in headphones)')}
       >
@@ -292,7 +292,7 @@ export default function Settings() {
         <>
           <SelectRow
             icon="musicNote"
-            iconTint="var(--theme-accent, #E8B477)"
+            iconTint="var(--theme-accent, #F5F5F5)"
             title={t('Alert tone')}
             value={S.restAlertTone || 'alarm'}
             onChange={v => update(s => { s.restAlertTone = v })}
@@ -305,7 +305,7 @@ export default function Settings() {
 
           <Row
             icon="speakerWave"
-            iconTint="var(--theme-accent, #E8B477)"
+            iconTint="var(--theme-accent, #F5F5F5)"
             title={t('Alert volume')}
             subtitle={`${Math.round((S.restAlertVolume !== undefined ? S.restAlertVolume : 1.0) * 100)}%`}
           >
@@ -317,7 +317,7 @@ export default function Settings() {
                 step="0.05"
                 value={S.restAlertVolume !== undefined ? S.restAlertVolume : 1.0}
                 onChange={e => update(s => { s.restAlertVolume = parseFloat(e.target.value) })}
-                style={{ flex: 1, accentColor: 'var(--theme-accent, #E8B477)', cursor: 'pointer' }}
+                style={{ flex: 1, accentColor: 'var(--theme-accent, #F5F5F5)', cursor: 'pointer' }}
                 aria-label={t('Alert volume')}
               />
               <Button
@@ -340,7 +340,7 @@ export default function Settings() {
 
       <Row
         icon="target"
-        iconTint="var(--theme-accent, #E8B477)"
+        iconTint="var(--theme-accent, #F5F5F5)"
         title={t('Vibration')}
         subtitle={t('Haptic pulse on rest completion (where supported)')}
       >
@@ -352,7 +352,7 @@ export default function Settings() {
 
       <Row
         icon="bell"
-        iconTint="var(--theme-accent, #E8B477)"
+        iconTint="var(--theme-accent, #F5F5F5)"
         title={t('Browser notifications')}
         subtitle={t('System notification when timer ends, even in background tabs')}
       >
@@ -406,7 +406,7 @@ export default function Settings() {
       {/* iOS Safari / iPhone PWA Audio Compatibility Note */}
       <div style={{ padding: '12px 14px', background: 'var(--surface-2)', borderRadius: 12, margin: '8px 12px 14px 12px', border: '1px solid var(--sep)' }}>
         <div className="row" style={{ gap: 8, alignItems: 'center', marginBottom: 4 }}>
-          <Icon name="info" style={{ color: 'var(--theme-accent, #E8B477)', fontSize: 16 }} />
+          <Icon name="info" style={{ color: 'var(--theme-accent, #F5F5F5)', fontSize: 16 }} />
           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
             {t('iPhone / Safari Audio Tips')}
           </span>
@@ -443,26 +443,16 @@ export default function Settings() {
       </Row>
     </Section>
 
-    {coachAvailable(config, user, { demo: DEMO, mobile: MOBILE }) && (
-      <Section title={t('Coach')} footer={hasConsent(S)
-        ? t('The Coach designs and adjusts your plan; it never changes anything without your say-so.')
-        : t('An AI coach that can build your plan and adjust it from what you log. Off until you turn it on.')}>
-        <Row icon="sparkles" iconTint="var(--theme-accent, #E8B477)" title={hasConsent(S) ? t('Open the Coach') : t('Meet the Coach')}
-          subtitle={hasConsent(S) ? t('Reviews, plan design, history and controls') : t('See what it would use, then decide')}
-          accessory="chevron" onClick={() => nav('/coach')} />
-      </Section>
-    )}
-
     {(user || MOBILE) && <NotificationsCard S={S} update={update} toast={toast} />}
 
-    {/* ---------- dynamic accent theme & ambient glow ---------- */}
-    <Section title={t('Accent Theme & Ambient Glow')} footer={DEMO || MOBILE ? undefined : t('Selected accent and ambient lighting dynamically sync live across all pages.')}>
+    {/* ---------- Appearance: Dark Mode & Light Mode ONLY ---------- */}
+    <Section title={t('Appearance')} footer={t('Choose between clean minimal Dark Mode or Light Mode.')}>
       {/* Dark Mode / Light Mode Switch */}
       <Row
         icon="sparkles"
-        iconTint="var(--theme-accent, #E8B477)"
-        title={t('Appearance')}
-        subtitle={S.theme === 'light' ? t('Clean light surfaces & dark typography') : t('Deep black smoky glass & golden glow')}
+        iconTint="var(--theme-accent, #F5F5F5)"
+        title={t('Theme')}
+        subtitle={S.theme === 'light' ? t('Clean light surfaces & dark typography') : t('Minimal dark charcoal & high contrast')}
       >
         <Segmented
           className="seg-inline"
@@ -471,266 +461,15 @@ export default function Settings() {
             { value: 'light', label: t('Light Mode') }
           ]}
           value={S.theme === 'light' ? 'light' : 'dark'}
-          onChange={v => update(s => { s.theme = v })}
+          onChange={v => {
+            update(s => { s.theme = v })
+            syncSettingToServer({ theme: v })
+          }}
         />
       </Row>
 
-      {/* 7 Distinguishable Accent Themes */}
-      <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 14, paddingTop: 14, paddingBottom: 16 }}>
-        <div className="row between" style={{ alignItems: 'baseline' }}>
-          <span className="lrow-t" style={{ fontWeight: 700 }}>{t('Accent Theme Presets')}</span>
-          <span className="dim small">{t('Dynamic glow & UI adaptation')}</span>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 10 }}>
-          {Object.values(THEME_PRESETS).map(preset => {
-            const currentThemeId = S.bgTheme || 'warm-gold'
-            const isSelected = currentThemeId === preset.id || (currentThemeId.includes('gold') && preset.id === 'warm-gold')
-            return (
-              <div
-                key={preset.id}
-                onClick={() => {
-                  update(s => {
-                    s.bgTheme = preset.id
-                    s.goldShade = preset.primary
-                    s.bronzeShade = preset.secondary
-                    s.bgDarkness = preset.bg
-                  })
-                  syncSettingToServer({
-                    themePreset: preset.id,
-                    accentColor: preset.primary,
-                    backgroundSettings: { bgDarkness: preset.bg }
-                  })
-                }}
-                style={{
-                  padding: '12px 10px',
-                  borderRadius: 14,
-                  cursor: 'pointer',
-                  background: isSelected ? `rgba(${preset.rgb}, 0.14)` : 'var(--surface-2)',
-                  border: isSelected ? `2px solid ${preset.primary}` : '1px solid rgba(255, 255, 255, 0.08)',
-                  boxShadow: isSelected ? `0 0 16px rgba(${preset.rgb}, 0.35), var(--glass-highlight)` : 'var(--glass-highlight)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 8,
-                  transition: 'transform var(--fast) var(--ease), border-color var(--fast), box-shadow var(--fast)'
-                }}
-              >
-                {/* Visual gradient swatch preview */}
-                <div
-                  style={{
-                    height: 38,
-                    borderRadius: 8,
-                    background: preset.heroGradient,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.45), inset 0 1px 1px rgba(255,255,255,0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  {isSelected && <span style={{ color: '#12100E', fontSize: 16, fontWeight: 900 }}>✓</span>}
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--label)' }}>
-                    {preset.name}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--label-2)', marginTop: 2, lineHeight: 1.25 }}>
-                    {preset.description}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Quick Accent Color Selector */}
-      <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10, paddingTop: 6, paddingBottom: 14 }}>
-        <div className="row between">
-          <span className="lrow-t">{t('Quick Accent Palette')}</span>
-          <span style={{ fontSize: 12, color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}>
-            {THEME_PRESETS[S.bgTheme]?.name || 'Warm Gold'}
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {Object.values(THEME_PRESETS).map(preset => {
-            const currentThemeId = S.bgTheme || 'warm-gold'
-            const active = currentThemeId === preset.id || (currentThemeId.includes('gold') && preset.id === 'warm-gold')
-            return (
-              <button
-                key={preset.id}
-                onClick={() => {
-                  update(s => {
-                    s.bgTheme = preset.id
-                    s.goldShade = preset.primary
-                    s.bronzeShade = preset.secondary
-                    s.bgDarkness = preset.bg
-                  })
-                  syncSettingToServer({
-                    themePreset: preset.id,
-                    accentColor: preset.primary,
-                    backgroundSettings: { bgDarkness: preset.bg }
-                  })
-                }}
-                title={preset.name}
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 12,
-                  background: preset.primary,
-                  border: active ? '3px solid #FFFFFF' : '1px solid rgba(255,255,255,0.2)',
-                  boxShadow: active ? `0 0 14px ${preset.primary}` : '0 2px 8px rgba(0,0,0,0.3)',
-                  cursor: 'pointer',
-                  transform: active ? 'scale(1.1)' : 'scale(1)',
-                  transition: 'transform 0.15s ease'
-                }}
-              />
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Background Darkness */}
-      <Row
-        icon="moon"
-        iconTint="var(--theme-accent, #E8B477)"
-        title={t('Background Darkness')}
-        subtitle={S.bgDarkness === '#050505' ? t('Pitch Black') : S.bgDarkness === '#111111' ? t('Dark Charcoal') : t('Deep Black (Default)')}
-      >
-        <Segmented
-          className="seg-inline"
-          options={[
-            { value: '#090909', label: t('Deep Black') },
-            { value: '#050505', label: t('Pitch') },
-            { value: '#111111', label: t('Charcoal') }
-          ]}
-          value={S.bgDarkness || '#090909'}
-          onChange={v => update(s => { s.bgDarkness = v })}
-        />
-      </Row>
-
-      {/* Ambient Accent Glow Toggle */}
-      <Row
-        icon="sparkles"
-        iconTint="var(--theme-accent, #E8B477)"
-        title={t('Dynamic Ambient Glow')}
-        subtitle={t('Ambient lighting behind dashboard cards matching your active accent')}
-      >
-        <Switch
-          checked={S.ambientGlow !== false}
-          onChange={v => update(s => { s.ambientGlow = v })}
-        />
-      </Row>
-
-      {/* Ambient Glow Intensity Slider */}
-      {S.ambientGlow !== false && (
-        <Row
-          icon="sun"
-          iconTint="var(--theme-accent, #E8B477)"
-          title={t('Ambient Glow Intensity')}
-          subtitle={`${Math.round((S.glowIntensity !== undefined ? S.glowIntensity : 1.0) * 100)}%`}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', maxWidth: 180 }}>
-            <input
-              type="range"
-              min="0.2"
-              max="1.8"
-              step="0.1"
-              value={S.glowIntensity !== undefined ? S.glowIntensity : 1.0}
-              onChange={e => {
-                const val = parseFloat(e.target.value)
-                update(s => { s.glowIntensity = val })
-                syncSettingToServer({ ambientGlowIntensity: val })
-              }}
-              style={{ flex: 1, accentColor: 'var(--theme-accent, #E8B477)', cursor: 'pointer' }}
-              aria-label={t('Glow Intensity')}
-            />
-          </div>
-        </Row>
-      )}
-
-      {/* Upper Glow Intensity Slider */}
-      {S.ambientGlow !== false && (
-        <Row
-          icon="sparkles"
-          iconTint="var(--theme-accent, #E8B477)"
-          title={t('Upper Glow Intensity')}
-          subtitle={`${Math.round((S.upperGlowIntensity !== undefined ? S.upperGlowIntensity : 1.0) * 100)}%`}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', maxWidth: 180 }}>
-            <input
-              type="range"
-              min="0.2"
-              max="2.0"
-              step="0.1"
-              value={S.upperGlowIntensity !== undefined ? S.upperGlowIntensity : 1.0}
-              onChange={e => {
-                const val = parseFloat(e.target.value)
-                update(s => { s.upperGlowIntensity = val })
-                syncSettingToServer({ upperGlowIntensity: val })
-              }}
-              style={{ flex: 1, accentColor: 'var(--theme-accent, #E8B477)', cursor: 'pointer' }}
-              aria-label={t('Upper Glow Intensity')}
-            />
-          </div>
-        </Row>
-      )}
-
-      {/* Glass Transparency / Opacity Slider */}
-      <Row
-        icon="eye"
-        iconTint="var(--theme-accent, #E8B477)"
-        title={t('Glass Card Opacity')}
-        subtitle={`${Math.round((S.glassOpacity !== undefined ? S.glassOpacity : 0.80) * 100)}%`}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', maxWidth: 180 }}>
-          <input
-            type="range"
-            min="0.5"
-            max="0.95"
-            step="0.05"
-            value={S.glassOpacity !== undefined ? S.glassOpacity : 0.80}
-            onChange={e => update(s => { s.glassOpacity = parseFloat(e.target.value) })}
-            style={{ flex: 1, accentColor: 'var(--theme-accent, #E8B477)', cursor: 'pointer' }}
-            aria-label={t('Glass Opacity')}
-          />
-        </div>
-      </Row>
-
-      {/* Background Blur Intensity Slider */}
-      <Row
-        icon="camera"
-        iconTint="var(--theme-accent, #E8B477)"
-        title={t('Glass Blur Intensity')}
-        subtitle={`${Math.round((S.blurIntensity !== undefined ? S.blurIntensity : 1.0) * 100)}%`}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', maxWidth: 180 }}>
-          <input
-            type="range"
-            min="0.5"
-            max="1.8"
-            step="0.1"
-            value={S.blurIntensity !== undefined ? S.blurIntensity : 1.0}
-            onChange={e => update(s => { s.blurIntensity = parseFloat(e.target.value) })}
-            style={{ flex: 1, accentColor: 'var(--theme-accent, #E8B477)', cursor: 'pointer' }}
-            aria-label={t('Glass Blur Intensity')}
-          />
-        </div>
-      </Row>
-
-      {/* Background Glow Animation Toggle */}
-      <Row
-        icon="bolt"
-        iconTint="var(--theme-accent, #E8B477)"
-        title={t('Subtle Drift Animation')}
-        subtitle={t('Gentle organic movement of ambient lighting')}
-      >
-        <Switch
-          checked={S.bgAnimation !== false}
-          onChange={v => update(s => { s.bgAnimation = v })}
-        />
-      </Row>
-
-      {/* Body diagram */}
-      <Row icon="figureStrength" iconTint="var(--theme-accent, #E8B477)" title={t('Body diagram')}>
+      {/* Anatomical Body Diagram Model */}
+      <Row icon="figureStrength" iconTint="var(--theme-accent, #F5F5F5)" title={t('Body diagram')} subtitle={t('Anatomical muscle chart model')}>
         <Segmented
           className="seg-inline"
           options={[{ value: 'male', label: t('Male') }, { value: 'female', label: t('Female') }]}
@@ -742,12 +481,12 @@ export default function Settings() {
 
     {/* ---------- data: fill it, bring things over, back it up, wipe it ---------- */}
     <Section title={t('Data')}>
-      <Row icon="sparkles" iconTint="var(--theme-accent, #E8B477)" title={t('Load starter plan (PPL)')} accessory="chevron" onClick={loadStarterPlan} />
-      <Row icon="shuffle" iconTint="var(--theme-accent, #E8B477)" title={t('Import from another app')}
+      <Row icon="sparkles" iconTint="var(--theme-accent, #F5F5F5)" title={t('Load starter plan (PPL)')} accessory="chevron" onClick={loadStarterPlan} />
+      <Row icon="shuffle" iconTint="var(--theme-accent, #F5F5F5)" title={t('Import from another app')}
         subtitle={t('FitNotes, Strong, Hevy — or body weight from Apple Health')}
         accessory="chevron" onClick={() => importRef.current.click()} />
-      <Row icon="upload" iconTint="var(--theme-accent, #E8B477)" title={t('Import backup')} accessory="chevron" onClick={() => fileRef.current.click()} />
-      <Row icon="download" iconTint="var(--theme-accent, #E8B477)" title={t('Export backup (JSON)')} accessory="chevron" onClick={doExport} />
+      <Row icon="upload" iconTint="var(--theme-accent, #F5F5F5)" title={t('Import backup')} accessory="chevron" onClick={() => fileRef.current.click()} />
+      <Row icon="download" iconTint="var(--theme-accent, #F5F5F5)" title={t('Export backup (JSON)')} accessory="chevron" onClick={doExport} />
       {/* Also drops anything the Coach is holding server-side: a wipe that leaves a pending
           proposal on the server behind would be a wipe in name only. */}
       <Row icon="trash" iconTint="var(--red)" title={t('Reset everything')} danger onClick={() => setResetModalOpen(true)} />
@@ -759,7 +498,7 @@ export default function Settings() {
 
     {/* "Add to Home screen" makes no sense inside the native app */}
     {!MOBILE && <Section title={t('Tip')}>
-      <Row icon="lightbulb" iconTint="var(--theme-accent, #E8B477)"
+      <Row icon="lightbulb" iconTint="var(--theme-accent, #F5F5F5)"
         title={IS_ANDROID ? t('In Chrome: ⋮ menu → Add to Home screen') : t('In Safari: Share → Add to Home Screen')}
         subtitle={t('to install IRONX as a full-screen app.') + ' ' + (user ? t('Your data syncs with your profile — sign in anywhere to see it.') : t('Guest data stays on this device — export a backup now and then!'))} />
     </Section>}
@@ -799,7 +538,7 @@ export default function Settings() {
             borderRadius: 24,
             background: 'var(--surface)',
             backgroundImage: 'var(--grad-glass-surface)',
-            border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.3))',
+            border: '1px solid var(--theme-accent-border, var(--borders, #303036))',
             boxShadow: 'var(--card-shadow), 0 0 30px rgba(0, 0, 0, 0.8)',
             padding: 24,
             display: 'flex',
@@ -852,7 +591,7 @@ export default function Settings() {
                 padding: '14px 16px',
                 borderRadius: 16,
                 background: 'var(--surface-2)',
-                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.25))',
+                border: '1px solid var(--theme-accent-border, var(--borders, #303036))',
                 textAlign: 'left',
                 cursor: 'pointer',
                 display: 'flex',
@@ -861,7 +600,7 @@ export default function Settings() {
                 transition: 'background 0.15s ease'
               }}
             >
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--theme-accent, #E8B477)' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--theme-accent, #F5F5F5)' }}>
                 {t('Reset Fitness Data Only')}
               </div>
               <div style={{ fontSize: 12, color: 'var(--label-2)', lineHeight: 1.4 }}>

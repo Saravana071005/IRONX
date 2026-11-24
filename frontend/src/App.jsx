@@ -58,7 +58,7 @@ function Shell() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
 
   useEffect(() => { setNav(navigate) }, [navigate])
-  useEffect(() => { applyPrefs(S) }, [S.theme, S.accent, S.stealthDim, S.stealthMode, S.bgTheme, S.glowIntensity, S.upperGlowIntensity, S.blurIntensity, S.bgAnimation, S.customGlow1, S.customGlow2, S.customGlow3, S.customGlow4])
+  useEffect(() => { applyPrefs(S) }, [S.theme, S.accent, S.stealthDim, S.stealthMode])
   useEffect(() => { setLang(S.lang || 'en') }, [S.lang])
   useEffect(() => { document.documentElement.lang = S.lang || 'en' }, [langV, S.lang])
   // every tab/route change starts at the top of the page and closes mobile drawer
@@ -110,13 +110,6 @@ function Shell() {
 
   return (
     <>
-      <div className="aurora-fusion-bg" aria-hidden="true">
-        <div className="aurora-glow aurora-glow-1" />
-        <div className="aurora-glow aurora-glow-2" />
-        <div className="aurora-glow aurora-glow-3" />
-        <div className="aurora-glow aurora-glow-4" />
-      </div>
-
       <div className="layout-shell">
         <Sidebar
           onStart={startFlow}
@@ -198,7 +191,7 @@ function Shell() {
       </div>
       <TabBar onStart={startFlow} />
       <RestTimer />
-      <Modals />
+      <ErrorBoundary><Modals /></ErrorBoundary>
       <Toast />
     </>
   )

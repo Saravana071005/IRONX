@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useStore, getHealthStorageKey, getHealthSettingsKey } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { api } from '../lib/api.js'
@@ -144,7 +144,17 @@ export default function Nutrition() {
 
   // Unified cardio activities from store and health log
   const allCardioForDay = useMemo(() => {
-    const storeCardio = (S.cardioLogs || []).filter(c => c && (c.d === date || c.date === date || (c.createdAt && c.createdAt.slice(0, 10) === date)))
+    const storeCardio = (S.cardioLogs || []).filter(c => {
+      if (!c) return false
+      if (c.d === date || c.date === date) return true
+      if (c.createdAt) {
+        if (typeof c.createdAt === 'string') return c.createdAt.slice(0, 10) === date
+        if (typeof c.createdAt === 'number') {
+          try { return new Date(c.createdAt).toISOString().slice(0, 10) === date } catch (e) { return false }
+        }
+      }
+      return false
+    })
     const map = new Map()
     storeCardio.forEach(c => {
       map.set(c.id, {
@@ -165,7 +175,7 @@ export default function Nutrition() {
     return Array.from(map.values())
   }, [S.cardioLogs, cardio, date])
 
-  const loadDayData = async (d) => {
+  async function loadDayData(d) {
     setLoading(true)
     // Synchronize immediately from store in-memory state to eliminate latency
     const storeDayMeals = (S.meals || []).filter(m => m && (m.date === d || m.d === d)).map(m => ({
@@ -240,7 +250,7 @@ export default function Nutrition() {
     setLoading(false)
   }
 
-  const loadFromLocalStorage = (d) => {
+  function loadFromLocalStorage(d) {
     try {
       const stored = localStorage.getItem(getHealthStorageKey(user?.id, d))
       if (stored) {
@@ -289,7 +299,7 @@ export default function Nutrition() {
     }
   }
 
-  const saveToLocalStorage = (d, newFoods, newWater, newCardio, newStrength) => {
+  function saveToLocalStorage(d, newFoods, newWater, newCardio, newStrength) {
     try {
       localStorage.setItem(getHealthStorageKey(user?.id, d), JSON.stringify({
         foods: newFoods,
@@ -298,6 +308,10 @@ export default function Nutrition() {
         strength: newStrength
       }))
     } catch (e) {}
+  }
+
+  function loadData(d) {
+    return loadDayData(d || date)
   }
 
   // Save water goal setting
@@ -1278,7 +1292,7 @@ export default function Nutrition() {
                       <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 1 }}>
                         {mealFoods.length} {t(mealFoods.length === 1 ? 'item' : 'items')}
                         {mealCals > 0 && (
-                          <span style={{ color: 'var(--theme-accent, #E8B477)', marginLeft: 6, fontWeight: 600 }}>
+                          <span style={{ color: 'var(--theme-accent, #F5F5F5)', marginLeft: 6, fontWeight: 600 }}>
                             · {mealCals} kcal · {mealP}g P · {mealC}g C · {mealF}g F
                           </span>
                         )}
@@ -1289,7 +1303,7 @@ export default function Nutrition() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <button
                       className="iconbtn"
-                      style={{ width: 28, height: 28, fontSize: 12, background: 'var(--surface-2)', color: 'var(--theme-accent, #E8B477)' }}
+                      style={{ width: 28, height: 28, fontSize: 12, background: 'var(--surface-2)', color: 'var(--theme-accent, #F5F5F5)' }}
                       onClick={() => handleOpenRepeatMealModal(meal.id)}
                       aria-label={t('Repeat previous {0}', meal.label)}
                       title={t('Repeat previous {0}', meal.label)}
@@ -1298,7 +1312,7 @@ export default function Nutrition() {
                     </button>
                     <button
                       className="iconbtn"
-                      style={{ width: 28, height: 28, fontSize: 12, background: 'var(--surface-2)', color: 'var(--theme-accent, #E8B477)' }}
+                      style={{ width: 28, height: 28, fontSize: 12, background: 'var(--surface-2)', color: 'var(--theme-accent, #F5F5F5)' }}
                       onClick={() => handleOpenSaveAsMyMeal(meal.id)}
                       aria-label={t('Save {0} as template', meal.label)}
                       title={t('Save {0} as template', meal.label)}
@@ -1350,7 +1364,7 @@ export default function Nutrition() {
                             </div>
                             <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                               {itemCal > 0 && (
-                                <span style={{ fontWeight: 600, color: 'var(--theme-accent, #E8B477)' }}>
+                                <span style={{ fontWeight: 600, color: 'var(--theme-accent, #F5F5F5)' }}>
                                   {itemCal} kcal
                                 </span>
                               )}
@@ -1697,7 +1711,7 @@ export default function Nutrition() {
               const durMin = Math.max(1, Math.round((w.dur || (w.end - w.start) || 0) / 60000))
               const totalSets = (w.entries || []).reduce((acc, e) => acc + (e.sets ? e.sets.filter(s => s.done).length : 0), 0)
               return (
-                <div key={w.id || wIdx} style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.2))' }}>
+                <div key={w.id || wIdx} style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--theme-accent-border, var(--borders, #303036))' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1726,7 +1740,7 @@ export default function Nutrition() {
                             <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--label)' }}>
                               {exName}
                             </div>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--theme-accent, #E8B477)' }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--theme-accent, #F5F5F5)' }}>
                               {doneSets.length} {t('sets')} {maxWeight > 0 ? `· ${t('Top')} ${maxWeight} kg` : ''}
                             </div>
                           </div>
@@ -2113,8 +2127,8 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
 
       {/* AI Fast Log Bar */}
       {!existing && (
-        <div style={{ background: 'var(--surface-2, #1E1E22)', border: '1px solid rgba(232, 180, 119, 0.3)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--theme-accent, #E8B477)', marginBottom: 8 }}>
+        <div style={{ background: 'var(--surface-2, #1E1E22)', border: '1px solid var(--borders, #303036)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--theme-accent, #F5F5F5)', marginBottom: 8 }}>
             <span>⚡</span>
             <span>{t('AI Fast Log (English, தமிழ், हिंदी)')}</span>
           </div>
@@ -2152,9 +2166,9 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
 
       {/* Multi-Item Meal Draft List */}
       {draftItems.length > 0 && (
-        <div style={{ background: 'var(--surface-2, #1E1E22)', border: '1px solid rgba(232, 180, 119, 0.4)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
+        <div style={{ background: 'var(--surface-2, #1E1E22)', border: '1px solid var(--borders, #303036)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--theme-accent, #E8B477)' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--theme-accent, #F5F5F5)' }}>
               {t('Meal Draft ({0} items)', draftItems.length)}
             </span>
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)' }}>
@@ -2171,7 +2185,7 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontWeight: 600, color: 'var(--theme-accent, #E8B477)', fontSize: 12 }}>
+                  <span style={{ fontWeight: 600, color: 'var(--theme-accent, #F5F5F5)', fontSize: 12 }}>
                     {item.energy_kcal} kcal
                   </span>
                   <button
@@ -2268,7 +2282,7 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
                 left: 0,
                 right: 0,
                 background: 'var(--surface-1, #1A1A1A)',
-                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.3))',
+                border: '1px solid var(--theme-accent-border, var(--borders, #303036))',
                 borderRadius: 8,
                 marginTop: 4,
                 zIndex: 100,
@@ -2306,16 +2320,16 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <strong style={{ color: '#FFFFFF', fontSize: '0.9rem' }}>{item.name}</strong>
                         {(item.name_regional || item.tamil_name || item.hindi_name) && (
-                          <span style={{ fontSize: 11, color: 'var(--theme-accent, #E8B477)', fontWeight: 600 }}>
+                          <span style={{ fontSize: 11, color: 'var(--theme-accent, #F5F5F5)', fontWeight: 600 }}>
                             ({item.name_regional || item.tamil_name || item.hindi_name})
                           </span>
                         )}
                         {item.source === 'NIN_STAPLE' || item.source === 'INDB_ICMR' || item.data_source === 'icmr_nin_2017' ? (
-                          <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 9999, background: 'rgba(232, 180, 119, 0.25)', color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}>
+                          <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 9999, background: 'var(--borders, #303036)', color: 'var(--theme-accent, #F5F5F5)', fontWeight: 700 }}>
                             ICMR-NIN Verified
                           </span>
                         ) : item.source === 'INDB_RECIPE' || item.data_source === 'indb' ? (
-                          <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 9999, background: 'rgba(232, 180, 119, 0.2)', color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}>
+                          <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 9999, background: 'var(--borders, #303036)', color: 'var(--theme-accent, #F5F5F5)', fontWeight: 700 }}>
                             INDB Recipe
                           </span>
                         ) : (
@@ -2332,7 +2346,7 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
                         )}
                       </div>
                     </div>
-                    <span style={{ color: hasNutrition ? 'var(--theme-accent, #E8B477)' : 'rgba(255, 255, 255, 0.4)', fontWeight: 700, fontSize: 13, flex: 'none', marginLeft: 8 }}>
+                    <span style={{ color: hasNutrition ? 'var(--theme-accent, #F5F5F5)' : 'rgba(255, 255, 255, 0.4)', fontWeight: 700, fontSize: 13, flex: 'none', marginLeft: 8 }}>
                       {hasNutrition ? `${itemKcal} kcal` : 'Manual'}
                     </span>
                   </div>
@@ -2394,9 +2408,9 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
               style={{
                 padding: '4px 10px',
                 borderRadius: 9999,
-                border: quantity === chip.q && unit === chip.u ? '1px solid var(--theme-accent, #E8B477)' : '1px solid var(--border)',
-                background: quantity === chip.q && unit === chip.u ? 'rgba(232, 180, 119, 0.2)' : 'var(--surface-2, #1E1E22)',
-                color: quantity === chip.q && unit === chip.u ? 'var(--theme-accent, #E8B477)' : 'var(--label)',
+                border: quantity === chip.q && unit === chip.u ? '1px solid var(--theme-accent, #F5F5F5)' : '1px solid var(--border)',
+                background: quantity === chip.q && unit === chip.u ? 'var(--borders, #303036)' : 'var(--surface-2, #1E1E22)',
+                color: quantity === chip.q && unit === chip.u ? 'var(--theme-accent, #F5F5F5)' : 'var(--label)',
                 fontSize: 12,
                 fontWeight: 600,
                 cursor: 'pointer'
@@ -2421,9 +2435,9 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
               style={{
                 padding: '4px 10px',
                 borderRadius: 9999,
-                border: quantity === chip.q && unit === chip.u ? '1px solid var(--theme-accent, #E8B477)' : '1px solid var(--border)',
-                background: quantity === chip.q && unit === chip.u ? 'rgba(232, 180, 119, 0.2)' : 'var(--surface-2, #1E1E22)',
-                color: quantity === chip.q && unit === chip.u ? 'var(--theme-accent, #E8B477)' : 'var(--label)',
+                border: quantity === chip.q && unit === chip.u ? '1px solid var(--theme-accent, #F5F5F5)' : '1px solid var(--border)',
+                background: quantity === chip.q && unit === chip.u ? 'var(--borders, #303036)' : 'var(--surface-2, #1E1E22)',
+                color: quantity === chip.q && unit === chip.u ? 'var(--theme-accent, #F5F5F5)' : 'var(--label)',
                 fontSize: 12,
                 fontWeight: 600,
                 cursor: 'pointer'
@@ -2436,13 +2450,13 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
       </div>
 
       {/* Instant Nutrition Preview Card */}
-      <div style={{ background: 'var(--surface-2, #1E1E22)', border: '1px solid rgba(232, 180, 119, 0.25)', borderRadius: 10, padding: '10px 14px', marginBottom: 14 }}>
+      <div style={{ background: 'var(--surface-2, #1E1E22)', border: '1px solid var(--borders, #303036)', borderRadius: 10, padding: '10px 14px', marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <span style={{ fontSize: 12, color: 'var(--label-2)', fontWeight: 600 }}>
             {t('Instant Nutrition Preview')} ({quantity} {unit})
           </span>
           {baseFood && (
-            <span style={{ fontSize: 11, color: 'var(--theme-accent, #E8B477)' }}>
+            <span style={{ fontSize: 11, color: 'var(--theme-accent, #F5F5F5)' }}>
               100g base = {baseFood.calories || 0} kcal
             </span>
           )}
@@ -2450,7 +2464,7 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, textAlign: 'center' }}>
           <div style={{ background: 'var(--surface-1, #141416)', padding: '6px 4px', borderRadius: 6 }}>
             <div style={{ fontSize: 11, color: 'var(--label-2)' }}>{t('Calories')}</div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--theme-accent, #E8B477)' }}>{calories || 0} <span style={{ fontSize: 10 }}>kcal</span></div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--theme-accent, #F5F5F5)' }}>{calories || 0} <span style={{ fontSize: 10 }}>kcal</span></div>
           </div>
           <div style={{ background: 'var(--surface-1, #141416)', padding: '6px 4px', borderRadius: 6 }}>
             <div style={{ fontSize: 11, color: 'var(--label-2)' }}>{t('Protein')}</div>
@@ -2470,7 +2484,7 @@ function SimplifiedFoodFormModal({ date, existing, defaultMeal = 'breakfast', on
       {/* Manual Editable Micro Nutrients Row (Foldable/Inline) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 14 }}>
         <div>
-          <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--theme-accent, #E8B477)', marginBottom: 4 }}>
+          <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--theme-accent, #F5F5F5)', marginBottom: 4 }}>
             {t('Calories (kcal)')}
           </label>
           <input

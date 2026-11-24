@@ -227,8 +227,8 @@ export default function ProfileSetup() {
           </button>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 18, color: 'var(--theme-accent, #E8B477)' }}>⚡</span>
-            <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--theme-accent, #E8B477)' }}>
+            <span style={{ fontSize: 18, color: 'var(--theme-accent, #F5F5F5)' }}>⚡</span>
+            <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--theme-accent, #F5F5F5)' }}>
               {t('IRONX Onboarding')}
             </span>
           </div>
@@ -244,7 +244,7 @@ export default function ProfileSetup() {
           style={{
             width: `${(step / 5) * 100}%`,
             height: '100%',
-            background: 'var(--theme-accent-gradient, linear-gradient(135deg, #FFD09A 0%, #E8B477 100%))',
+            background: 'var(--theme-accent-gradient, linear-gradient(135deg, var(--label, #F5F5F5) 0%, var(--theme-accent, #F5F5F5) 100%))',
             borderRadius: 99,
             transition: 'width 0.3s ease'
           }}
@@ -312,7 +312,7 @@ export default function ProfileSetup() {
                       border: '1px solid var(--sep)',
                       fontSize: 14,
                       fontWeight: 700,
-                      color: calculatedAge ? 'var(--theme-accent, #E8B477)' : 'var(--label-2)'
+                      color: calculatedAge ? 'var(--theme-accent, #F5F5F5)' : 'var(--label-2)'
                     }}
                   >
                     {calculatedAge !== null ? `${calculatedAge} ${t('years old')}` : t('Enter birth date')}
@@ -339,8 +339,8 @@ export default function ProfileSetup() {
                         padding: '12px',
                         borderRadius: 12,
                         background: sex === opt.id ? 'var(--surface-3)' : 'var(--surface-2)',
-                        border: sex === opt.id ? '1.5px solid var(--theme-accent, #E8B477)' : '1px solid var(--sep)',
-                        color: sex === opt.id ? 'var(--theme-accent, #E8B477)' : 'var(--label)',
+                        border: sex === opt.id ? '1.5px solid var(--theme-accent, #F5F5F5)' : '1px solid var(--sep)',
+                        color: sex === opt.id ? 'var(--theme-accent, #F5F5F5)' : 'var(--label)',
                         fontWeight: sex === opt.id ? 800 : 600,
                         cursor: 'pointer'
                       }}
@@ -404,7 +404,7 @@ export default function ProfileSetup() {
                       padding: '14px 16px',
                       borderRadius: 14,
                       background: isSelected ? 'var(--surface-3)' : 'var(--surface-2)',
-                      border: isSelected ? '1.5px solid var(--theme-accent, #E8B477)' : '1px solid var(--sep)',
+                      border: isSelected ? '1.5px solid var(--theme-accent, #F5F5F5)' : '1px solid var(--sep)',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
@@ -418,7 +418,7 @@ export default function ProfileSetup() {
                         height: 38,
                         borderRadius: 10,
                         background: isSelected ? 'var(--theme-accent-gradient)' : 'var(--surface)',
-                        color: isSelected ? '#12100E' : 'var(--theme-accent, #E8B477)',
+                        color: isSelected ? '#12100E' : 'var(--theme-accent, #F5F5F5)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -436,7 +436,7 @@ export default function ProfileSetup() {
                       </div>
                     </div>
                     {isSelected && (
-                      <div style={{ color: 'var(--theme-accent, #E8B477)', fontWeight: 800, fontSize: 18 }}>
+                      <div style={{ color: 'var(--theme-accent, #F5F5F5)', fontWeight: 800, fontSize: 18 }}>
                         ✓
                       </div>
                     )}
@@ -471,7 +471,7 @@ export default function ProfileSetup() {
                       border: '1px solid var(--sep)',
                       fontSize: 14,
                       fontWeight: 800,
-                      color: weightDiff < 0 ? '#EF4444' : (weightDiff > 0 ? 'var(--mint)' : 'var(--theme-accent, #E8B477)')
+                      color: weightDiff < 0 ? '#EF4444' : (weightDiff > 0 ? 'var(--mint)' : 'var(--theme-accent, #F5F5F5)')
                     }}
                   >
                     {weightDiff < 0
@@ -513,7 +513,7 @@ export default function ProfileSetup() {
                           padding: '12px 14px',
                           borderRadius: 12,
                           background: isSel ? 'var(--surface-3)' : 'var(--surface-2)',
-                          border: isSel ? '1.5px solid var(--theme-accent, #E8B477)' : '1px solid var(--sep)',
+                          border: isSel ? '1.5px solid var(--theme-accent, #F5F5F5)' : '1px solid var(--sep)',
                           cursor: 'pointer',
                           display: 'flex',
                           justifyContent: 'space-between',
@@ -524,7 +524,7 @@ export default function ProfileSetup() {
                           <div style={{ fontSize: 14, fontWeight: isSel ? 800 : 700, color: 'var(--label)' }}>{t(act.label)}</div>
                           <div style={{ fontSize: 12, color: 'var(--label-2)', marginTop: 2 }}>{t(act.sub)}</div>
                         </div>
-                        {isSel && <span style={{ color: 'var(--theme-accent, #E8B477)', fontWeight: 800 }}>✓</span>}
+                        {isSel && <span style={{ color: 'var(--theme-accent, #F5F5F5)', fontWeight: 800 }}>✓</span>}
                       </div>
                     )
                   })}
@@ -546,8 +546,8 @@ export default function ProfileSetup() {
                         padding: '12px 10px',
                         borderRadius: 12,
                         background: fitnessExperience === exp.id ? 'var(--surface-3)' : 'var(--surface-2)',
-                        border: fitnessExperience === exp.id ? '1.5px solid var(--theme-accent, #E8B477)' : '1px solid var(--sep)',
-                        color: fitnessExperience === exp.id ? 'var(--theme-accent, #E8B477)' : 'var(--label)',
+                        border: fitnessExperience === exp.id ? '1.5px solid var(--theme-accent, #F5F5F5)' : '1px solid var(--sep)',
+                        color: fitnessExperience === exp.id ? 'var(--theme-accent, #F5F5F5)' : 'var(--label)',
                         fontWeight: 700,
                         cursor: 'pointer',
                         textAlign: 'center'
@@ -574,8 +574,8 @@ export default function ProfileSetup() {
                         padding: '14px 10px',
                         borderRadius: 12,
                         background: workoutFrequency === days ? 'var(--surface-3)' : 'var(--surface-2)',
-                        border: workoutFrequency === days ? '1.5px solid var(--theme-accent, #E8B477)' : '1px solid var(--sep)',
-                        color: workoutFrequency === days ? 'var(--theme-accent, #E8B477)' : 'var(--label)',
+                        border: workoutFrequency === days ? '1.5px solid var(--theme-accent, #F5F5F5)' : '1px solid var(--sep)',
+                        color: workoutFrequency === days ? 'var(--theme-accent, #F5F5F5)' : 'var(--label)',
                         fontWeight: 800,
                         cursor: 'pointer'
                       }}
@@ -601,8 +601,8 @@ export default function ProfileSetup() {
                         padding: '12px 10px',
                         borderRadius: 12,
                         background: workoutType === wt.id ? 'var(--surface-3)' : 'var(--surface-2)',
-                        border: workoutType === wt.id ? '1.5px solid var(--theme-accent, #E8B477)' : '1px solid var(--sep)',
-                        color: workoutType === wt.id ? 'var(--theme-accent, #E8B477)' : 'var(--label)',
+                        border: workoutType === wt.id ? '1.5px solid var(--theme-accent, #F5F5F5)' : '1px solid var(--sep)',
+                        color: workoutType === wt.id ? 'var(--theme-accent, #F5F5F5)' : 'var(--label)',
                         fontWeight: 700,
                         cursor: 'pointer',
                         display: 'flex',
@@ -637,7 +637,7 @@ export default function ProfileSetup() {
                 size="sm"
                 variant="ghost"
                 onClick={handleSkipDiet}
-                style={{ flexShrink: 0, color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}
+                style={{ flexShrink: 0, color: 'var(--theme-accent, #F5F5F5)', fontWeight: 700 }}
               >
                 {t('Skip this step →')}
               </Button>
@@ -649,7 +649,7 @@ export default function ProfileSetup() {
                 padding: '12px 14px',
                 background: 'var(--surface-2)',
                 borderRadius: 14,
-                border: '1px dashed var(--theme-accent, #E8B477)',
+                border: '1px dashed var(--theme-accent, #F5F5F5)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -780,10 +780,10 @@ export default function ProfileSetup() {
               {/* Profile Card */}
               <div style={{ padding: '16px', background: 'var(--surface-2)', borderRadius: 16, border: '1px solid var(--sep)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--theme-accent, #E8B477)' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--theme-accent, #F5F5F5)' }}>
                     {t('Personal Info')}
                   </span>
-                  <button onClick={() => setStep(1)} style={{ background: 'none', border: 'none', color: 'var(--theme-accent, #E8B477)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                  <button onClick={() => setStep(1)} style={{ background: 'none', border: 'none', color: 'var(--theme-accent, #F5F5F5)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                     {t('Edit')}
                   </button>
                 </div>
@@ -798,10 +798,10 @@ export default function ProfileSetup() {
               {/* Goal Card */}
               <div style={{ padding: '16px', background: 'var(--surface-2)', borderRadius: 16, border: '1px solid var(--sep)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--theme-accent, #E8B477)' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--theme-accent, #F5F5F5)' }}>
                     {t('Fitness Goal & Target')}
                   </span>
-                  <button onClick={() => setStep(2)} style={{ background: 'none', border: 'none', color: 'var(--theme-accent, #E8B477)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                  <button onClick={() => setStep(2)} style={{ background: 'none', border: 'none', color: 'var(--theme-accent, #F5F5F5)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                     {t('Edit')}
                   </button>
                 </div>
@@ -810,7 +810,7 @@ export default function ProfileSetup() {
                   <div><span style={{ color: 'var(--label-2)' }}>{t('Target Weight')}:</span> <strong style={{ color: 'var(--label)' }}>{targetWeightKg} kg</strong></div>
                   <div>
                     <span style={{ color: 'var(--label-2)' }}>{t('Change')}:</span>{' '}
-                    <strong style={{ color: weightDiff < 0 ? '#EF4444' : (weightDiff > 0 ? 'var(--mint)' : 'var(--theme-accent, #E8B477)') }}>
+                    <strong style={{ color: weightDiff < 0 ? '#EF4444' : (weightDiff > 0 ? 'var(--mint)' : 'var(--theme-accent, #F5F5F5)') }}>
                       {weightDiff < 0 ? `${weightDiff} kg` : (weightDiff > 0 ? `+${weightDiff} kg` : `0.0 kg`)}
                     </strong>
                   </div>
@@ -820,10 +820,10 @@ export default function ProfileSetup() {
               {/* Training Preferences Card */}
               <div style={{ padding: '16px', background: 'var(--surface-2)', borderRadius: 16, border: '1px solid var(--sep)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--theme-accent, #E8B477)' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--theme-accent, #F5F5F5)' }}>
                     {t('Training Cadence')}
                   </span>
-                  <button onClick={() => setStep(3)} style={{ background: 'none', border: 'none', color: 'var(--theme-accent, #E8B477)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                  <button onClick={() => setStep(3)} style={{ background: 'none', border: 'none', color: 'var(--theme-accent, #F5F5F5)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                     {t('Edit')}
                   </button>
                 </div>
@@ -837,10 +837,10 @@ export default function ProfileSetup() {
               {/* Diet Preferences Card */}
               <div style={{ padding: '16px', background: 'var(--surface-2)', borderRadius: 16, border: '1px solid var(--sep)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--theme-accent, #E8B477)' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--theme-accent, #F5F5F5)' }}>
                     {t('Diet Preferences')}
                   </span>
-                  <button onClick={() => setStep(4)} style={{ background: 'none', border: 'none', color: 'var(--theme-accent, #E8B477)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                  <button onClick={() => setStep(4)} style={{ background: 'none', border: 'none', color: 'var(--theme-accent, #F5F5F5)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                     {t('Edit')}
                   </button>
                 </div>
@@ -870,9 +870,9 @@ export default function ProfileSetup() {
                 fontSize: 16,
                 fontWeight: 800,
                 borderRadius: 14,
-                background: 'var(--theme-accent-gradient, linear-gradient(135deg, #FFD09A 0%, #E8B477 100%))',
+                background: 'var(--theme-accent-gradient, linear-gradient(135deg, var(--label, #F5F5F5) 0%, var(--theme-accent, #F5F5F5) 100%))',
                 color: '#12100E',
-                boxShadow: '0 8px 24px var(--theme-accent-glow, rgba(232, 180, 119, 0.35))'
+                boxShadow: '0 8px 24px var(--theme-accent-glow, var(--borders, #303036))'
               }}
             >
               {saving ? t('Setting up your profile...') : t('Complete Setup & Start Training →')}

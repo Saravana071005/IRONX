@@ -102,7 +102,7 @@ export function RepeatPreviousMealModal({ defaultMealType = 'breakfast', onSaveB
     <div style={{ padding: '4px 2px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: '#FFFFFF' }}>
-          <span style={{ color: 'var(--theme-accent, #E8B477)' }}><Icon name="reset" /></span>
+          <span style={{ color: 'var(--theme-accent, #F5F5F5)' }}><Icon name="reset" /></span>
           {t('Repeat Previous Meal')}
         </h3>
         <button className="iconbtn" onClick={close}><Icon name="xmark" /></button>
@@ -123,7 +123,7 @@ export function RepeatPreviousMealModal({ defaultMealType = 'breakfast', onSaveB
                   fontSize: 12,
                   fontWeight: 700,
                   textTransform: 'capitalize',
-                  background: activeTab === mt ? 'var(--theme-accent, #E8B477)' : 'rgba(255, 255, 255, 0.08)',
+                  background: activeTab === mt ? 'var(--theme-accent, #F5F5F5)' : 'rgba(255, 255, 255, 0.08)',
                   color: activeTab === mt ? '#000000' : 'rgba(255, 255, 255, 0.7)',
                   border: '1px solid rgba(255, 255, 255, 0.15)',
                   cursor: 'pointer'
@@ -160,7 +160,7 @@ export function RepeatPreviousMealModal({ defaultMealType = 'breakfast', onSaveB
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--theme-accent, #E8B477)' }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--theme-accent, #F5F5F5)' }}>
                         {m.date}
                       </span>
                       <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 9999, background: 'rgba(255,255,255,0.1)', color: '#FFFFFF' }}>
@@ -176,11 +176,11 @@ export function RepeatPreviousMealModal({ defaultMealType = 'breakfast', onSaveB
                     className="btn small"
                     onClick={() => handleSelectMeal(m)}
                     style={{
-                      background: 'rgba(232, 180, 119, 0.2)',
-                      color: 'var(--theme-accent, #E8B477)',
+                      background: 'var(--borders, #303036)',
+                      color: 'var(--theme-accent, #F5F5F5)',
                       fontWeight: 700,
                       borderRadius: 8,
-                      border: '1px solid rgba(232, 180, 119, 0.4)',
+                      border: '1px solid var(--borders, #303036)',
                       padding: '6px 12px',
                       flex: 'none'
                     }}
@@ -197,7 +197,7 @@ export function RepeatPreviousMealModal({ defaultMealType = 'breakfast', onSaveB
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <span style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.7)' }}>
-              {t('Repeating from')} <strong style={{ color: 'var(--theme-accent, #E8B477)' }}>{selectedMeal.date}</strong>
+              {t('Repeating from')} <strong style={{ color: 'var(--theme-accent, #F5F5F5)' }}>{selectedMeal.date}</strong>
             </span>
             <button
               className="btn small"
@@ -262,9 +262,9 @@ export function RepeatPreviousMealModal({ defaultMealType = 'breakfast', onSaveB
             ))}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderRadius: 10, background: 'rgba(232, 180, 119, 0.15)', border: '1px solid rgba(232, 180, 119, 0.3)', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderRadius: 10, background: 'var(--borders, #303036)', border: '1px solid var(--borders, #303036)', marginBottom: 16 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF' }}>{t("Today's Total")}</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--theme-accent, #E8B477)' }}>
+            <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--theme-accent, #F5F5F5)' }}>
               {Math.round(draftItems.reduce((acc, it) => acc + (Number(it.energy_kcal) || 0), 0))} kcal · {Math.round(draftItems.reduce((acc, it) => acc + (Number(it.protein_g) || 0), 0) * 10) / 10}g P
             </span>
           </div>
@@ -359,7 +359,7 @@ export function SaveAsMyMealModal({ defaultMealType = 'breakfast', currentFoods 
     <form onSubmit={handleSave} style={{ padding: '4px 2px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: '#FFFFFF' }}>
-          <span style={{ color: 'var(--theme-accent, #E8B477)' }}><Icon name="bookmark" /></span>
+          <span style={{ color: 'var(--theme-accent, #F5F5F5)' }}><Icon name="bookmark" /></span>
           {t('Save as My Meal')}
         </h3>
         <button type="button" className="iconbtn" onClick={close}><Icon name="xmark" /></button>
@@ -434,8 +434,8 @@ export function SaveAsMyMealModal({ defaultMealType = 'breakfast', currentFoods 
                     justifyContent: 'space-between',
                     padding: '8px 12px',
                     borderRadius: 8,
-                    background: checked ? 'rgba(232, 180, 119, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                    border: checked ? '1px solid rgba(232, 180, 119, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
+                    background: checked ? 'var(--borders, #303036)' : 'rgba(255, 255, 255, 0.05)',
+                    border: checked ? '1px solid var(--borders, #303036)' : '1px solid rgba(255, 255, 255, 0.1)',
                     cursor: 'pointer'
                   }}
                 >
@@ -449,7 +449,7 @@ export function SaveAsMyMealModal({ defaultMealType = 'breakfast', currentFoods 
                     <span style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF' }}>{f.food_name || f.name}</span>
                     <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>({f.serving_quantity || f.qty} {f.serving_unit || f.unit || 'g'})</span>
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--theme-accent, #E8B477)' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--theme-accent, #F5F5F5)' }}>
                     {f.energy_kcal || f.calories || 0} kcal
                   </span>
                 </div>
@@ -462,7 +462,7 @@ export function SaveAsMyMealModal({ defaultMealType = 'breakfast', currentFoods 
       <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255,255,255,0.1)', marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
           <span style={{ color: 'rgba(255,255,255,0.7)' }}>{t('Template Totals')}</span>
-          <strong style={{ color: 'var(--theme-accent, #E8B477)' }}>
+          <strong style={{ color: 'var(--theme-accent, #F5F5F5)' }}>
             {totalCals} kcal · {totalP}g P · {totalC}g C · {totalF}g F
           </strong>
         </div>
@@ -528,7 +528,7 @@ export function MySavedMealsModal({ onAddTemplateToToday, close, toast }) {
     <div style={{ padding: '4px 2px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: '#FFFFFF' }}>
-          <span style={{ color: 'var(--theme-accent, #E8B477)' }}><Icon name="bookmark" /></span>
+          <span style={{ color: 'var(--theme-accent, #F5F5F5)' }}><Icon name="bookmark" /></span>
           {t('My Saved Meals & Templates')}
         </h3>
         <button className="iconbtn" onClick={close}><Icon name="xmark" /></button>
@@ -557,7 +557,7 @@ export function MySavedMealsModal({ onAddTemplateToToday, close, toast }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                 <div>
                   <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#FFFFFF' }}>{tpl.name}</h4>
-                  <div style={{ fontSize: 11, color: 'var(--theme-accent, #E8B477)', fontWeight: 600, textTransform: 'capitalize', marginTop: 2 }}>
+                  <div style={{ fontSize: 11, color: 'var(--theme-accent, #F5F5F5)', fontWeight: 600, textTransform: 'capitalize', marginTop: 2 }}>
                     {tpl.meal_type} · {tpl.total_calories} kcal ({tpl.total_protein}g P · {tpl.total_carbs}g C · {tpl.total_fat}g F)
                   </div>
                 </div>
@@ -592,9 +592,9 @@ export function MySavedMealsModal({ onAddTemplateToToday, close, toast }) {
                       fontSize: 11,
                       fontWeight: 700,
                       borderRadius: 6,
-                      background: tpl.meal_type === mt ? 'rgba(232, 180, 119, 0.25)' : 'rgba(255, 255, 255, 0.08)',
-                      color: tpl.meal_type === mt ? 'var(--theme-accent, #E8B477)' : 'rgba(255, 255, 255, 0.8)',
-                      border: tpl.meal_type === mt ? '1px solid rgba(232, 180, 119, 0.5)' : '1px solid rgba(255, 255, 255, 0.15)'
+                      background: tpl.meal_type === mt ? 'var(--borders, #303036)' : 'rgba(255, 255, 255, 0.08)',
+                      color: tpl.meal_type === mt ? 'var(--theme-accent, #F5F5F5)' : 'rgba(255, 255, 255, 0.8)',
+                      border: tpl.meal_type === mt ? '1px solid var(--borders, #303036)' : '1px solid rgba(255, 255, 255, 0.15)'
                     }}
                   >
                     + {t(mt.charAt(0).toUpperCase() + mt.slice(1))}
@@ -782,7 +782,7 @@ export function RawRecipeBuilderModal({ onLogRecipePortion, close, toast }) {
     <div style={{ padding: '4px 2px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: '#FFFFFF' }}>
-          <span style={{ color: 'var(--theme-accent, #E8B477)' }}><Icon name="flame" /></span>
+          <span style={{ color: 'var(--theme-accent, #F5F5F5)' }}><Icon name="flame" /></span>
           {t('Raw Ingredient Recipe Builder')}
         </h3>
         <button className="iconbtn" onClick={close}><Icon name="xmark" /></button>
@@ -843,7 +843,7 @@ export function RawRecipeBuilderModal({ onLogRecipePortion, close, toast }) {
                 left: 0,
                 right: 0,
                 background: '#18181B',
-                border: '1px solid rgba(232, 180, 119, 0.35)',
+                border: '1px solid var(--borders, #303036)',
                 borderRadius: 8,
                 zIndex: 50,
                 maxHeight: 180,
@@ -872,7 +872,7 @@ export function RawRecipeBuilderModal({ onLogRecipePortion, close, toast }) {
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
                   <span>{f.name}</span>
-                  <span style={{ color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}>
+                  <span style={{ color: 'var(--theme-accent, #F5F5F5)', fontWeight: 700 }}>
                     100g = {f.calories || f.energy_kcal} kcal
                   </span>
                 </div>
@@ -976,7 +976,7 @@ export function RawRecipeBuilderModal({ onLogRecipePortion, close, toast }) {
             />
             <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>g</span>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--theme-accent, #E8B477)', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: 'var(--theme-accent, #F5F5F5)', marginTop: 2 }}>
             = {oilKcal} kcal ({oilFat}g fat)
           </div>
         </div>
@@ -1006,10 +1006,10 @@ export function RawRecipeBuilderModal({ onLogRecipePortion, close, toast }) {
       </div>
 
       {/* Yield & Nutrition Output Card */}
-      <div style={{ padding: '12px 14px', borderRadius: 12, background: 'rgba(232, 180, 119, 0.12)', border: '1px solid rgba(232, 180, 119, 0.3)', marginBottom: 14 }}>
+      <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--borders, #303036)', border: '1px solid var(--borders, #303036)', marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{t('Per Serving ({0} of {1}):', 1, sCount)}</span>
-          <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--theme-accent, #E8B477)' }}>
+          <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--theme-accent, #F5F5F5)' }}>
             {perServingKcal} kcal
           </span>
         </div>
@@ -1216,9 +1216,9 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
               alignItems: 'center',
               gap: 6,
               whiteSpace: 'nowrap',
-              border: activeSubTab === tab.key ? '1px solid var(--theme-accent, #E8B477)' : '1px solid rgba(255, 255, 255, 0.12)',
-              background: activeSubTab === tab.key ? 'rgba(232, 180, 119, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-              color: activeSubTab === tab.key ? 'var(--theme-accent, #E8B477)' : 'rgba(255, 255, 255, 0.75)'
+              border: activeSubTab === tab.key ? '1px solid var(--theme-accent, #F5F5F5)' : '1px solid rgba(255, 255, 255, 0.12)',
+              background: activeSubTab === tab.key ? 'var(--borders, #303036)' : 'rgba(255, 255, 255, 0.05)',
+              color: activeSubTab === tab.key ? 'var(--theme-accent, #F5F5F5)' : 'rgba(255, 255, 255, 0.75)'
             }}
           >
             <Icon name={tab.icon} />
@@ -1232,7 +1232,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div className="card" style={{ padding: '16px 18px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: 14 }}>
             <h3 style={{ margin: '0 0 6px 0', fontSize: 16, fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ color: 'var(--theme-accent, #E8B477)' }}><Icon name="apple" /></span>
+              <span style={{ color: 'var(--theme-accent, #F5F5F5)' }}><Icon name="apple" /></span>
               {t('Food Nutrition Database (2,799 Items)')}
             </h3>
             <p style={{ margin: '0 0 14px 0', fontSize: 12, color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.45 }}>
@@ -1278,9 +1278,9 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                   fontSize: 11,
                   fontWeight: 600,
                   cursor: 'pointer',
-                  border: !foodCategory ? '1px solid var(--theme-accent, #E8B477)' : '1px solid rgba(255, 255, 255, 0.1)',
-                  background: !foodCategory ? 'rgba(232, 180, 119, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                  color: !foodCategory ? 'var(--theme-accent, #E8B477)' : 'rgba(255, 255, 255, 0.7)'
+                  border: !foodCategory ? '1px solid var(--theme-accent, #F5F5F5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                  background: !foodCategory ? 'var(--borders, #303036)' : 'rgba(255, 255, 255, 0.05)',
+                  color: !foodCategory ? 'var(--theme-accent, #F5F5F5)' : 'rgba(255, 255, 255, 0.7)'
                 }}
               >
                 {t('All Categories')}
@@ -1297,9 +1297,9 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                     fontWeight: 600,
                     whiteSpace: 'nowrap',
                     cursor: 'pointer',
-                    border: foodCategory === cat ? '1px solid var(--theme-accent, #E8B477)' : '1px solid rgba(255, 255, 255, 0.1)',
-                    background: foodCategory === cat ? 'rgba(232, 180, 119, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                    color: foodCategory === cat ? 'var(--theme-accent, #E8B477)' : 'rgba(255, 255, 255, 0.7)'
+                    border: foodCategory === cat ? '1px solid var(--theme-accent, #F5F5F5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                    background: foodCategory === cat ? 'var(--borders, #303036)' : 'rgba(255, 255, 255, 0.05)',
+                    color: foodCategory === cat ? 'var(--theme-accent, #F5F5F5)' : 'rgba(255, 255, 255, 0.7)'
                   }}
                 >
                   {cat}
@@ -1349,15 +1349,15 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                       <div>
                         <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>{food.food_name || food.name}</div>
                         {food.food_name_tamil && (
-                          <div style={{ fontSize: 12, color: 'var(--theme-accent, #E8B477)', fontWeight: 600 }}>{food.food_name_tamil}</div>
+                          <div style={{ fontSize: 12, color: 'var(--theme-accent, #F5F5F5)', fontWeight: 600 }}>{food.food_name_tamil}</div>
                         )}
                       </div>
                       <span style={{
                         fontSize: 10,
                         padding: '2px 7px',
                         borderRadius: 4,
-                        background: food.food_state === 'cooked' ? 'rgba(232, 180, 119, 0.2)' : 'rgba(46, 196, 182, 0.2)',
-                        color: food.food_state === 'cooked' ? 'var(--theme-accent, #E8B477)' : 'var(--teal, #2EC4B6)',
+                        background: food.food_state === 'cooked' ? 'var(--borders, #303036)' : 'rgba(46, 196, 182, 0.2)',
+                        color: food.food_state === 'cooked' ? 'var(--theme-accent, #F5F5F5)' : 'var(--teal, #2EC4B6)',
                         fontWeight: 700,
                         textTransform: 'uppercase'
                       }}>
@@ -1369,7 +1369,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                       {food.category} · {food.source_name || 'ICMR-NIN 2017'}
                     </div>
 
-                    <div style={{ fontSize: 11, color: 'var(--theme-accent, #E8B477)', fontWeight: 600, marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, color: 'var(--theme-accent, #F5F5F5)', fontWeight: 600, marginBottom: 10 }}>
                       Reference: {food.edible_portion_basis || '100g edible portion'}
                     </div>
 
@@ -1380,7 +1380,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                         <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF' }}>{food.energy_kcal} <span style={{ fontSize: 8 }}>kcal</span></div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 9, color: 'var(--theme-accent, #E8B477)' }}>{t('Protein')}</div>
+                        <div style={{ fontSize: 9, color: 'var(--theme-accent, #F5F5F5)' }}>{t('Protein')}</div>
                         <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF' }}>{food.protein_g}g</div>
                       </div>
                       <div>
@@ -1432,7 +1432,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
             }}>
               <div style={{
                 background: '#1A1A1E',
-                border: '1px solid rgba(232, 180, 119, 0.4)',
+                border: '1px solid var(--borders, #303036)',
                 borderRadius: 16,
                 padding: '20px 24px',
                 maxWidth: 420,
@@ -1445,7 +1445,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                   <button className="iconbtn" onClick={() => setLoggingFoodItem(null)}><Icon name="xmark" /></button>
                 </div>
 
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--theme-accent, #E8B477)', marginBottom: 2 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--theme-accent, #F5F5F5)', marginBottom: 2 }}>
                   {loggingFoodItem.food_name || loggingFoodItem.name}
                 </div>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 14 }}>
@@ -1526,7 +1526,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div className="card" style={{ padding: '16px 18px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: 14 }}>
             <h3 style={{ margin: '0 0 6px 0', fontSize: 16, fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ color: 'var(--theme-accent, #E8B477)' }}><Icon name="flame" /></span>
+              <span style={{ color: 'var(--theme-accent, #F5F5F5)' }}><Icon name="flame" /></span>
               {t('Verified Indian & South Indian Recipes (1,014 Dishes)')}
             </h3>
             <p style={{ margin: '0 0 14px 0', fontSize: 12, color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.45 }}>
@@ -1601,10 +1601,10 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                     <div>
                       <div style={{ fontSize: 15, fontWeight: 700, color: '#FFFFFF' }}>{rec.recipe_name}</div>
                       {rec.recipe_name_tamil && (
-                        <div style={{ fontSize: 12, color: 'var(--theme-accent, #E8B477)', fontWeight: 600 }}>{rec.recipe_name_tamil}</div>
+                        <div style={{ fontSize: 12, color: 'var(--theme-accent, #F5F5F5)', fontWeight: 600 }}>{rec.recipe_name_tamil}</div>
                       )}
                     </div>
-                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 9999, background: 'rgba(232, 180, 119, 0.2)', color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}>
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 9999, background: 'var(--borders, #303036)', color: 'var(--theme-accent, #F5F5F5)', fontWeight: 700 }}>
                       {rec.cuisine || 'Indian Regional'}
                     </span>
                   </div>
@@ -1620,7 +1620,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{Math.round(rec.total_energy_kcal / (rec.serving_count || 1))} <span style={{ fontSize: 9 }}>kcal</span></div>
                     </div>
                     <div>
-                      <div style={{ fontSize: 10, color: 'var(--theme-accent, #E8B477)' }}>{t('Protein')}</div>
+                      <div style={{ fontSize: 10, color: 'var(--theme-accent, #F5F5F5)' }}>{t('Protein')}</div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{Math.round((rec.total_protein_g / (rec.serving_count || 1)) * 10) / 10}g</div>
                     </div>
                     <div>
@@ -1633,7 +1633,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                     </div>
                   </div>
 
-                  <div style={{ fontSize: 11, color: 'var(--theme-accent, #E8B477)', textAlign: 'right', fontWeight: 600 }}>
+                  <div style={{ fontSize: 11, color: 'var(--theme-accent, #F5F5F5)', textAlign: 'right', fontWeight: 600 }}>
                     {t('View Ingredients & Breakdown →')}
                   </div>
                 </div>
@@ -1658,7 +1658,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
             }}>
               <div style={{
                 background: '#18181B',
-                border: '1px solid rgba(232, 180, 119, 0.4)',
+                border: '1px solid var(--borders, #303036)',
                 borderRadius: 16,
                 padding: '20px 24px',
                 maxWidth: 550,
@@ -1670,7 +1670,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                   <div>
                     <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#FFFFFF' }}>{selectedRecipeItem.recipe_name}</h3>
                     {selectedRecipeItem.recipe_name_tamil && (
-                      <div style={{ fontSize: 13, color: 'var(--theme-accent, #E8B477)', fontWeight: 600 }}>{selectedRecipeItem.recipe_name_tamil}</div>
+                      <div style={{ fontSize: 13, color: 'var(--theme-accent, #F5F5F5)', fontWeight: 600 }}>{selectedRecipeItem.recipe_name_tamil}</div>
                     )}
                   </div>
                   <button className="iconbtn" onClick={() => setSelectedRecipeItem(null)}><Icon name="xmark" /></button>
@@ -1691,7 +1691,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                       <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>{Math.round(selectedRecipeItem.total_energy_kcal / (selectedRecipeItem.serving_count || 1))} kcal</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: 10, color: 'var(--theme-accent, #E8B477)' }}>{t('Protein')}</div>
+                      <div style={{ fontSize: 10, color: 'var(--theme-accent, #F5F5F5)' }}>{t('Protein')}</div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>{Math.round((selectedRecipeItem.total_protein_g / (selectedRecipeItem.serving_count || 1)) * 10) / 10}g</div>
                     </div>
                     <div>
@@ -1718,7 +1718,7 @@ export function FoodDatabaseLookup({ user, foods = [], currentTargets = {}, onTa
                             <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{ing.ingredient_name}</span>
                             <span style={{ color: 'rgba(255,255,255,0.5)', marginLeft: 6 }}>({ing.ingredient_weight_g}g)</span>
                           </div>
-                          <div style={{ color: 'var(--theme-accent, #E8B477)', fontWeight: 600 }}>
+                          <div style={{ color: 'var(--theme-accent, #F5F5F5)', fontWeight: 600 }}>
                             {ing.contribution_energy_kcal} kcal · {ing.contribution_protein_g}g P
                           </div>
                         </div>

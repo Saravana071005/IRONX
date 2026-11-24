@@ -67,10 +67,10 @@ class WidgetBoundary extends Component {
               padding: '6px 14px',
               borderRadius: 8,
               background: 'var(--surface-2)',
-              color: 'var(--theme-accent, #E8B477)',
+              color: 'var(--theme-accent, #F5F5F5)',
               fontSize: 12,
               fontWeight: 600,
-              border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.3))',
+              border: '1px solid var(--theme-accent-border, var(--borders, #303036))',
               cursor: 'pointer'
             }}
           >
@@ -92,7 +92,7 @@ function CoachCard({ nav }) {
     <div
       className="card"
       style={{
-        border: ready ? '1px solid var(--theme-accent, #E8B477)' : '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.2))',
+        border: ready ? '1px solid var(--theme-accent, #F5F5F5)' : '1px solid var(--theme-accent-border, var(--borders, #303036))',
         background: 'var(--surface)',
         marginBottom: 16
       }}
@@ -108,18 +108,18 @@ function CoachCard({ nav }) {
               width: 36,
               height: 36,
               borderRadius: 10,
-              background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.15))',
-              color: 'var(--theme-accent, #E8B477)',
+              background: 'var(--theme-accent-light, var(--borders, #303036))',
+              color: 'var(--theme-accent, #F5F5F5)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.3))'
+              border: '1px solid var(--theme-accent-border, var(--borders, #303036))'
             }}
           >
             <Icon name="sparkles" />
           </span>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--theme-accent, #E8B477)', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--theme-accent, #F5F5F5)', textTransform: 'uppercase' }}>
               {t('AI Coach')}
             </div>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--label)' }}>
@@ -599,7 +599,7 @@ export default function Home() {
           </span>
         </div>
 
-        {/* Pill 4: XP */}
+        {/* Pill 4: Personal Records */}
         <div
           className="card"
           style={{
@@ -619,13 +619,13 @@ export default function Home() {
           }}
         >
           <div style={{ color: '#F5F5F5', marginBottom: 2 }}>
-            <Icon name="star" size={17} />
+            <Icon name="bolt" size={17} />
           </div>
           <span style={{ fontSize: 18, fontWeight: 800, color: '#F5F5F5', fontFamily: 'var(--font-heading)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
-            1,240
+            {S?.prVault?.length || 8}
           </span>
           <span style={{ fontSize: 10, fontWeight: 600, color: '#A5A5A5', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
-            {t('XP')}
+            {t('Records')}
           </span>
         </div>
       </div>
@@ -653,7 +653,7 @@ export default function Home() {
             <span style={{ color: '#10B981' }}>🎯</span>
             <span>{t('Target Today')}</span>
           </span>
-          <span style={{ fontSize: 11, fontWeight: 800, color: '#E8B477', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--theme-accent, #F5F5F5)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             {t('Day {0} of 30', Math.min(30, (streakCount || 1) + 1))}
           </span>
         </div>
@@ -736,9 +736,9 @@ export default function Home() {
             }}
             viewBox="0 0 200 200"
           >
-            <circle cx="100" cy="100" r="85" fill="none" stroke="var(--theme-accent, #E8B477)" strokeWidth="1" strokeDasharray="6 6" />
-            <circle cx="100" cy="100" r="65" fill="none" stroke="var(--theme-accent, #E8B477)" strokeWidth="1.5" />
-            <circle cx="100" cy="100" r="45" fill="none" stroke="var(--theme-accent-highlight, #FFD09A)" strokeWidth="1" strokeDasharray="4 4" />
+            <circle cx="100" cy="100" r="85" fill="none" stroke="var(--theme-accent, #F5F5F5)" strokeWidth="1" strokeDasharray="6 6" />
+            <circle cx="100" cy="100" r="65" fill="none" stroke="var(--theme-accent, #F5F5F5)" strokeWidth="1.5" />
+            <circle cx="100" cy="100" r="45" fill="none" stroke="var(--theme-accent-highlight, var(--label, #F5F5F5))" strokeWidth="1" strokeDasharray="4 4" />
           </svg>
 
           <div style={{ position: 'relative', zIndex: 1 }}>
@@ -750,17 +750,17 @@ export default function Home() {
                 gap: 6,
                 padding: '5px 12px',
                 borderRadius: 9999,
-                background: 'var(--theme-accent-light, rgba(232, 180, 119, 0.12))',
-                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.28))',
+                background: 'var(--theme-accent-light, var(--borders, #303036))',
+                border: '1px solid var(--theme-accent-border, var(--borders, #303036))',
                 marginBottom: 12
               }}
             >
-              <Icon name="calendar" size={13} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+              <Icon name="calendar" size={13} style={{ color: 'var(--theme-accent, #F5F5F5)' }} />
               <span
                 style={{
                   fontSize: 12,
                   fontWeight: 700,
-                  color: 'var(--theme-accent, #E8B477)',
+                  color: 'var(--theme-accent, #F5F5F5)',
                   letterSpacing: '0.02em',
                   textTransform: 'uppercase'
                 }}
@@ -821,18 +821,18 @@ export default function Home() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--label-2)' }}>
-                  <Icon name="dumbbell" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                  <Icon name="dumbbell" size={14} style={{ color: 'var(--theme-accent, #F5F5F5)' }} />
                   <span>
                     {`${todayWorkout.entries?.length || 0} ${t('exercises completed')}`}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--label-2)' }}>
-                  <Icon name="timer" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                  <Icon name="timer" size={14} style={{ color: 'var(--theme-accent, #F5F5F5)' }} />
                   <span>{`${Math.max(1, Math.round((todayWorkout.dur || 0) / 60000))} min`}</span>
                 </div>
                 {todayWorkout.vol > 0 && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--label-2)' }}>
-                    <Icon name="flame" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                    <Icon name="flame" size={14} style={{ color: 'var(--theme-accent, #F5F5F5)' }} />
                     <span>{`${Math.round(todayWorkout.vol)} kg`}</span>
                   </div>
                 )}
@@ -849,17 +849,17 @@ export default function Home() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--label-2)' }}>
-                  <Icon name="dumbbell" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                  <Icon name="dumbbell" size={14} style={{ color: 'var(--theme-accent, #F5F5F5)' }} />
                   <span>
                     {`${(S?.active ? S.active.entries : (scheduledTemplate?.exercises || scheduledTemplate?.ex || []))?.length || 0} ${t('exercises')}`}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--label-2)' }}>
-                  <Icon name="timer" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                  <Icon name="timer" size={14} style={{ color: 'var(--theme-accent, #F5F5F5)' }} />
                   <span>{S?.active ? t('In progress') : '~45–60 min'}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--label-2)' }}>
-                  <Icon name="flame" size={14} style={{ color: 'var(--theme-accent, #E8B477)' }} />
+                  <Icon name="flame" size={14} style={{ color: 'var(--theme-accent, #F5F5F5)' }} />
                   <span>~380 kcal</span>
                 </div>
               </div>
@@ -973,8 +973,8 @@ export default function Home() {
                   alignItems: 'center',
                   gap: 8,
                   background: 'var(--surface-3)',
-                  color: 'var(--theme-accent, #E8B477)',
-                  border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.35))',
+                  color: 'var(--theme-accent, #F5F5F5)',
+                  border: '1px solid var(--theme-accent-border, var(--borders, #303036))',
                   fontWeight: 800,
                   fontSize: 14,
                   cursor: 'pointer',
@@ -1159,7 +1159,7 @@ export default function Home() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#E8B477'
+                  color: 'var(--theme-accent, #F5F5F5)'
                 }}
               >
                 <Icon name="scale" size={18} />
@@ -1304,9 +1304,9 @@ export default function Home() {
                 padding: '5px 12px',
                 borderRadius: 10,
                 background: 'var(--surface-2)',
-                border: '1px solid var(--theme-accent-border, rgba(232, 180, 119, 0.2))',
+                border: '1px solid var(--theme-accent-border, var(--borders, #303036))',
                 fontSize: 12,
-                color: 'var(--theme-accent, #E8B477)',
+                color: 'var(--theme-accent, #F5F5F5)',
                 fontWeight: 600,
                 display: 'flex',
                 alignItems: 'center',
@@ -1321,7 +1321,7 @@ export default function Home() {
 
           {rawWeightEntries.length === 0 ? (
             <div style={{ padding: '24px 0', textAlign: 'center' }}>
-              <div style={{ fontSize: 32, color: 'var(--theme-accent, #E8B477)', marginBottom: 8, display: 'flex', justifyContent: 'center' }}>
+              <div style={{ fontSize: 32, color: 'var(--theme-accent, #F5F5F5)', marginBottom: 8, display: 'flex', justifyContent: 'center' }}>
                 <Icon name="scale" size={34} />
               </div>
               <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--label)', marginBottom: 4 }}>
@@ -1381,7 +1381,7 @@ export default function Home() {
                       fill="none"
                       stroke="#10B981" strokeWidth="2.5"
                       strokeLinecap="round"
-                      style={{ filter: 'drop-shadow(0 2px 8px var(--theme-accent-glow, rgba(232, 180, 119, 0.4)))' }}
+                      style={{ filter: 'drop-shadow(0 2px 8px var(--theme-accent-glow, var(--borders, #303036)))' }}
                     />
                   ) : null}
                   {/* Data Points */}
@@ -1391,7 +1391,7 @@ export default function Home() {
                       cx={pt.x}
                       cy={pt.y}
                       r="4"
-                      fill="var(--theme-accent-highlight, #FFD09A)"
+                      fill="var(--theme-accent-highlight, var(--label, #F5F5F5))"
                       stroke="#141416"
                       strokeWidth="2"
                     />
@@ -1529,7 +1529,7 @@ export default function Home() {
                       <path
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         fill="none"
-                        stroke="#E8B477"
+                        stroke="var(--theme-accent, #F5F5F5)"
                         strokeDasharray={`${Math.min(100, Math.round((loggedCalories / targetCalories) * 100))}, 100`}
                         strokeLinecap="round"
                         strokeWidth="3.5"
@@ -1600,7 +1600,7 @@ export default function Home() {
               }}
             >
               <span>
-                {t('Remaining')}: <strong style={{ color: 'var(--theme-accent, #E8B477)' }}>{remainingCalories} kcal</strong>
+                {t('Remaining')}: <strong style={{ color: 'var(--theme-accent, #F5F5F5)' }}>{remainingCalories} kcal</strong>
               </span>
               <span>
                 {t('Exercise Burned')}: <strong style={{ color: 'var(--label)' }}>{exerciseCaloriesBurned} kcal</strong>
@@ -1681,7 +1681,7 @@ export default function Home() {
                   } else if (sched.template) {
                     titleText = sched.template.name
                     statusBadge = (
-                      <span style={{ fontSize: 12, color: 'var(--theme-accent, #E8B477)', fontWeight: 600 }}>
+                      <span style={{ fontSize: 12, color: 'var(--theme-accent, #F5F5F5)', fontWeight: 600 }}>
                         {t('Scheduled')}
                       </span>
                     )

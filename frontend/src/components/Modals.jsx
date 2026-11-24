@@ -1,5 +1,39 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, Component } from 'react'
 import { useUI } from '../store/useUI.js'
+
+class ModalBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('IRONX Modal crash caught by ModalBoundary:', error, errorInfo)
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '24px 20px', textAlign: 'center', color: 'var(--label)' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Something went wrong</div>
+          <div style={{ fontSize: 13, color: 'var(--label-2)', marginBottom: 20, lineHeight: 1.45 }}>
+            This modal encountered an unexpected error. Your workout and health data remain safe.
+          </div>
+          <button
+            type="button"
+            className="btn primary small"
+            onClick={() => this.props.onClose && this.props.onClose()}
+            style={{ borderRadius: 9999, padding: '8px 22px', fontWeight: 600, margin: '0 auto' }}
+          >
+            Close Modal
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 // One bottom sheet (or centered dialog) with swipe-to-dismiss.
 function Sheet({ sheet }) {
@@ -9,8 +43,6 @@ function Sheet({ sheet }) {
 
   const onTouchStart = e => {
     const el = ref.current
-    // a gesture that begins on a slider (or opted-out control) belongs to that control,
-    // not to the sheet's swipe-to-dismiss — so it keeps working while you drag
     if (e.target.closest && e.target.closest('input[type=range], [data-nodrag]')) {
       drag.current = { startY: null, delta: 0 }
       return
@@ -49,7 +81,11 @@ function Sheet({ sheet }) {
     return (
       <div>
         <div className="mback" onClick={() => { if (!sheet.locked) close() }} />
-        <div className="center">{sheet.render(close)}</div>
+        <div className="center">
+          <ModalBoundary onClose={close}>
+            {sheet.render(close)}
+          </ModalBoundary>
+        </div>
       </div>
     )
   }
@@ -58,7 +94,9 @@ function Sheet({ sheet }) {
       <div className="mback" onClick={() => { if (!sheet.locked) close() }} />
       <div className="sheet" ref={ref} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <div className="grab" />
-        {sheet.render(close)}
+        <ModalBoundary onClose={close}>
+          {sheet.render(close)}
+        </ModalBoundary>
       </div>
     </div>
   )

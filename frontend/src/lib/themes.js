@@ -213,144 +213,111 @@ export function applyThemeToDocument(S = {}) {
   const themeId = S?.bgTheme || 'warm-gold'
   const preset = getThemePreset(themeId)
 
-  const primaryAccent = S?.goldShade && themeId === 'warm-gold' ? S.goldShade : preset.primary
-  const secondaryAccent = S?.bronzeShade && themeId === 'warm-gold' ? S.bronzeShade : preset.secondary
-  const highlightAccent = preset.highlight
-  const bgDarkness = S?.bgDarkness || preset.bg || '#090909'
-  const glowInt = S?.ambientGlow === false ? 0 : (S?.glowIntensity !== undefined ? Number(S.glowIntensity) : 1.0)
-  const upperGlowInt = S?.upperGlowIntensity !== undefined ? Number(S.upperGlowIntensity) : 1.0
-  const blurInt = S?.blurIntensity !== undefined ? Number(S.blurIntensity) : 1.0
-  const animOn = S?.bgAnimation !== false
-  const glassOpacity = S?.glassOpacity !== undefined ? Number(S.glassOpacity) : 0.80
+  // Primary design token palette from reference screenshots:
+  // Dark: #09090B background, #1C1C20 cards, #242429 elevated, #F5F5F5 text, #A1A1AA secondary, #303036 borders, #18181B inputs
+  // Light: #F4F4F5 background, #FFFFFF cards, #09090B text, #52525B secondary, #E4E4E7 borders, #FFFFFF inputs
 
-  // Set data attributes on <html>
   de.dataset.theme = isLight ? 'light' : 'dark'
   de.setAttribute('data-theme', isLight ? 'light' : 'dark')
   de.dataset.bgTheme = preset.id
   de.setAttribute('data-bg-theme', preset.id)
+  de.style.colorScheme = isLight ? 'light' : 'dark'
 
   if (isLight) {
     // ---------------- Light Mode Surfaces & Hierarchy ----------------
-    de.style.setProperty('--bg', '#F6F8FB')
+    de.style.setProperty('--bg', '#F4F4F5')
+    de.style.setProperty('--bg-secondary', '#FFFFFF')
     de.style.setProperty('--bg-el', '#FFFFFF')
-    de.style.setProperty('--surface', 'rgba(255, 255, 255, 0.92)')
-    de.style.setProperty('--surface-2', 'rgba(241, 245, 249, 0.95)')
-    de.style.setProperty('--surface-3', 'rgba(226, 232, 240, 0.95)')
+    de.style.setProperty('--surface', '#FFFFFF')
+    de.style.setProperty('--surface-2', '#F4F4F5')
+    de.style.setProperty('--surface-3', '#E4E4E7')
+    de.style.setProperty('--card-bg', '#FFFFFF')
+    de.style.setProperty('--elevated-card', '#F4F4F5')
 
-    // Text Hierarchy (High-contrast slate)
-    de.style.setProperty('--label', '#0F172A')
-    de.style.setProperty('--label-2', '#475569')
-    de.style.setProperty('--label-3', '#64748B')
-    de.style.setProperty('--label-4', 'rgba(15, 23, 42, 0.15)')
+    // Text Hierarchy (Crisp high-contrast dark typography)
+    de.style.setProperty('--label', '#09090B')
+    de.style.setProperty('--label-2', '#52525B')
+    de.style.setProperty('--label-3', '#71717A')
+    de.style.setProperty('--label-4', '#A1A1AA')
+    de.style.setProperty('--muted-text', '#71717A')
 
-    // Borders & Glassmorphism
-    de.style.setProperty('--sep', 'rgba(15, 23, 42, 0.08)')
-    de.style.setProperty('--sep-op', 'rgba(15, 23, 42, 0.04)')
-    de.style.setProperty('--border-gold', `rgba(${preset.rgb}, 0.22)`)
-    de.style.setProperty('--border-gold-hover', `rgba(${preset.rgb}, 0.55)`)
-    de.style.setProperty('--card-border', `1px solid rgba(${preset.rgb}, 0.20)`)
-    de.style.setProperty('--card-shadow', '0 8px 24px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -2px rgba(15, 23, 42, 0.04)')
-    de.style.setProperty('--glass-bg', 'rgba(255, 255, 255, 0.88)')
-    de.style.setProperty('--glass-bg-hover', 'rgba(255, 255, 255, 0.96)')
-    de.style.setProperty('--glass-border', `1px solid rgba(${preset.rgb}, 0.20)`)
-    de.style.setProperty('--glass-shadow', '0 8px 24px -4px rgba(15, 23, 42, 0.08)')
-    de.style.setProperty('--glass-highlight', '0 1px 2px rgba(0, 0, 0, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.9)')
-    de.style.setProperty('--grad-glass-surface', 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%)')
-    de.style.setProperty('--grad-text-hero', `linear-gradient(135deg, #0F172A 20%, #1E293B 60%, ${primaryAccent} 100%)`)
-    de.style.setProperty('--grad-text-glow', `linear-gradient(135deg, #0F172A 0%, ${primaryAccent} 100%)`)
+    // Borders & Separators
+    de.style.setProperty('--borders', '#E4E4E7')
+    de.style.setProperty('--sep', '#E4E4E7')
+    de.style.setProperty('--sep-op', 'rgba(0, 0, 0, 0.04)')
+    de.style.setProperty('--card-border', '1px solid #E4E4E7')
+    de.style.setProperty('--card-shadow', '0 2px 8px rgba(0, 0, 0, 0.05)')
+
+    // Global Input Styling Tokens
+    de.style.setProperty('--input-bg', '#FFFFFF')
+    de.style.setProperty('--input-text', '#09090B')
+    de.style.setProperty('--input-border', '#E4E4E7')
+    de.style.setProperty('--focus-border', '#18181B')
+
+    // Accent & Interactive Elements
+    de.style.setProperty('--theme-accent', preset.primary || '#18181B')
+    de.style.setProperty('--theme-accent-secondary', '#3F3F46')
+    de.style.setProperty('--theme-accent-highlight', '#09090B')
+    de.style.setProperty('--theme-accent-rgb', preset.rgb || '24, 24, 27')
+    de.style.setProperty('--acc', '#18181B')
+    de.style.setProperty('--mint', '#18181B')
+    de.style.setProperty('--gold-primary', '#18181B')
     de.style.setProperty('--on-acc', '#FFFFFF')
 
-    de.style.setProperty('--theme-accent-light', `rgba(${preset.rgb}, 0.12)`)
-    de.style.setProperty('--theme-accent-border', `rgba(${preset.rgb}, 0.30)`)
-    de.style.setProperty('--theme-accent-border-hover', `rgba(${preset.rgb}, 0.58)`)
-    de.style.setProperty('--theme-accent-glow', `rgba(${preset.rgb}, ${0.18 * glowInt})`)
-    de.style.setProperty('--gold-glow', `rgba(${preset.rgb}, ${0.18 * glowInt})`)
+    // Muscle Balance Anatomical Map Tokens
+    de.style.setProperty('--bm-base', '#CBD5E1')
+    de.style.setProperty('--bm-stroke', '#94A3B8')
+    de.style.setProperty('--bm-inert', '#E2E8F0')
   } else {
-    // ---------------- Dark Mode Surfaces & Hierarchy ----------------
-    const isLiquid = preset.id === 'liquid-glass'
-    const isApex = preset.id === 'apex-athletic-dark'
-    de.style.setProperty('--bg', isLiquid ? '#050505' : (isApex ? '#0F1115' : bgDarkness))
-    de.style.setProperty('--bg-secondary', isLiquid ? '#0A0A0C' : (isApex ? '#161920' : '#151210'))
-    de.style.setProperty('--bg-el', isLiquid ? '#0A0A0C' : (isApex ? '#161920' : '#151210'))
-    de.style.setProperty('--surface', isLiquid ? 'rgba(255, 255, 255, 0.07)' : (isApex ? '#161920' : `rgba(20, 20, 22, ${glassOpacity})`))
-    de.style.setProperty('--surface-2', isLiquid ? 'rgba(255, 255, 255, 0.11)' : (isApex ? '#1E2024' : `rgba(26, 26, 30, ${glassOpacity})`))
-    de.style.setProperty('--surface-3', isLiquid ? 'rgba(255, 255, 255, 0.15)' : (isApex ? '#282A2E' : `rgba(34, 34, 40, ${glassOpacity})`))
+    // ---------------- Dark Mode Surfaces & Hierarchy (Athletic Minimal Dark) ----------------
+    de.style.setProperty('--bg', '#09090B')
+    de.style.setProperty('--bg-secondary', '#111114')
+    de.style.setProperty('--bg-el', '#111114')
+    de.style.setProperty('--surface', '#1C1C20')
+    de.style.setProperty('--surface-2', '#242429')
+    de.style.setProperty('--surface-3', '#2E2E36')
+    de.style.setProperty('--card-bg', '#1C1C20')
+    de.style.setProperty('--elevated-card', '#242429')
 
-    // Text Hierarchy
-    de.style.setProperty('--label', isLiquid ? '#F5F5F5' : (isApex ? '#F9FAFB' : '#F5F1EB'))
-    de.style.setProperty('--label-2', isLiquid ? '#A5A5A5' : (isApex ? '#E5E7EB' : '#A9A19A'))
-    de.style.setProperty('--label-3', isLiquid ? '#737373' : (isApex ? '#9CA3AF' : '#716B64'))
-    de.style.setProperty('--label-4', isLiquid ? '#525252' : (isApex ? '#4B5563' : 'rgba(169, 161, 154, 0.22)'))
+    // Text Hierarchy (Crisp white & clean grey typography)
+    de.style.setProperty('--label', '#F5F5F5')
+    de.style.setProperty('--label-2', '#A1A1AA')
+    de.style.setProperty('--label-3', '#71717A')
+    de.style.setProperty('--label-4', '#52525B')
+    de.style.setProperty('--muted-text', '#71717A')
 
-    // Liquid Glass Specification
-    de.style.setProperty('--subtle-accent', '#D9D9D9')
-    de.style.setProperty('--border-glass', isLiquid ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.08)')
-    de.style.setProperty('--border-glass-subtle', isLiquid ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.04)')
-
-    // Stitch Design Surfaces & Palette
-    de.style.setProperty('--surface-base', '#0F1115')
-    de.style.setProperty('--surface-raised', '#161920')
-    de.style.setProperty('--surface-container', '#1E2024')
-    de.style.setProperty('--surface-container-high', '#282A2E')
-    de.style.setProperty('--surface-elevated', '#282A2E')
-    de.style.setProperty('--surface-overlay', '#1E232E')
-    de.style.setProperty('--primary-emerald', '#10B981')
-    de.style.setProperty('--secondary-emerald', '#34D399')
-    de.style.setProperty('--tertiary-emerald', '#059669')
-    de.style.setProperty('--brand-gold', '#E8B477')
-    de.style.setProperty('--text-primary', '#F9FAFB')
-    de.style.setProperty('--text-secondary', '#E5E7EB')
-    de.style.setProperty('--text-muted', '#9CA3AF')
-    de.style.setProperty('--input-bg', '#0B0D10')
-
-    // Borders & Glassmorphism
-    de.style.setProperty('--sep', `rgba(${preset.rgb}, 0.12)`)
+    // Borders & Separators
+    de.style.setProperty('--borders', '#303036')
+    de.style.setProperty('--sep', '#303036')
     de.style.setProperty('--sep-op', 'rgba(255, 255, 255, 0.05)')
-    de.style.setProperty('--border-gold', `rgba(${preset.rgb}, 0.18)`)
-    de.style.setProperty('--border-gold-hover', `rgba(${preset.rgb}, 0.45)`)
-    de.style.setProperty('--card-border', `1px solid rgba(${preset.rgb}, 0.18)`)
-    de.style.setProperty('--card-shadow', '0 16px 40px -4px rgba(0, 0, 0, 0.65), 0 4px 14px -2px rgba(0, 0, 0, 0.40)')
-    de.style.setProperty('--glass-bg', 'rgba(20, 20, 22, 0.78)')
-    de.style.setProperty('--glass-bg-hover', 'rgba(28, 28, 32, 0.88)')
-    de.style.setProperty('--glass-border', `1px solid rgba(${preset.rgb}, 0.15)`)
-    de.style.setProperty('--glass-shadow', '0 16px 40px -4px rgba(0, 0, 0, 0.65), 0 4px 14px -2px rgba(0, 0, 0, 0.40)')
-    de.style.setProperty('--glass-highlight', 'inset 0 1px 1px 0 rgba(255, 208, 154, 0.15)')
-    de.style.setProperty('--grad-glass-surface', 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)')
-    de.style.setProperty('--grad-text-hero', `linear-gradient(135deg, #FFFFFF 15%, #F5F1EB 55%, ${primaryAccent} 100%)`)
-    de.style.setProperty('--grad-text-glow', `linear-gradient(135deg, #FFFFFF 0%, ${highlightAccent} 50%, ${primaryAccent} 100%)`)
-    de.style.setProperty('--on-acc', '#12100E')
+    de.style.setProperty('--card-border', '1px solid #303036')
+    de.style.setProperty('--card-shadow', '0 4px 20px rgba(0, 0, 0, 0.45)')
 
-    de.style.setProperty('--theme-accent-light', `rgba(${preset.rgb}, 0.14)`)
-    de.style.setProperty('--theme-accent-border', `rgba(${preset.rgb}, 0.28)`)
-    de.style.setProperty('--theme-accent-border-hover', `rgba(${preset.rgb}, 0.50)`)
-    de.style.setProperty('--theme-accent-glow', `rgba(${preset.rgb}, ${0.35 * glowInt})`)
-    de.style.setProperty('--gold-glow', `rgba(${preset.rgb}, ${0.30 * glowInt})`)
+    // Global Input Styling Tokens
+    de.style.setProperty('--input-bg', '#18181B')
+    de.style.setProperty('--input-text', '#FFFFFF')
+    de.style.setProperty('--input-border', '#303036')
+    de.style.setProperty('--focus-border', '#A1A1AA')
+
+    // Accent & Interactive Elements
+    de.style.setProperty('--theme-accent', preset.primary || '#F5F5F5')
+    de.style.setProperty('--theme-accent-secondary', '#D4D4D8')
+    de.style.setProperty('--theme-accent-highlight', '#FFFFFF')
+    de.style.setProperty('--theme-accent-rgb', preset.rgb || '245, 245, 245')
+    de.style.setProperty('--acc', '#F5F5F5')
+    de.style.setProperty('--mint', '#F5F5F5')
+    de.style.setProperty('--gold-primary', '#F5F5F5')
+    de.style.setProperty('--on-acc', '#09090B')
+
+    // Muscle Balance Anatomical Map Tokens (high-contrast visible charcoal & stroke)
+    de.style.setProperty('--bm-base', '#22222A')
+    de.style.setProperty('--bm-stroke', '#3E3E4C')
+    de.style.setProperty('--bm-inert', '#2E2E38')
   }
 
-  // Dynamic Accent Theme Custom Properties (Shared across both modes)
-  de.style.setProperty('--theme-accent', primaryAccent)
-  de.style.setProperty('--theme-accent-secondary', secondaryAccent)
-  de.style.setProperty('--theme-accent-highlight', highlightAccent)
-  de.style.setProperty('--theme-accent-rgb', preset.rgb)
-  de.style.setProperty('--theme-accent-gradient', preset.heroGradient)
-  de.style.setProperty('--theme-surface-tint', preset.surfaceTint)
-
-  // System & Legacy mappings so all components dynamically adapt
-  de.style.setProperty('--gold-primary', primaryAccent)
-  de.style.setProperty('--gold-secondary', secondaryAccent)
-  de.style.setProperty('--gold-highlight', highlightAccent)
-  de.style.setProperty('--mint', primaryAccent)
-  de.style.setProperty('--mint-light', `rgba(${preset.rgb}, 0.14)`)
-  de.style.setProperty('--acc', primaryAccent)
-  de.style.setProperty('--acc-light', `rgba(${preset.rgb}, 0.14)`)
-
-  // Dynamic Ambient Lighting Glow
-  de.style.setProperty('--glow-color-1', preset.glow1)
-  de.style.setProperty('--glow-color-2', preset.glow2)
-  de.style.setProperty('--glow-color-3', preset.glow3)
-  de.style.setProperty('--glow-color-4', preset.glow4)
-  de.style.setProperty('--glow-intensity', String(glowInt))
-  de.style.setProperty('--upper-glow-intensity', String(upperGlowInt))
-  de.style.setProperty('--blur-intensity', `${Math.round(26 * blurInt)}px`)
-  de.style.setProperty('--bg-anim-state', animOn ? 'running' : 'paused')
+  // Disable decorative ambient glows, animations and blur
+  de.style.setProperty('--glow-intensity', '0')
+  de.style.setProperty('--upper-glow-intensity', '0')
+  de.style.setProperty('--blur-intensity', '0px')
+  de.style.setProperty('--bg-anim-state', 'paused')
 }
