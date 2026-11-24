@@ -104,17 +104,16 @@ describe('NutritionModals Component Suite', () => {
         toast={() => {}}
       />
     )
-    expect(html).toContain('AI Nutrition Coach')
+    expect(html).toContain('IRONX AI')
     expect(html).toContain('Verified Foods (2,799)')
     expect(html).toContain('Verified Recipes (1,014)')
     expect(html).toContain('AI Fast Meal Log')
-    expect(html).toContain('Context-Aware')
     expect(html).toContain('Daily Calories')
     expect(html).toContain('Protein Progress')
     expect(html).toContain('Carbs &amp; Fat Balance')
     expect(html).toContain('Suggested South Indian Foods')
     expect(html).toContain('சப்பாத்தி')
-    expect(html).toContain('Ask Nutrition Coach')
+    expect(html).toContain('Chat with IRONX AI')
     expect(html).toContain('How much protein do I still need today?')
   })
 

@@ -1073,11 +1073,14 @@ export function AICoachView({ user, foods = [], currentTargets = {}, onTargetsUp
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      text: t('Hello! I am your IRONX Nutrition Coach. I track your actual daily intake and recommend authentic South Indian & Indian foods (Idli, Dosa, Chapathi, Boiled Eggs, Sambar, Chicken, Fish, Sundal) tailored to your exact remaining calories and protein goals. How can I help you today?')
+      text: t('Hello! I am IRONX AI, your personal fitness and nutrition intelligence. I can build your complete personalized diet plan, optimize your macros, track your daily progress, and provide evidence-based South Indian nutrition guidance. Let me know your goal or ask me anything!')
     }
   ])
   const [chatInput, setChatInput] = useState('')
   const [sendingChat, setSendingChat] = useState(false)
+  const [dietPlan, setDietPlan] = useState(null)
+  const [loadingDietPlan, setLoadingDietPlan] = useState(false)
+  const [loggingPlan, setLoggingPlan] = useState(false)
 
   // Verified Foods Explorer State
   const [foodQuery, setFoodQuery] = useState('')
@@ -1230,6 +1233,24 @@ export function AICoachView({ user, foods = [], currentTargets = {}, onTargetsUp
     }
   }
 
+  // Fetch active diet plan on mount
+  const fetchCurrentDietPlan = async () => {
+    setLoadingDietPlan(true)
+    try {
+      const res = await api('/api/nutrition/ai/diet-plan/current')
+      if (res?.ok && res.plan) {
+        setDietPlan(res.plan)
+      }
+    } catch (e) {
+    } finally {
+      setLoadingDietPlan(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchCurrentDietPlan()
+  }, [])
+
   // Load foods or recipes when switching tabs
   useEffect(() => {
     if (activeSubTab === 'foods' && verifiedFoodsList.length === 0) {
@@ -1276,8 +1297,16 @@ export function AICoachView({ user, foods = [], currentTargets = {}, onTargetsUp
         method: 'POST',
         body: JSON.stringify({ message: textToSend })
       })
-      if (res?.ok && res.reply) {
-        setMessages(prev => [...prev, { role: 'assistant', text: res.reply }])
+      if (res?.ok) {
+        if (res.reply) {
+          setMessages(prev => [...prev, { role: 'assistant', text: res.reply }])
+        }
+        if (res.diet_plan) {
+          setDietPlan(res.diet_plan)
+        }
+        if (res.targets && onTargetsUpdated) {
+          onTargetsUpdated(res.targets)
+        }
       } else {
         setMessages(prev => [...prev, {
           role: 'assistant',
@@ -1292,6 +1321,29 @@ export function AICoachView({ user, foods = [], currentTargets = {}, onTargetsUp
     } finally {
       setSendingChat(false)
     }
+  }
+
+  const handleLogPlanToToday = async (mealName = null) => {
+    setLoggingPlan(true)
+    try {
+      const res = await api('/api/nutrition/ai/diet-plan/log-to-today', {
+        method: 'POST',
+        body: JSON.stringify({ meal_name: mealName })
+      })
+      if (res?.ok) {
+        toast?.(t('Successfully logged {0} items to today\'s meals!', res.logged_items_count || 0))
+      } else {
+        toast?.(t('Could not log plan meals: {0}', res?.error || 'Unknown'))
+      }
+    } catch (err) {
+      toast?.(t('Error logging plan: {0}', err.message))
+    } finally {
+      setLoggingPlan(false)
+    }
+  }
+
+  const handleDownloadPlanPdf = () => {
+    window.open('/api/nutrition/ai/diet-plan/pdf', '_blank')
   }
 
   const PHASE2_CATEGORIES = [
@@ -1312,7 +1364,7 @@ export function AICoachView({ user, foods = [], currentTargets = {}, onTargetsUp
       {/* Sub-Tab Navigation Pills */}
       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
         {[
-          { key: 'coach', label: t('AI Nutrition Coach'), icon: 'sparkles' },
+          { key: 'coach', label: t('IRONX AI'), icon: 'sparkles' },
           { key: 'foods', label: t('Verified Foods (2,799)'), icon: 'apple' },
           { key: 'recipes', label: t('Verified Recipes (1,014)'), icon: 'flame' },
           { key: 'nl_log', label: t('AI Fast Meal Log'), icon: 'check' }
@@ -1351,13 +1403,13 @@ export function AICoachView({ user, foods = [], currentTargets = {}, onTargetsUp
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ color: 'var(--theme-accent, #E8B477)', fontSize: 20 }}><Icon name="sparkles" /></span>
-                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#FFFFFF' }}>{t('AI Nutrition Coach')}</h2>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#FFFFFF' }}>{t('IRONX AI')}</h2>
                   <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 9999, background: 'rgba(46, 196, 182, 0.25)', color: 'var(--teal, #2EC4B6)', fontWeight: 700 }}>
-                    {t('Context-Aware')}
+                    {t('Intelligence')}
                   </span>
                 </div>
                 <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.75)', marginTop: 4 }}>
-                  {t('Personalized BMR & TDEE target: {0} kcal · {1}g Protein · Authentic South Indian advice', targetKcal, targetP)}
+                  {t('Your Personal Fitness & Nutrition Intelligence · Target: {0} kcal · {1}g Protein', targetKcal, targetP)}
                 </div>
               </div>
 
@@ -1556,17 +1608,132 @@ export function AICoachView({ user, foods = [], currentTargets = {}, onTargetsUp
             </div>
           </div>
 
+          {/* ACTIVE PERSONALIZED DIET PLAN (Generated by IRONX AI) */}
+          {dietPlan && (
+            <div className="card" style={{ padding: '16px 18px', background: 'linear-gradient(135deg, rgba(20,20,24,0.98) 0%, rgba(28,28,34,0.95) 100%)', border: '1px solid rgba(232, 180, 119, 0.4)', borderRadius: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: 'var(--theme-accent, #E8B477)', fontSize: 18 }}><Icon name="bookmark" /></span>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#FFFFFF' }}>
+                      {dietPlan.plan_name || t('Your Personalized Diet Plan')}
+                    </h3>
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 9999, background: 'rgba(232, 180, 119, 0.25)', color: 'var(--theme-accent, #E8B477)', fontWeight: 700 }}>
+                      {String(dietPlan.fitness_goal || 'Custom').replace(/_/g, ' ').toUpperCase()}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 4 }}>
+                    {t('{0} meals/day · Verified ICMR-NIN & USDA nutritional baselines', dietPlan.meal_count || 4)}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Button
+                    variant="tinted"
+                    size="sm"
+                    onClick={handleDownloadPlanPdf}
+                    style={{ borderRadius: 8, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <Icon name="download" />
+                    {t('Download PDF')}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleLogPlanToToday()}
+                    disabled={loggingPlan}
+                    style={{ borderRadius: 8, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <Icon name="check" />
+                    {loggingPlan ? t('Logging...') : t('Log Plan to Today')}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Macro Bar */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: 8, padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, marginBottom: 14 }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700 }}>{t('Calories')}</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF' }}>{dietPlan.daily_totals?.calories || dietPlan.target_calories} <span style={{ fontSize: 10 }}>kcal</span></div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700 }}>{t('Protein')}</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--teal, #2EC4B6)' }}>{dietPlan.daily_totals?.protein_g || dietPlan.target_protein_g}g</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700 }}>{t('Carbs')}</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--theme-accent, #E8B477)' }}>{dietPlan.daily_totals?.carb_g || dietPlan.target_carb_g}g</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700 }}>{t('Fat')}</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: '#FF9F1C' }}>{dietPlan.daily_totals?.fat_g || dietPlan.target_fat_g}g</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', fontWeight: 700 }}>{t('Fibre')}</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: '#A0E426' }}>{dietPlan.daily_totals?.fibre_g || dietPlan.target_fibre_g || 28}g</div>
+                </div>
+              </div>
+
+              {/* Meal Cards */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {(dietPlan.meals || []).map((m, mIdx) => (
+                  <div key={mIdx} style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--theme-accent, #E8B477)' }}>{m.meal_name}</span>
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>
+                        {m.totals?.calories} kcal · {m.totals?.protein_g}g P · {m.totals?.carb_g}g C · {m.totals?.fat_g}g F
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {(m.items || []).map((it, itIdx) => (
+                        <div key={itIdx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>
+                          <span>• {it.name} <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>({it.portion_grams}g)</span></span>
+                          <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11 }}>{it.calories} kcal | {it.protein_g}g P</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Interactive Modification Quick Chips */}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', alignSelf: 'center' }}>{t('Quick adjustments:')}</span>
+                {['Replace Idli with Dosa', 'Replace Chicken with Fish', 'Make dinner lighter', 'Make it vegetarian', 'Start Over'].map((act, aIdx) => (
+                  <button
+                    key={aIdx}
+                    type="button"
+                    onClick={() => handleSendChat(act)}
+                    disabled={sendingChat}
+                    style={{
+                      fontSize: 10.5,
+                      padding: '3px 9px',
+                      borderRadius: 9999,
+                      background: 'rgba(232, 180, 119, 0.1)',
+                      color: 'var(--theme-accent, #E8B477)',
+                      border: '1px solid rgba(232, 180, 119, 0.3)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {act}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Interactive AI Chat Assistant */}
           <div className="card" style={{ padding: '16px 18px', background: 'rgba(18, 18, 22, 0.95)', border: '1px solid rgba(255,255,255,0.15)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <span style={{ color: 'var(--theme-accent, #E8B477)' }}><Icon name="sparkles" /></span>
-              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#FFFFFF' }}>{t('Ask Nutrition Coach')}</h3>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#FFFFFF' }}>{t('Chat with IRONX AI')}</h3>
             </div>
 
             {/* Quick Suggestion Chips */}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
               {[
                 'How much protein do I still need today?',
+                'Download PDF Plan',
                 'What should I eat for breakfast?',
                 'Suggest a South Indian lunch',
                 'Can I eat dosa and still lose fat?',
@@ -1617,7 +1784,7 @@ export function AICoachView({ user, foods = [], currentTargets = {}, onTargetsUp
               ))}
               {sendingChat && (
                 <div style={{ alignSelf: 'flex-start', padding: '8px 12px', borderRadius: 12, background: 'rgba(255, 255, 255, 0.08)', color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
-                  {t('Analyzing your real logged food...')}
+                  {t('IRONX AI is analyzing...')}
                 </div>
               )}
             </div>

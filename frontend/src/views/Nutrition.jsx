@@ -883,7 +883,7 @@ export default function Nutrition() {
         </Button>
       </div>
 
-      {/* View Switcher: Daily Log, AI Nutrition Coach, Saved Meals & Recipes */}
+      {/* View Switcher: Daily Log, IRONX AI, Saved Meals & Recipes */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 10, overflowX: 'auto' }}>
         <button
           type="button"
@@ -901,7 +901,7 @@ export default function Nutrition() {
           style={{ fontWeight: 700, borderRadius: 9999, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
         >
           <Icon name="sparkles" />
-          {t("AI Nutrition Coach")}
+          {t("IRONX AI")}
         </button>
         <button
           type="button"

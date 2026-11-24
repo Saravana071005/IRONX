@@ -42,8 +42,18 @@ import {
   searchVerifiedFoods,
   searchVerifiedRecipes,
   getVerifiedRecipeById,
-  calculateDeterministicRecipe
+  calculateDeterministicRecipe,
+  getUserDietPlan,
+  saveUserDietPlan,
+  clearUserConversation
 } from './db.js';
+import {
+  calculatePersonalizedTargets,
+  generateDietPlan,
+  modifyDietPlan
+} from './knowledge.js';
+import { handleConversationalTurn } from './conversation.js';
+import { generateDietPlanPdf } from './pdf_generator.js';
 import { calculateRecipeNutrition, resolveGrams, calculateNutrients } from './engine.js';
 import { parseMeal } from './parser.js';
 
@@ -1312,7 +1322,7 @@ No other text or markdown, just the JSON array.`;
       });
     },
 
-    /* ---------- AI Nutrition Coach: Context-Aware Chat Assistant ---------- */
+    /* ---------- IRONX AI: Conversational Intelligence Assistant ---------- */
     'POST /api/nutrition/coach/chat': async (req, res) => {
       const user = requireUser(req, res);
       if (!user) return;
@@ -1325,177 +1335,134 @@ No other text or markdown, just the JSON array.`;
         return json(res, 400, { error: 'Message is required' });
       }
 
-      // Fetch user's actual daily nutrition logs
-      await syncHealthLogsFromMongo(user.id, date);
-      const foods = getMealLogs(user.id, date);
-      const targets = getUserTargets(user.id) || { calorie_target: 1900, protein_target_g: 140, carb_target_g: 220, fat_target_g: 65 };
-
-      const targetKcal = Number(targets.calorie_target || targets.calories || 1900);
-      const targetP = Number(targets.protein_target_g || targets.protein || 140);
-      const targetC = Number(targets.carb_target_g || targets.carbs || 220);
-      const targetF = Number(targets.fat_target_g || targets.fat || 65);
-
-      let consumedKcal = 0;
-      let consumedP = 0;
-      let consumedC = 0;
-      let consumedF = 0;
-
-      const mealGroups = { breakfast: [], lunch: [], dinner: [], snacks: [] };
-
-      for (const f of foods) {
-        const cal = Number(f.energy_kcal || f.calories || 0);
-        const p = Number(f.protein_g || f.protein || 0);
-        const c = Number(f.carb_g || f.carbs || 0);
-        const fat = Number(f.fat_g || f.fat || 0);
-
-        consumedKcal += cal;
-        consumedP += p;
-        consumedC += c;
-        consumedF += fat;
-
-        const mType = String(f.meal_type || 'snacks').toLowerCase();
-        if (mealGroups[mType]) {
-          mealGroups[mType].push(`${f.food_name || f.name} (${f.serving_quantity} ${f.serving_unit || 'g'} = ${cal} kcal, ${p}g P)`);
-        }
+      try {
+        const turnResult = await handleConversationalTurn({ user, message, date });
+        json(res, 200, {
+          ok: true,
+          ...turnResult,
+          model: 'ironx-ai-deterministic-engine'
+        });
+      } catch (err) {
+        json(res, 500, { error: err.message });
       }
+    },
 
-      consumedKcal = Math.round(consumedKcal);
-      consumedP = Math.round(consumedP * 10) / 10;
-      consumedC = Math.round(consumedC * 10) / 10;
-      consumedF = Math.round(consumedF * 10) / 10;
+    /* ---------- IRONX AI: Get Active Diet Plan ---------- */
+    'GET /api/nutrition/ai/diet-plan/current': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      const plan = getUserDietPlan(user.id);
+      json(res, 200, { ok: true, plan: plan || null });
+    },
 
-      const remainingKcal = Math.max(0, targetKcal - consumedKcal);
-      const remainingP = Math.max(0, Math.round((targetP - consumedP) * 10) / 10);
-      const remainingC = Math.max(0, Math.round((targetC - consumedC) * 10) / 10);
-      const remainingF = Math.max(0, Math.round((targetF - consumedF) * 10) / 10);
-
-      // Check for Gemini API key
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          const apiKey = process.env.GEMINI_API_KEY;
-          const contextPrompt = `You are the IRONX AI Nutrition Coach.
-You provide encouraging, scientifically accurate, and personalized nutrition guidance focusing on South Indian and Indian diets.
-
-USER'S ACTUAL RECORDED INTAKE FOR TODAY (${date}):
-- Target Calories: ${targetKcal} kcal | Consumed: ${consumedKcal} kcal | Remaining: ${remainingKcal} kcal
-- Protein: Target ${targetP}g | Consumed: ${consumedP}g | Remaining: ${remainingP}g
-- Carbs: Target ${targetC}g | Consumed: ${consumedC}g | Remaining: ${remainingC}g
-- Fat: Target ${targetF}g | Consumed: ${consumedF}g | Remaining: ${remainingF}g
-- Logged Meals Today:
-  * Breakfast: ${mealGroups.breakfast.join(', ') || 'None logged yet'}
-  * Lunch: ${mealGroups.lunch.join(', ') || 'None logged yet'}
-  * Dinner: ${mealGroups.dinner.join(', ') || 'None logged yet'}
-  * Snacks: ${mealGroups.snacks.join(', ') || 'None logged yet'}
-
-CRITICAL GUIDELINES:
-1. ONLY refer to actual logged food above. Never pretend unlogged food was eaten.
-2. Recommend realistic Indian and South Indian staples (e.g. Idli, Dosa, Chapathi, Boiled Eggs, Egg Bhurji, Sambar, Sundal, Curd, Rice, Chicken breast/air-fried chicken, Fish, Dal, Soya chunks).
-3. If the user asks in Tamil or English (e.g. சப்பாத்தி, தோசை, இட்லி, சாதம்), understand and reply in English or bilingual English/Tamil where appropriate.
-4. Give exact, practical portions that fit the user's remaining ${remainingKcal} kcal and ${remainingP}g protein.
-5. Keep the tone sharp, supportive, and practical. Keep the response under 180 words.
-
-User question: "${message}"`;
-
-          const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: contextPrompt }] }],
-                generationConfig: { temperature: 0.3 }
-              })
-            }
-          );
-
-          if (geminiRes.ok) {
-            const data = await geminiRes.json();
-            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (reply) {
-              return json(res, 200, {
-                ok: true,
-                reply: reply.trim(),
-                model: 'gemini-2.0-flash',
-                stats: { targetKcal, consumedKcal, remainingKcal, targetP, consumedP, remainingP }
-              });
-            }
-          }
-        } catch (err) {
-          console.warn('Gemini chat API error, falling back to deterministic coach engine:', err.message);
-        }
-      }
-
-      // High-precision deterministic coach engine (Zero-dependency fallback)
-      const qLower = message.toLowerCase();
-      let reply = '';
-
-      if (qLower.includes('protein') || qLower.includes('need') || qLower.includes('reach') || qLower.includes('hit')) {
-        if (remainingP <= 0) {
-          reply = `Awesome job! You have already crushed your protein target for today with **${consumedP}g** consumed (target: ${targetP}g). You have **${remainingKcal} kcal** remaining for healthy carbs and fats!`;
-        } else {
-          reply = `You need **${remainingP}g more protein** today to hit your ${targetP}g target (${consumedP}g logged, ${remainingKcal} kcal left).
-
-**Top South Indian High-Protein Picks to close the gap:**
-• **3 Boiled Eggs / Muttai (முட்டை)**: ~19g protein, 234 kcal
-• **100g Chicken Breast / Air-fried Chicken**: ~31g protein, 165 kcal
-• **1 Cup Green Gram Sundal (பாசிப்பயறு சுண்டல்)**: ~14g protein, 220 kcal
-• **1 Bowl Egg Bhurji (2 eggs + onion-tomato)**: ~13g protein, 180 kcal
-• **50g Soya Chunks Curry**: ~26g protein, 175 kcal
-• **1 Bowl Thick Dal / Sambar**: ~8g protein, 130 kcal`;
-        }
-      } else if (qLower.includes('breakfast') || qLower.includes('morning')) {
-        reply = `For breakfast, here are balanced South Indian combinations fitting your targets:
-• **Option A**: 3 Idlis (இட்லி) + 1 bowl Sambar + 2 Boiled Eggs (~330 kcal, 18g protein)
-• **Option B**: 2 Wheat Chapatis (சப்பாத்தி) + 2-Egg Bhurji (~350 kcal, 19g protein)
-• **Option C**: 2 Plain Dosas (தோசை) + Sambar + 1 cup Curd (~340 kcal, 12g protein)
-
-Tip: Adding boiled eggs or egg bhurji ensures you start your morning with optimal protein synthesis.`;
-      } else if (qLower.includes('lunch') || qLower.includes('afternoon')) {
-        reply = `For lunch, try this balanced South Indian plate:
-• **150g Cooked Rice (சாதம்)**: ~195 kcal, 4g protein, 43g carbs
-• **100g Air-Fried Chicken / Fish Curry**: ~165 kcal, 28g protein
-• **1 Bowl Dal or Drumstick Sambar**: ~100 kcal, 6g protein
-• **100g Fresh Curd (தயிர்)**: ~60 kcal, 3.5g protein
-
-**Totals**: ~520 kcal · 41.5g Protein · 52g Carbs · 10g Fat. Fits seamlessly into your daily budget!`;
-      } else if (qLower.includes('dinner') || qLower.includes('night')) {
-        reply = `For a light, muscle-preserving dinner:
-• **2 Wheat Chapatis (சப்பாத்தி)**: 208 kcal, 6g protein, 40g carbs
-• **Onion-Tomato Egg Gravy (2 eggs)**: 200 kcal, 13g protein
-• **Cucumber & Onion Salad**: 30 kcal, 1g protein
-
-**Total**: ~438 kcal · 20g Protein · 45g Carbs · 12g Fat. Perfect for overnight recovery without causing indigestion.`;
-      } else if (qLower.includes('dosa') || qLower.includes('தோசை')) {
-        reply = `**Yes, absolutely!** 1 medium plain dosa (~80g) is approximately **130 kcal, 3g protein, 22g carbs, and 3g fat**. 2 dosas with sambar provide ~350 kcal.
-
-To optimize for fat loss or muscle building, pair your dosa with protein: add 2 boiled eggs or egg bhurji on the side, or opt for wheat/ragi dosa for slower-digesting carbs!`;
-      } else if (qLower.includes('chapathi') || qLower.includes('chappathi') || qLower.includes('roti') || qLower.includes('சப்பாத்தி')) {
-        const calsPerRoti = 104;
-        const fits = Math.max(1, Math.min(6, Math.floor(remainingKcal / calsPerRoti)));
-        reply = `1 cooked wheat chapathi / roti (35g) has **104 kcal, 3.1g protein, 20g carbs, and 1.2g fat** (NIN verified).
-
-With **${remainingKcal} kcal remaining**, up to **${fits} chapatis** comfortably fit your daily target. For a complete meal, pair 2-3 chapatis with egg gravy, dal, or air-fried chicken!`;
-      } else if (qLower.includes('pre-workout') || qLower.includes('snack') || qLower.includes('before workout')) {
-        reply = `**Pre-Workout & Snack Ideas (45-60 min prior):**
-• **1 Medium Banana (வாழைப்பழம்)**: ~105 kcal, 27g fast-digesting carbs for immediate muscle glycogen
-• **1 Bowl Curd with 1 tsp Honey**: ~110 kcal, 5g protein, refreshing and gut-friendly
-• **50g Boiled Sundal / Roasted Chana**: ~150 kcal, 8g protein, sustained energy release
-• **Watermelon slices (200g)**: ~60 kcal, high citrulline for natural pumps & hydration`;
-      } else {
-        reply = `Here is your current status for **${date}**:
-• **Calories**: ${consumedKcal} / ${targetKcal} kcal (${remainingKcal} kcal left)
-• **Protein**: ${consumedP}g / ${targetP}g (${remainingP}g left)
-• **Carbs**: ${consumedC}g / ${targetC}g | **Fat**: ${consumedF}g / ${targetF}g
-
-${remainingP > 20 ? `Focus on protein for your next meal: 2-3 eggs, 100g chicken/fish, or a bowl of sundal/dal will easily cover your remaining ${remainingP}g protein!` : 'Your macros are well balanced today! Keep hydrating and hit your steps.'}`;
-      }
-
-      json(res, 200, {
-        ok: true,
-        reply,
-        model: 'ironx-deterministic-nutrition-engine',
-        stats: { targetKcal, consumedKcal, remainingKcal, targetP, consumedP, remainingP }
+    /* ---------- IRONX AI: Generate Diet Plan ---------- */
+    'POST /api/nutrition/ai/diet-plan/generate': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const profile = { ...(user.profile || {}), ...body };
+      const targets = calculatePersonalizedTargets(profile);
+      const plan = generateDietPlan(profile, targets);
+      saveUserDietPlan(user.id, plan);
+      setUserTargets(user.id, {
+        calorie_target: targets.target_calories,
+        protein_target_g: targets.protein_target_g,
+        carb_target_g: targets.carb_target_g,
+        fat_target_g: targets.fat_target_g,
+        fibre_target_g: targets.fibre_target_g,
+        diet_preference: profile.diet_preference || profile.dietPreferences || 'non_veg'
       });
+      json(res, 200, { ok: true, plan, targets });
+    },
+
+    /* ---------- IRONX AI: Modify Diet Plan (Interactive Food Substitutions) ---------- */
+    'POST /api/nutrition/ai/diet-plan/modify': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const currentPlan = getUserDietPlan(user.id);
+      if (!currentPlan) {
+        return json(res, 400, { error: 'No active diet plan to modify. Generate one first.' });
+      }
+      const requestText = String(body.request || body.modification || body.message || '').trim();
+      const modified = modifyDietPlan(currentPlan, requestText);
+      saveUserDietPlan(user.id, modified);
+      json(res, 200, { ok: true, plan: modified });
+    },
+
+    /* ---------- IRONX AI: Download PDF Diet Plan ---------- */
+    'GET /api/nutrition/ai/diet-plan/pdf': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      const plan = getUserDietPlan(user.id);
+      if (!plan) {
+        return json(res, 404, { error: 'No active diet plan found. Generate a diet plan first with IRONX AI.' });
+      }
+      try {
+        const arrayBuffer = generateDietPlanPdf(plan);
+        const pdfBuf = Buffer.from(arrayBuffer);
+        res.writeHead(200, {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'inline; filename="ironx_ai_diet_plan.pdf"',
+          'Content-Length': pdfBuf.length,
+          'Cache-Control': 'no-cache'
+        });
+        res.end(pdfBuf);
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ---------- IRONX AI: 1-Click Log Plan Meals to Today's Food Log ---------- */
+    'POST /api/nutrition/ai/diet-plan/log-to-today': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const date = String(body.date || new Date().toISOString().slice(0, 10));
+      const plan = getUserDietPlan(user.id);
+      if (!plan || !Array.isArray(plan.meals)) {
+        return json(res, 400, { error: 'No active diet plan found' });
+      }
+      const mealName = body.meal_name ? String(body.meal_name).toLowerCase() : null;
+      const loggedItems = [];
+
+      for (const meal of plan.meals) {
+        if (mealName && !meal.meal_name.toLowerCase().includes(mealName)) continue;
+        const mealType = meal.meal_name.toLowerCase().includes('breakfast') ? 'breakfast'
+          : meal.meal_name.toLowerCase().includes('lunch') ? 'lunch'
+          : meal.meal_name.toLowerCase().includes('dinner') ? 'dinner'
+          : 'snacks';
+
+        for (const it of meal.items) {
+          const logEntry = {
+            user_id: user.id,
+            date: date,
+            meal_type: mealType,
+            food_id: it.food_id || 'INX_STAPLE',
+            food_name: it.food_name || it.name || 'Food Item',
+            serving_quantity: it.serving_quantity != null ? it.serving_quantity : 1,
+            serving_unit: it.serving_unit || 'g',
+            serving_grams: it.serving_grams || it.portion_grams || 100,
+            energy_kcal: it.energy_kcal != null ? it.energy_kcal : (it.calories || 0),
+            protein_g: it.protein_g || 0,
+            carb_g: it.carb_g || 0,
+            fat_g: it.fat_g || 0,
+            fibre_g: it.fibre_g || 0,
+            notes: 'Logged from IRONX AI Diet Plan'
+          };
+          const created = addMealLog(logEntry);
+          loggedItems.push(created);
+        }
+      }
+      json(res, 200, { ok: true, logged_items_count: loggedItems.length, logged_items: loggedItems });
+    },
+
+    /* ---------- IRONX AI: Reset Conversation ---------- */
+    'POST /api/nutrition/ai/conversation/reset': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      clearUserConversation(user.id);
+      json(res, 200, { ok: true, message: 'Conversation reset successfully' });
     },
 
     /* ---------- IRONX AI: Verified Foods Knowledge Search ---------- */
