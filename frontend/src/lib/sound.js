@@ -16,10 +16,11 @@ export const ALERT_TONES = [
 
 /**
  * Returns the cached or new AudioContext singleton.
+ * Safely recreates the AudioContext if closed (e.g. after OS backgrounding or sleep).
  */
 export function getAudioContext() {
   if (typeof window === 'undefined') return null
-  if (!audioCtx) {
+  if (!audioCtx || audioCtx.state === 'closed') {
     const AudioCtx = window.AudioContext || window.webkitAudioContext
     if (AudioCtx) {
       try {
@@ -51,6 +52,21 @@ function getAudioElement(fileUrl) {
   return audioElementCache.get(fileUrl)
 }
 
+const unlockEvents = ['touchstart', 'touchend', 'click', 'keydown', 'pointerdown']
+
+function cleanupUnlockListeners() {
+  if (typeof window === 'undefined') return
+  unlockEvents.forEach(evt => {
+    try {
+      window.removeEventListener(evt, onUserGesture, { capture: true })
+    } catch (e) {}
+  })
+}
+
+const onUserGesture = () => {
+  unlockAudio()
+}
+
 /**
  * Initializes and unlocks browser audio after a genuine user interaction
  * (e.g. starting a workout, tapping the screen, testing sound, or toggling preferences).
@@ -58,6 +74,7 @@ function getAudioElement(fileUrl) {
  */
 export function unlockAudio() {
   if (typeof window === 'undefined') return
+  if (isUnlocked) return
   try {
     // 1. Resume Web Audio AudioContext if suspended
     const ctx = getAudioContext()
@@ -66,7 +83,7 @@ export function unlockAudio() {
         ctx.resume().catch(() => {})
       }
       // Play a 1-sample silent buffer to satisfy iOS WebKit autoplay lock
-      if (!isUnlocked && ctx.state !== 'closed') {
+      if (ctx.state !== 'closed') {
         try {
           const buffer = ctx.createBuffer(1, 1, 22050)
           const source = ctx.createBufferSource()
@@ -78,7 +95,6 @@ export function unlockAudio() {
     }
 
     // 2. Prime HTML5 Audio elements during user gesture
-    // Calling .load() during user gesture permits future programmatic .play() calls
     ALERT_TONES.forEach(tone => {
       const el = getAudioElement(tone.file)
       if (el && typeof el.load === 'function' && el.readyState < 2) {
@@ -91,6 +107,7 @@ export function unlockAudio() {
     }
 
     isUnlocked = true
+    cleanupUnlockListeners()
   } catch (e) {
     // Audio unlock is best-effort and non-fatal
   }
@@ -98,10 +115,6 @@ export function unlockAudio() {
 
 // Auto-register touch/click listeners to unlock audio on initial user activity
 if (typeof window !== 'undefined') {
-  const unlockEvents = ['touchstart', 'touchend', 'click', 'keydown', 'pointerdown']
-  const onUserGesture = () => {
-    unlockAudio()
-  }
   unlockEvents.forEach(evt => window.addEventListener(evt, onUserGesture, { capture: true, passive: true }))
 }
 
@@ -250,7 +263,7 @@ export function beep(enabled, freq, dur, when) {
   if (!enabled) return
   try {
     const ctx = getAudioContext()
-    if (!ctx) return
+    if (!ctx || ctx.state === 'closed') return
     if (ctx.state === 'suspended') {
       ctx.resume().catch(() => {})
     }
@@ -318,16 +331,17 @@ function createLoudMasterChain(ctx, volume = 1.0) {
 }
 
 function playSynthesizedAlert(selected, vol) {
-  const ctx = getAudioContext()
-  if (!ctx) return Promise.resolve(false)
-  if (ctx.state === 'suspended') {
-    ctx.resume().catch(() => {})
-  }
+  try {
+    const ctx = getAudioContext()
+    if (!ctx || ctx.state === 'closed') return Promise.resolve(false)
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {})
+    }
 
-  const now = ctx.currentTime
-  const master = createLoudMasterChain(ctx, vol)
+    const now = ctx.currentTime
+    const master = createLoudMasterChain(ctx, vol)
 
-  switch (selected) {
+    switch (selected) {
     case 'boxing_bell': {
       const strikes = [0, 0.35, 0.70]
       const freqs = [659.25, 1318.5, 2637.0]
@@ -489,7 +503,10 @@ function playSynthesizedAlert(selected, vol) {
     }
   }
 
-  return Promise.resolve(true)
+    return Promise.resolve(true)
+  } catch (e) {
+    return Promise.resolve(false)
+  }
 }
 
 export function playHaptic(type = 'tap') {

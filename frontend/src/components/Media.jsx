@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { imgSrc, gifSrc, cdnImgSrc, cdnGifSrc } from '../lib/exercises.js'
+import { isMediaLoaded, markMediaLoaded } from '../lib/mediaCache.js'
 import { useStore } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import Icon from './Icon.jsx'
@@ -13,6 +14,7 @@ export default function Media({ ex, id, compact, minimizable }) {
   const [playing, setPlaying] = useState(true)
   const [fallbackUsed, setFallbackUsed] = useState(false)
   const [loadError, setLoadError] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false)
   const gifSize = useStore(s => s.S.gifSize)
   const update = useStore(s => s.update)
   if (!ex.gif && !ex.customImage) return null
@@ -23,6 +25,15 @@ export default function Media({ ex, id, compact, minimizable }) {
       ? (playing ? cdnGifSrc(ex) : cdnImgSrc(ex))
       : (playing ? gifSrc(ex) : imgSrc(ex))
   )
+
+  useEffect(() => {
+    if (isMediaLoaded(currentSrc)) {
+      setIsLoaded(true)
+    } else {
+      setIsLoaded(false)
+    }
+  }, [currentSrc])
+
   return (
     <div className={'exmedia' + (compact ? ' compact' : '') + (mini ? ' mini' : '')} id={id} onClick={() => setPlaying(p => !p)}>
       {loadError ? (
@@ -32,15 +43,27 @@ export default function Media({ ex, id, compact, minimizable }) {
           <span style={{ fontSize: '11px', color: 'var(--label-3)' }}>{t('Media preview unavailable')}</span>
         </div>
       ) : (
-        <img
-          decoding="async"
-          src={currentSrc}
-          alt={ex.n}
-          onError={() => {
-            if (!fallbackUsed && !ex.customImage) setFallbackUsed(true)
-            else setLoadError(true)
-          }}
-        />
+        <>
+          {!isLoaded && (
+            <div className="exmedia-skeleton">
+              <Icon name="dumbbell" style={{ width: 28, height: 28, opacity: 0.25 }} />
+            </div>
+          )}
+          <img
+            decoding="async"
+            src={currentSrc}
+            alt={ex.n}
+            style={{ opacity: isLoaded ? 1 : 0, transition: 'opacity 0.2s ease-in' }}
+            onLoad={() => {
+              markMediaLoaded(currentSrc)
+              setIsLoaded(true)
+            }}
+            onError={() => {
+              if (!fallbackUsed && !ex.customImage) setFallbackUsed(true)
+              else setLoadError(true)
+            }}
+          />
+        </>
       )}
       {!loadError && minimizable && (
         <button className="giftoggle" onClick={toggleSize}>
@@ -69,6 +92,7 @@ export function Thumb({ ex }) {
       decoding="async"
       src={src}
       alt={ex.n || ''}
+      onLoad={() => markMediaLoaded(src)}
       onError={() => {
         if (!fallback && !ex.customImage) setFallback(true)
         else setErr(true)

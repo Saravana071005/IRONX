@@ -99,13 +99,125 @@ export function cleanupSg(ex) {
   })
 }
 
+/**
+ * Retrieves the immediately previous completed session performance for an exact exercise variation.
+ *
+ * Rules:
+ * 1. Differentiates strictly by canonical ID / exact variation (case-insensitive trim match on exId).
+ *    Never matches by muscle group or category.
+ * 2. Only considers completed past sessions (!w.inProgress, w.id !== activeWorkoutId, w.id !== S?.active?.id).
+ * 3. Sorts finished workouts descending by completion timestamp (w.end > w.start > w.d).
+ * 4. Extracts only completed sets (s.done === true).
+ * 5. If no previous session exists for this exact exercise/variation, returns clean first-time state.
+ *
+ * @param {Object} S - Application state
+ * @param {string} exId - Exact exercise or variation ID
+ * @param {string} [activeWorkoutId] - ID of active workout to exclude
+ * @returns {Object} Previous performance details or clean first-time state
+ */
+export function getPreviousExercisePerformance(S, exId, activeWorkoutId = null) {
+  if (!S || !exId) {
+    return {
+      found: false,
+      message: 'No previous session for this exercise.',
+      subtext: 'First time logging this variation. Complete sets below to establish your baseline.',
+      sets: []
+    }
+  }
+
+  const workouts = Array.isArray(S.workouts) ? S.workouts : []
+  const targetId = String(exId).trim().toLowerCase()
+  const currentActiveId = activeWorkoutId || S.active?.id || null
+
+  // 1. Filter out unfinished sessions, planned sessions, and current active workout
+  const completedWorkouts = workouts.filter(w => {
+    if (!w || !Array.isArray(w.entries)) return false
+    if (w.inProgress) return false
+    if (currentActiveId && w.id === currentActiveId) return false
+    if (w.completed === false) return false
+    return true
+  })
+
+  // 2. Sort workouts descending by completion timestamp (w.end > w.start > w.d)
+  const sorted = [...completedWorkouts].sort((a, b) => {
+    const timeA = Number(a.end) || Number(a.start) || (a.d ? new Date(a.d + 'T23:59:59').getTime() : 0)
+    const timeB = Number(b.end) || Number(b.start) || (b.d ? new Date(b.d + 'T23:59:59').getTime() : 0)
+    return timeB - timeA
+  })
+
+  // 3. Find immediately previous completed workout containing this exact exercise variation
+  for (const w of sorted) {
+    const entry = w.entries.find(e => {
+      if (!e || !e.id) return false
+      return String(e.id).trim().toLowerCase() === targetId
+    })
+
+    if (!entry || !Array.isArray(entry.sets)) continue
+
+    // Filter sets to only completed sets
+    const doneSets = entry.sets.filter(s => s && (s.done === true || s.completed === true))
+    if (!doneSets.length) continue
+
+    const dateStr = w.d || ''
+    let formattedDate = dateStr
+    if (dateStr) {
+      try {
+        const dt = new Date(dateStr.length === 10 ? dateStr + 'T12:00:00' : dateStr)
+        if (!isNaN(dt.getTime())) {
+          formattedDate = dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        }
+      } catch (e) {
+        formattedDate = dateStr
+      }
+    }
+
+    const mode = modeOf({ ...(entry.target || {}), id: exId })
+
+    const formattedSets = doneSets.map((s, idx) => ({
+      setNumber: s.setNumber || idx + 1,
+      w: s.w != null ? Number(s.w) : 0,
+      r: s.r != null ? Number(s.r) : 0,
+      sec: s.sec != null ? Number(s.sec) : 0,
+      min: s.min != null ? Number(s.min) : 0,
+      speed: s.speed != null ? Number(s.speed) : 0,
+      warmup: !!s.warmup,
+      rir: s.rir ?? null,
+      rpe: s.rpe ?? null,
+      completed: true
+    }))
+
+    return {
+      found: true,
+      workoutId: w.id,
+      workoutName: w.name || 'Workout',
+      workoutGroup: w.routineId || '',
+      date: dateStr,
+      formattedDate,
+      end: w.end || null,
+      mode,
+      target: entry.target || null,
+      sets: formattedSets
+    }
+  }
+
+  return {
+    found: false,
+    message: 'No previous session for this exercise.',
+    subtext: 'First time logging this variation. Complete sets below to establish your baseline.',
+    sets: []
+  }
+}
+
 export function lastEntryFor(S, exId) {
-  for (let i = S.workouts.length - 1; i >= 0; i--) {
-    const en = S.workouts[i].entries.find(e => e.id === exId)
-    // `target` is what the session prescribed; finished workouts carry it so labels and the
-    // progression engine can read a session back the way it was logged. Older workouts have
-    // none — modeOf() falls back to the body part for them, which is what they were.
-    if (en && en.sets.some(s => s.done)) return { d: S.workouts[i].d, sets: en.sets.filter(s => s.done), target: en.target || null }
+  const perf = getPreviousExercisePerformance(S, exId)
+  if (perf && perf.found) {
+    return {
+      d: perf.date,
+      sets: perf.sets,
+      target: perf.target,
+      workoutName: perf.workoutName,
+      formattedDate: perf.formattedDate
+    }
   }
   return null
 }

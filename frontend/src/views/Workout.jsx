@@ -4,12 +4,13 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { exOr, allExercises, BODYPARTS, registerCustom } from '../lib/exercises.js'
-import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, EFFORT, effortOf, stepEffort, capEffort } from '../lib/history.js'
+import { effectiveRoutine, lastEntryFor, getPreviousExercisePerformance, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, EFFORT, effortOf, stepEffort, capEffort, fmtSec } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, exCount, DAYN, uid } from '../lib/format.js'
 import { beep, vibrate, unlockAudio, playHaptic } from '../lib/sound.js'
 import { t } from '../lib/i18n.js'
 import { api, API_BASE } from '../lib/api.js'
 import Media from '../components/Media.jsx'
+import { preloadUpcomingExercises } from '../lib/mediaCache.js'
 import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, cardioSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
@@ -673,6 +674,175 @@ function Elapsed({ start }) {
   return <span>{t}</span>
 }
 
+/* ---------- Previous workout performance tracking card ---------- */
+function PreviousPerformanceCard({ exId, unit, activeWorkoutId }) {
+  const S = useStore(s => s.S)
+  const perf = useMemo(() => {
+    return getPreviousExercisePerformance(S, exId, activeWorkoutId)
+  }, [S.workouts, exId, activeWorkoutId])
+
+  if (!perf.found) {
+    return (
+      <div
+        className="prev-perf-card empty"
+        style={{
+          background: 'var(--bg-secondary, #141417)',
+          border: '1px dashed var(--borders, #2A2A30)',
+          borderRadius: 10,
+          padding: '10px 14px',
+          margin: '8px 0 10px 0',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--dim, #A1A1AA)', fontSize: 13, fontWeight: 600 }}>
+          <Icon name="history" style={{ width: 14, height: 14, opacity: 0.8 }} />
+          <span>{t('No previous session for this exercise.')}</span>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--dim, #71717A)', lineHeight: 1.3 }}>
+          {t('First time logging this variation. Complete sets below to establish your baseline.')}
+        </div>
+      </div>
+    )
+  }
+
+  const isReps = perf.mode === 'reps'
+  const isTime = perf.mode === 'time'
+  const isCardio = perf.mode === 'cardio'
+
+  return (
+    <div
+      className="prev-perf-card"
+      style={{
+        background: 'var(--bg-secondary, #141417)',
+        border: '1px solid var(--borders, #2E2E36)',
+        borderRadius: 10,
+        padding: '10px 12px',
+        margin: '8px 0 10px 0',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)'
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 8,
+          borderBottom: '1px solid var(--borders, #2A2A30)',
+          paddingBottom: 6
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--fg, #FAFAFA)' }}>
+            {t('Previous Session')} – {perf.formattedDate}
+          </span>
+          {perf.workoutName && perf.workoutName !== 'Workout' && (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: 'var(--dim, #A1A1AA)',
+                padding: '2px 6px',
+                borderRadius: 4,
+                maxWidth: 140,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {perf.workoutName}
+            </span>
+          )}
+        </div>
+        <span style={{ fontSize: 11, color: 'var(--dim, #A1A1AA)', fontWeight: 500 }}>
+          {perf.sets.length} {perf.sets.length === 1 ? t('set') : t('sets')}
+        </span>
+      </div>
+
+      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, textAlign: 'left' }}>
+          <thead>
+            <tr style={{ color: 'var(--dim, #71717A)', borderBottom: '1px solid var(--borders, #222226)', fontSize: 11 }}>
+              <th style={{ padding: '4px 6px', fontWeight: 600 }}>{t('Set')}</th>
+              {isReps && (
+                <>
+                  <th style={{ padding: '4px 6px', fontWeight: 600, textAlign: 'right' }}>{t('Weight ({0})', unit || 'kg')}</th>
+                  <th style={{ padding: '4px 6px', fontWeight: 600, textAlign: 'right' }}>{t('Reps')}</th>
+                </>
+              )}
+              {isTime && (
+                <>
+                  <th style={{ padding: '4px 6px', fontWeight: 600, textAlign: 'right' }}>{t('Duration')}</th>
+                  <th style={{ padding: '4px 6px', fontWeight: 600, textAlign: 'right' }}>{t('Weight ({0})', unit || 'kg')}</th>
+                </>
+              )}
+              {isCardio && (
+                <>
+                  <th style={{ padding: '4px 6px', fontWeight: 600, textAlign: 'right' }}>{t('Duration')}</th>
+                  <th style={{ padding: '4px 6px', fontWeight: 600, textAlign: 'right' }}>{t('Speed')}</th>
+                </>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {perf.sets.map((s, idx) => (
+              <tr
+                key={idx}
+                style={{
+                  borderBottom: idx < perf.sets.length - 1 ? '1px solid var(--borders, rgba(255, 255, 255, 0.04))' : 'none',
+                  color: 'var(--fg, #E4E4E7)'
+                }}
+              >
+                <td style={{ padding: '5px 6px', fontWeight: 600, color: 'var(--dim, #A1A1AA)' }}>
+                  {s.warmup ? (
+                    <span style={{ color: 'var(--acc, #FFAA00)', background: 'rgba(255, 170, 0, 0.12)', padding: '1px 5px', borderRadius: 3, fontSize: 10 }}>W</span>
+                  ) : (
+                    <span>{t('Set {0}', s.setNumber || idx + 1)}</span>
+                  )}
+                </td>
+                {isReps && (
+                  <>
+                    <td style={{ padding: '5px 6px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                      {fmtNum(s.w)} {unit || 'kg'}
+                    </td>
+                    <td style={{ padding: '5px 6px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                      {s.r}
+                      {s.rir != null ? <span style={{ fontSize: 10, color: 'var(--dim, #71717A)', marginLeft: 4 }}>RIR {s.rir}</span> : null}
+                      {s.rpe != null ? <span style={{ fontSize: 10, color: 'var(--dim, #71717A)', marginLeft: 4 }}>RPE {s.rpe}</span> : null}
+                    </td>
+                  </>
+                )}
+                {isTime && (
+                  <>
+                    <td style={{ padding: '5px 6px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                      {fmtSec(s.sec)}
+                    </td>
+                    <td style={{ padding: '5px 6px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      {s.w > 0 ? `${fmtNum(s.w)} ${unit || 'kg'}` : t('BW')}
+                    </td>
+                  </>
+                )}
+                {isCardio && (
+                  <>
+                    <td style={{ padding: '5px 6px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                      {s.min} min
+                    </td>
+                    <td style={{ padding: '5px 6px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      {fmtNum(s.speed)} km/h
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 /* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
 function ExerciseBlock({ entryIdx, compact, onToggle, onToggleWarmup, onField, onAddSet, onAddWarmupSet, onRemoveSet, onStartTimed, onOpenMenu }) {
   const S = useStore(s => s.S)
@@ -731,7 +901,7 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onToggleWarmup, onField, o
       {ex.eq && <span className="tag">{t(ex.eq)}</span>}
       {best > 0 && <span className="tag nocap">{t('Best:')} {fmtNum(best)} {S.unit}</span>}
     </div>
-    {last && <div className="small dim" style={{ marginBottom: 4 }}>{t('Last time')} ({fmtDate(last.d)}): {last.sets.map(s => setLabel(entry.id, s, last.target)).join(', ')}</div>}
+    <PreviousPerformanceCard exId={entry.id} unit={S.unit} activeWorkoutId={S.active?.id} />
     {plan && plan.why && plan.kind !== 'off' && <div className={'progline' + (plan.kind === 'deload' ? ' warn' : '')}>
       <Icon name={plan.kind === 'up' ? 'arrowUp' : plan.kind === 'deload' ? 'arrowDown' : 'lightbulb'} />
       <span>{t(...plan.why)}</span>
@@ -775,6 +945,12 @@ function ActiveWorkout() {
   const unit = A.entries.length ? unitOf(units, cur) : []
   const unitIdx = units.findIndex(u => u === unit)
   const isSuperset = unit.length > 1
+
+  useEffect(() => {
+    if (A && Array.isArray(A.entries) && A.entries.length > 0) {
+      preloadUpcomingExercises(A.entries, cur, 3)
+    }
+  }, [cur, A?.entries])
 
   const total = A.entries.reduce((n, e) => n + e.sets.length, 0)
   const done = setsDoneActive(A)

@@ -1188,14 +1188,22 @@ function doFinishWorkout() {
     const rec = is1RMRecord(st, e.id, e)
     if (rec && !prs.includes(e.id)) e1prs.push({ id: e.id, ...rec })
   })
+  let currentUserId = null
+  try {
+    const u = JSON.parse(localStorage.getItem('gym_user'))
+    if (u?.id) currentUserId = u.id
+  } catch {}
+
   const w = {
     id: A.id,
+    userId: currentUserId || st.user?.id || null,
     d: (A.d || todayISO()).slice(0, 10),
     start: A.start,
     end: Date.now(),
     routineId: A.routineId,
     name: A.name,
     bw: A.bw,
+    completed: true,
     // `target` (what the session prescribed) is kept alongside the sets: without it a
     // finished workout cannot say whether it hit its reps, and a timed session reads back
     // as "0 reps". It is what the progression engine works from.
@@ -1208,6 +1216,8 @@ function doFinishWorkout() {
         const meta = breakdown.meta
         return {
           id: e.id,
+          exerciseId: e.id,
+          variationId: e.variationId || e.id,
           name: e.name || e.n || meta?.n || e.id,
           category: e.category || e.bodyPart || meta?.bp || 'other',
           bodyPart: e.bodyPart || e.category || meta?.bp || 'other',
@@ -1215,7 +1225,14 @@ function doFinishWorkout() {
           targetMuscles: meta?.tg || '',
           primaryMuscles: breakdown.primary,
           secondaryMuscles: breakdown.secondary,
-          sets: e.sets,
+          sets: e.sets.map((s, sIdx) => ({
+            ...s,
+            setNumber: s.setNumber || sIdx + 1,
+            completed: !!s.done,
+            completedAt: s.completedAt || Date.now(),
+            w: s.w != null ? Number(s.w) : 0,
+            r: s.r != null ? Number(s.r) : 0
+          })),
           topW: e.topW || null,
           target: e.target || null
         }
@@ -1227,7 +1244,6 @@ function doFinishWorkout() {
 
   // Sync to daily health log storage so Daily Health Log and PDF export capture completed workouts
   try {
-    let currentUserId = null
     try {
       const u = JSON.parse(localStorage.getItem('gym_user'))
       if (u?.id) currentUserId = u.id

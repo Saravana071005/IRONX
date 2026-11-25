@@ -29,10 +29,11 @@ export const allExercises = st => [...(st.customEx || []), ...EXDB]
 // Media normally sits next to the app (img/ and gif/, mounted into the web container).
 // A build can point them somewhere else — the demo build pulls them off a CDN instead of
 // shipping ~140 MB of images into the deployment.
-const IMG_BASE = import.meta.env.VITE_IMG_BASE || 'img/'
-const GIF_BASE = import.meta.env.VITE_GIF_BASE || 'gif/'
 export const CDN_IMG_BASE = 'https://cdn.jsdelivr.net/gh/hasaneyldrm/exercises-dataset@7455efae41b330c265e7cd4b78dfa848e7ce5ebd/images/'
 export const CDN_GIF_BASE = 'https://cdn.jsdelivr.net/gh/hasaneyldrm/exercises-dataset@7455efae41b330c265e7cd4b78dfa848e7ce5ebd/videos/'
+// Default directly to CDN to eliminate 404 roundtrips when local img/ and gif/ folders are not mounted
+const IMG_BASE = import.meta.env.VITE_IMG_BASE || CDN_IMG_BASE
+const GIF_BASE = import.meta.env.VITE_GIF_BASE || CDN_GIF_BASE
 
 export const imgSrc = ex => ex.customImage || (ex.img ? (IMG_BASE + ex.img) : '')
 export const gifSrc = ex => ex.customImage || (ex.gif ? (GIF_BASE + ex.gif) : '')

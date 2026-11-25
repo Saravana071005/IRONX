@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { exOr } from '../lib/exercises.js'
 import { t } from '../lib/i18n.js'
 import Icon from './Icon.jsx'
 import { getExerciseMedia, getPostureGuidance, getExerciseSteps } from '../lib/exercisePreview.js'
+import { isMediaLoaded, markMediaLoaded } from '../lib/mediaCache.js'
 
 export default function ExercisePreviewCard({
   exercise,
@@ -21,6 +22,7 @@ export default function ExercisePreviewCard({
   const [playing, setPlaying] = useState(true)
   const [fallbackUsed, setFallbackUsed] = useState(false)
   const [mediaError, setMediaError] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false)
 
   if (!ex) return null
 
@@ -136,6 +138,10 @@ export default function ExercisePreviewCard({
               alt={exName}
               loading="lazy"
               decoding="async"
+              onLoad={() => {
+                markMediaLoaded(currentImgSrc)
+                setIsLoaded(true)
+              }}
               onError={handleMediaError}
               style={{
                 width: '100%',
