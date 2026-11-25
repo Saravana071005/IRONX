@@ -198,10 +198,103 @@ export function getDb() {
         updated_at TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS user_targets (
+        user_id TEXT PRIMARY KEY,
+        goal_type TEXT DEFAULT 'maintenance',
+        current_weight_kg REAL,
+        height_cm REAL,
+        age INTEGER,
+        sex TEXT,
+        activity_level TEXT,
+        workout_frequency REAL,
+        cardio_frequency REAL,
+        cardio_duration_min REAL,
+        bmr_estimate REAL,
+        tdee_estimate REAL,
+        calorie_target REAL NOT NULL DEFAULT 2000,
+        protein_target_g REAL NOT NULL DEFAULT 140,
+        carb_target_g REAL NOT NULL DEFAULT 220,
+        fat_target_g REAL NOT NULL DEFAULT 60,
+        fibre_target_g REAL NOT NULL DEFAULT 28,
+        calculation_method TEXT DEFAULT 'mifflin_st_jeor',
+        goal_version INTEGER DEFAULT 1,
+        effective_date TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_targets_user ON user_targets(user_id);
+
+      CREATE TABLE IF NOT EXISTS user_target_history (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        goal_type TEXT,
+        calorie_target REAL NOT NULL,
+        protein_target_g REAL,
+        carb_target_g REAL,
+        fat_target_g REAL,
+        fibre_target_g REAL,
+        weight_kg REAL,
+        bmr_estimate REAL,
+        tdee_estimate REAL,
+        reason TEXT,
+        goal_version INTEGER,
+        effective_date TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_target_history_user ON user_target_history(user_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS weight_logs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        weight_kg REAL NOT NULL,
+        notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_weight_logs_user_date ON weight_logs(user_id, date);
+      CREATE INDEX IF NOT EXISTS idx_weight_logs_user ON weight_logs(user_id, date DESC);
+
+      CREATE TABLE IF NOT EXISTS weekly_nutrition_reviews (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        week_start_date TEXT NOT NULL,
+        week_end_date TEXT NOT NULL,
+        starting_avg_weight REAL,
+        ending_avg_weight REAL,
+        weight_change_kg REAL,
+        avg_calories_consumed REAL,
+        avg_protein_consumed REAL,
+        target_calories REAL,
+        workouts_completed INTEGER,
+        cardio_sessions_completed INTEGER,
+        goal_type TEXT,
+        status TEXT,
+        recommended_calorie_target REAL,
+        adjustment_kcal REAL,
+        applied INTEGER DEFAULT 0,
+        reasoning TEXT,
+        review_json TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_weekly_reviews_user ON weekly_nutrition_reviews(user_id, created_at DESC);
+
     `);
     try {
       db.exec("ALTER TABLE meal_logs ADD COLUMN notes TEXT");
     } catch {}
+
+    // Safe migration: seed user_targets from user_nutrition_targets if user_targets is empty
+    try {
+      db.exec(`
+        INSERT OR IGNORE INTO user_targets (
+          user_id, calorie_target, protein_target_g, carb_target_g, fat_target_g, fibre_target_g, created_at, updated_at
+        )
+        SELECT user_id, calorie_target, protein_target_g, carb_target_g, fat_target_g, fibre_target_g,
+               COALESCE(updated_at, datetime('now')), COALESCE(updated_at, datetime('now'))
+        FROM user_nutrition_targets;
+      `);
+    } catch (e) {}
 
     // Ensure STAPLE:mixed_veg is seeded in foods table for deterministic composite vegetable tracking
     try {
@@ -419,31 +512,101 @@ export function getPortionUnits(foodPattern = null) {
 
 export function getUserTargets(userId) {
   const d = getDb();
-  const row = d.prepare(`
-    SELECT user_id, calorie_target, protein_target_g, carb_target_g, fat_target_g, fibre_target_g, diet_preference, updated_at
-    FROM user_nutrition_targets
-    WHERE user_id = ?
-  `).get(userId);
-  return row || null;
+  if (!d || !userId) return null;
+  try {
+    const row = d.prepare(`
+      SELECT user_id, calorie_target, protein_target_g, carb_target_g, fat_target_g, fibre_target_g,
+             goal_type, current_weight_kg, height_cm, age, sex, activity_level,
+             workout_frequency, cardio_frequency, cardio_duration_min,
+             bmr_estimate, tdee_estimate, calculation_method, goal_version, effective_date, updated_at
+      FROM user_targets
+      WHERE user_id = ?
+    `).get(userId);
+    if (row) return row;
+  } catch {}
+
+  try {
+    const row = d.prepare(`
+      SELECT user_id, calorie_target, protein_target_g, carb_target_g, fat_target_g, fibre_target_g, diet_preference, updated_at
+      FROM user_nutrition_targets
+      WHERE user_id = ?
+    `).get(userId);
+    return row || null;
+  } catch {
+    return null;
+  }
 }
 
 export function setUserTargets(userId, targets) {
   const d = getDb();
+  if (!d || !userId || !targets) return null;
   const now = new Date().toISOString();
-  d.prepare(`
-    INSERT OR REPLACE INTO user_nutrition_targets (
-      user_id, calorie_target, protein_target_g, carb_target_g, fat_target_g, fibre_target_g, diet_preference, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    userId,
-    targets.calorie_target != null ? targets.calorie_target : (targets.calories != null ? targets.calories : null),
-    targets.protein_target_g != null ? targets.protein_target_g : (targets.protein != null ? targets.protein : null),
-    targets.carb_target_g != null ? targets.carb_target_g : (targets.carbs != null ? targets.carbs : null),
-    targets.fat_target_g != null ? targets.fat_target_g : (targets.fat != null ? targets.fat : null),
-    targets.fibre_target_g != null ? targets.fibre_target_g : (targets.fibre != null ? targets.fibre : null),
-    targets.diet_preference || 'all',
-    now
-  );
+  const cal = targets.calorie_target != null ? targets.calorie_target : (targets.calories != null ? targets.calories : 2000);
+  const p = targets.protein_target_g != null ? targets.protein_target_g : (targets.protein != null ? targets.protein : 140);
+  const c = targets.carb_target_g != null ? targets.carb_target_g : (targets.carbs != null ? targets.carbs : 220);
+  const f = targets.fat_target_g != null ? targets.fat_target_g : (targets.fat != null ? targets.fat : 60);
+  const fb = targets.fibre_target_g != null ? targets.fibre_target_g : (targets.fibre != null ? targets.fibre : 28);
+
+  try {
+    d.prepare(`
+      INSERT INTO user_targets (
+        user_id, calorie_target, protein_target_g, carb_target_g, fat_target_g, fibre_target_g,
+        goal_type, current_weight_kg, height_cm, age, sex, activity_level,
+        workout_frequency, cardio_frequency, cardio_duration_min,
+        bmr_estimate, tdee_estimate, calculation_method, goal_version, effective_date, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        calorie_target = excluded.calorie_target,
+        protein_target_g = excluded.protein_target_g,
+        carb_target_g = excluded.carb_target_g,
+        fat_target_g = excluded.fat_target_g,
+        fibre_target_g = excluded.fibre_target_g,
+        goal_type = COALESCE(excluded.goal_type, user_targets.goal_type),
+        current_weight_kg = COALESCE(excluded.current_weight_kg, user_targets.current_weight_kg),
+        height_cm = COALESCE(excluded.height_cm, user_targets.height_cm),
+        age = COALESCE(excluded.age, user_targets.age),
+        sex = COALESCE(excluded.sex, user_targets.sex),
+        activity_level = COALESCE(excluded.activity_level, user_targets.activity_level),
+        workout_frequency = COALESCE(excluded.workout_frequency, user_targets.workout_frequency),
+        cardio_frequency = COALESCE(excluded.cardio_frequency, user_targets.cardio_frequency),
+        cardio_duration_min = COALESCE(excluded.cardio_duration_min, user_targets.cardio_duration_min),
+        bmr_estimate = COALESCE(excluded.bmr_estimate, user_targets.bmr_estimate),
+        tdee_estimate = COALESCE(excluded.tdee_estimate, user_targets.tdee_estimate),
+        calculation_method = COALESCE(excluded.calculation_method, user_targets.calculation_method),
+        goal_version = user_targets.goal_version + 1,
+        effective_date = COALESCE(excluded.effective_date, user_targets.effective_date),
+        updated_at = excluded.updated_at
+    `).run(
+      userId, Number(cal), Number(p), Number(c), Number(f), Number(fb),
+      targets.goal_type || 'maintenance',
+      targets.current_weight_kg ? Number(targets.current_weight_kg) : null,
+      targets.height_cm ? Number(targets.height_cm) : null,
+      targets.age ? Number(targets.age) : null,
+      targets.sex || 'male',
+      targets.activity_level || 'moderately_active',
+      targets.workout_frequency ? Number(targets.workout_frequency) : null,
+      targets.cardio_frequency ? Number(targets.cardio_frequency) : null,
+      targets.cardio_duration_min ? Number(targets.cardio_duration_min) : null,
+      targets.bmr_estimate ? Number(targets.bmr_estimate) : null,
+      targets.tdee_estimate ? Number(targets.tdee_estimate) : null,
+      targets.calculation_method || 'mifflin_st_jeor',
+      1,
+      targets.effective_date || now.slice(0, 10),
+      now
+    );
+  } catch (err) {
+    console.error('setUserTargets user_targets error:', err.message);
+  }
+
+  try {
+    d.prepare(`
+      INSERT OR REPLACE INTO user_nutrition_targets (
+        user_id, calorie_target, protein_target_g, carb_target_g, fat_target_g, fibre_target_g, diet_preference, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(userId, cal, p, c, f, fb, targets.diet_preference || 'all', now);
+  } catch {}
+
   return getUserTargets(userId);
 }
 
@@ -928,6 +1091,10 @@ export function clearAllNutritionDataForUser(userId) {
     try { d.prepare("DELETE FROM cardio_logs WHERE user_id = ?").run(userId); } catch {}
     try { d.prepare("DELETE FROM strength_logs WHERE user_id = ?").run(userId); } catch {}
     try { d.prepare("DELETE FROM user_nutrition_targets WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM user_targets WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM user_target_history WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM weight_logs WHERE user_id = ?").run(userId); } catch {}
+    try { d.prepare("DELETE FROM weekly_nutrition_reviews WHERE user_id = ?").run(userId); } catch {}
     try { d.prepare("DELETE FROM daily_health_settings WHERE user_id = ?").run(userId); } catch {}
     try { d.prepare("DELETE FROM meal_templates WHERE user_id = ?").run(userId); } catch {}
     try { d.prepare("DELETE FROM saved_diet_plans WHERE user_id = ?").run(userId); } catch {}
@@ -2054,16 +2221,35 @@ export function saveNotificationPreferences(userId, prefs) {
 
 export function getCanonicalUserNutritionGoals(userId) {
   const fallback = {
+    user_id: userId || 'guest',
     calorie_target: 2000,
     calories: 2000,
     protein_target: 140,
+    protein_target_g: 140,
     protein: 140,
     carb_target: 220,
+    carb_target_g: 220,
     carbs: 220,
     fat_target: 60,
+    fat_target_g: 60,
     fat: 60,
     fibre_target: 28,
+    fibre_target_g: 28,
     fiber: 28,
+    goal_type: 'maintenance',
+    current_weight_kg: null,
+    height_cm: null,
+    age: null,
+    sex: 'male',
+    activity_level: 'moderately_active',
+    workout_frequency: 4,
+    cardio_frequency: 2,
+    cardio_duration_min: 20,
+    bmr_estimate: 1750,
+    tdee_estimate: 2350,
+    calculation_method: 'mifflin_st_jeor',
+    goal_version: 1,
+    effective_date: new Date().toISOString().slice(0, 10),
     source: 'system_default',
     updated_at: new Date().toISOString(),
     profile: {},
@@ -2071,100 +2257,152 @@ export function getCanonicalUserNutritionGoals(userId) {
   };
 
   if (!userId) return fallback;
-
   const d = getDb();
   if (!d) return fallback;
 
   try {
-    // 1. Fetch from user_nutrition_goals
-    let userGoals = null;
-    const goalsRow = d.prepare("SELECT * FROM user_nutrition_goals WHERE user_id = ?").get(userId);
-    if (goalsRow) {
-      userGoals = {
-        profile: JSON.parse(goalsRow.profile_json || '{}'),
-        calculated_targets: JSON.parse(goalsRow.calculated_targets_json || '{}'),
-        custom_targets: goalsRow.custom_targets_json ? JSON.parse(goalsRow.custom_targets_json) : null,
-        history: goalsRow.history_json ? JSON.parse(goalsRow.history_json) : [],
-        updated_at: goalsRow.updated_at
+    // 1. Fetch from user_targets directly
+    let utRow = null;
+    try {
+      utRow = d.prepare("SELECT * FROM user_targets WHERE user_id = ?").get(userId);
+    } catch (e) {
+      console.warn('user_targets lookup warning:', e.message);
+    }
+
+    if (utRow && utRow.calorie_target != null && Number(utRow.calorie_target) > 0) {
+      const cal = Math.round(Number(utRow.calorie_target));
+      const p = Math.round(Number(utRow.protein_target_g) || 140);
+      const c = Math.round(Number(utRow.carb_target_g) || 220);
+      const f = Math.round(Number(utRow.fat_target_g) || 60);
+      const fb = Math.round(Number(utRow.fibre_target_g) || 28);
+      return {
+        user_id: utRow.user_id,
+        calorie_target: cal,
+        calories: cal,
+        protein_target: p,
+        protein_target_g: p,
+        protein: p,
+        carb_target: c,
+        carb_target_g: c,
+        carbs: c,
+        fat_target: f,
+        fat_target_g: f,
+        fat: f,
+        fibre_target: fb,
+        fibre_target_g: fb,
+        fiber: fb,
+        goal_type: utRow.goal_type || 'maintenance',
+        current_weight_kg: utRow.current_weight_kg != null ? Number(utRow.current_weight_kg) : null,
+        height_cm: utRow.height_cm != null ? Number(utRow.height_cm) : null,
+        age: utRow.age != null ? Number(utRow.age) : null,
+        sex: utRow.sex || 'male',
+        activity_level: utRow.activity_level || 'moderately_active',
+        workout_frequency: utRow.workout_frequency != null ? Number(utRow.workout_frequency) : null,
+        cardio_frequency: utRow.cardio_frequency != null ? Number(utRow.cardio_frequency) : null,
+        cardio_duration_min: utRow.cardio_duration_min != null ? Number(utRow.cardio_duration_min) : null,
+        bmr_estimate: utRow.bmr_estimate != null ? Number(utRow.bmr_estimate) : null,
+        tdee_estimate: utRow.tdee_estimate != null ? Number(utRow.tdee_estimate) : null,
+        calculation_method: utRow.calculation_method || 'mifflin_st_jeor',
+        goal_version: Number(utRow.goal_version) || 1,
+        effective_date: utRow.effective_date || (utRow.updated_at ? utRow.updated_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+        source: 'user_targets',
+        created_at: utRow.created_at || utRow.updated_at || new Date().toISOString(),
+        updated_at: utRow.updated_at || new Date().toISOString(),
+        profile: {
+          age: utRow.age,
+          sex: utRow.sex,
+          height_cm: utRow.height_cm,
+          weight_kg: utRow.current_weight_kg,
+          fitness_goal: utRow.goal_type,
+          activity_level: utRow.activity_level,
+          workout_days_per_week: utRow.workout_frequency,
+          cardio_frequency_per_week: utRow.cardio_frequency,
+          cardio_duration_min: utRow.cardio_duration_min
+        },
+        history: []
       };
     }
 
-    // 2. Fetch from daily_health_settings
-    const dhsRow = d.prepare("SELECT * FROM daily_health_settings WHERE user_id = ?").get(userId);
-
-    // 3. Fetch from user_targets
-    const utRow = d.prepare("SELECT * FROM user_targets WHERE user_id = ?").get(userId);
-
-    // Collect candidates with timestamp and priority
-    const candidates = [];
-
-    if (userGoals?.custom_targets?.calorie_target != null) {
-      const v = Number(userGoals.custom_targets.calorie_target);
-      if (v > 0) {
-        candidates.push({ val: v, src: 'user_nutrition_goals.custom_targets', time: userGoals.updated_at || '', prio: 4 });
+    // 2. Fallback to user_nutrition_goals or daily_health_settings
+    let userGoals = null;
+    try {
+      const goalsRow = d.prepare("SELECT * FROM user_nutrition_goals WHERE user_id = ?").get(userId);
+      if (goalsRow) {
+        userGoals = {
+          profile: JSON.parse(goalsRow.profile_json || '{}'),
+          calculated_targets: JSON.parse(goalsRow.calculated_targets_json || '{}'),
+          custom_targets: goalsRow.custom_targets_json ? JSON.parse(goalsRow.custom_targets_json) : null,
+          history: goalsRow.history_json ? JSON.parse(goalsRow.history_json) : [],
+          updated_at: goalsRow.updated_at
+        };
       }
-    }
+    } catch {}
 
-    if (dhsRow?.calorie_target != null && dhsRow.updated_at) {
-      const v = Number(dhsRow.calorie_target);
-      if (v > 0) {
-        candidates.push({ val: v, src: 'daily_health_settings', time: dhsRow.updated_at, prio: 3 });
-      }
-    }
+    let dhsRow = null;
+    try {
+      dhsRow = d.prepare("SELECT * FROM daily_health_settings WHERE user_id = ?").get(userId);
+    } catch {}
 
-    if (utRow?.calorie_target != null && utRow.updated_at) {
-      const v = Number(utRow.calorie_target);
-      if (v > 0) {
-        candidates.push({ val: v, src: 'user_targets', time: utRow.updated_at, prio: 2 });
-      }
-    }
+    let untRow = null;
+    try {
+      untRow = d.prepare("SELECT * FROM user_nutrition_targets WHERE user_id = ?").get(userId);
+    } catch {}
 
-    if (userGoals?.calculated_targets?.calorie_target != null) {
-      const v = Number(userGoals.calculated_targets.calorie_target);
-      if (v > 0) {
-        candidates.push({ val: v, src: 'user_nutrition_goals.calculated_targets', time: userGoals.updated_at || '', prio: 1 });
-      }
-    }
+    const cal = Number(
+      userGoals?.custom_targets?.calorie_target ||
+      dhsRow?.calorie_target ||
+      untRow?.calorie_target ||
+      userGoals?.calculated_targets?.calorie_target ||
+      2000
+    );
 
-    let activeCalorie = 2000;
-    let source = 'system_default';
-    let updatedAt = new Date().toISOString();
+    const p = Number(userGoals?.custom_targets?.protein_target || userGoals?.calculated_targets?.protein_target || untRow?.protein_target_g || 140);
+    const c = Number(userGoals?.custom_targets?.carb_target || userGoals?.calculated_targets?.carb_target || untRow?.carb_target_g || 220);
+    const f = Number(userGoals?.custom_targets?.fat_target || userGoals?.calculated_targets?.fat_target || untRow?.fat_target_g || 60);
+    const fb = Number(userGoals?.custom_targets?.fibre_target || userGoals?.calculated_targets?.fibre_target || untRow?.fibre_target_g || 28);
+    const now = new Date().toISOString();
 
-    if (candidates.length > 0) {
-      // Sort candidates primarily by timestamp (most recent), then by priority
-      candidates.sort((a, b) => {
-        if (a.time && b.time && a.time !== b.time) {
-          return a.time < b.time ? 1 : -1;
-        }
-        return b.prio - a.prio;
-      });
-      activeCalorie = Math.round(candidates[0].val);
-      source = candidates[0].src;
-      updatedAt = candidates[0].time || updatedAt;
-    } else if (dhsRow?.calorie_target != null && Number(dhsRow.calorie_target) > 0) {
-      activeCalorie = Math.round(Number(dhsRow.calorie_target));
-      source = 'daily_health_settings_default';
-      updatedAt = dhsRow.updated_at || updatedAt;
-    }
-
-    const activeProtein = Number(userGoals?.custom_targets?.protein_target || userGoals?.calculated_targets?.protein_target || utRow?.protein_target_g) || 140;
-    const activeCarb = Number(userGoals?.custom_targets?.carb_target || userGoals?.calculated_targets?.carb_target || utRow?.carb_target_g) || 220;
-    const activeFat = Number(userGoals?.custom_targets?.fat_target || userGoals?.calculated_targets?.fat_target || utRow?.fat_target_g) || 60;
-    const activeFibre = Number(userGoals?.custom_targets?.fibre_target || userGoals?.calculated_targets?.fibre_target || utRow?.fibre_target_g) || 28;
+    // Populate user_targets for future requests
+    try {
+      d.prepare(`
+        INSERT INTO user_targets (
+          user_id, calorie_target, protein_target_g, carb_target_g, fat_target_g, fibre_target_g,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+          calorie_target = excluded.calorie_target,
+          updated_at = excluded.updated_at
+      `).run(userId, cal, p, c, f, fb, now, now);
+    } catch {}
 
     return {
-      calorie_target: activeCalorie,
-      calories: activeCalorie,
-      protein_target: activeProtein,
-      protein: activeProtein,
-      carb_target: activeCarb,
-      carbs: activeCarb,
-      fat_target: activeFat,
-      fat: activeFat,
-      fibre_target: activeFibre,
-      fiber: activeFibre,
-      source,
-      updated_at: updatedAt,
+      user_id: userId,
+      calorie_target: cal,
+      calories: cal,
+      protein_target: p,
+      protein: p,
+      carb_target: c,
+      carbs: c,
+      fat_target: f,
+      fat: f,
+      fibre_target: fb,
+      fiber: fb,
+      goal_type: userGoals?.profile?.fitness_goal || 'maintenance',
+      current_weight_kg: userGoals?.profile?.weight_kg || null,
+      height_cm: userGoals?.profile?.height_cm || null,
+      age: userGoals?.profile?.age || null,
+      sex: userGoals?.profile?.sex || 'male',
+      activity_level: userGoals?.profile?.activity_level || 'moderately_active',
+      workout_frequency: userGoals?.profile?.workout_days_per_week || null,
+      cardio_frequency: userGoals?.profile?.cardio_frequency_per_week || null,
+      cardio_duration_min: userGoals?.profile?.cardio_duration_min || null,
+      bmr_estimate: userGoals?.calculated_targets?.bmr || null,
+      tdee_estimate: userGoals?.calculated_targets?.tdee || null,
+      calculation_method: 'mifflin_st_jeor',
+      goal_version: 1,
+      effective_date: now.slice(0, 10),
+      source: 'migrated_fallback',
+      updated_at: now,
       profile: userGoals?.profile || {},
       history: userGoals?.history || []
     };
@@ -2186,75 +2424,146 @@ export function saveCanonicalCalorieGoal(userId, newCalorieTarget) {
   const now = new Date().toISOString();
 
   try {
-    // 1. Update daily_health_settings
+    let existing = null;
+    try {
+      existing = d.prepare("SELECT * FROM user_targets WHERE user_id = ?").get(userId);
+    } catch {}
+
+    const version = (Number(existing?.goal_version) || 0) + 1;
+    let proteinG = Number(existing?.protein_target_g) || 140;
+    let carbG = Number(existing?.carb_target_g) || 220;
+    let fatG = Number(existing?.fat_target_g) || 60;
+    let fibreG = Number(existing?.fibre_target_g) || 28;
+
+    // Proportionally scale carbs and fat to match the new calorie target while preserving protein
+    const proteinKcal = proteinG * 4;
+    const remainingKcal = Math.max(0, target - proteinKcal);
+    carbG = Math.round((remainingKcal * 0.65) / 4);
+    fatG = Math.round((remainingKcal * 0.35) / 9);
+    fibreG = Math.max(25, Math.min(45, Math.round((target / 1000) * 14)));
+
+    // 1. Update user_targets
     d.prepare(`
-      INSERT INTO daily_health_settings (user_id, calorie_target, water_goal_litres, updated_at)
-      VALUES (?, ?, 2.5, ?)
+      INSERT INTO user_targets (
+        user_id, calorie_target, protein_target_g, carb_target_g, fat_target_g, fibre_target_g,
+        goal_version, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(user_id) DO UPDATE SET
         calorie_target = excluded.calorie_target,
+        protein_target_g = excluded.protein_target_g,
+        carb_target_g = excluded.carb_target_g,
+        fat_target_g = excluded.fat_target_g,
+        fibre_target_g = excluded.fibre_target_g,
+        goal_version = excluded.goal_version,
         updated_at = excluded.updated_at
-    `).run(userId, target, now);
+    `).run(userId, target, proteinG, carbG, fatG, fibreG, version, now);
 
-    // 2. Update user_targets
-    d.prepare(`
-      INSERT INTO user_targets (user_id, calorie_target, updated_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT(user_id) DO UPDATE SET
-        calorie_target = excluded.calorie_target,
-        updated_at = excluded.updated_at
-    `).run(userId, target, now);
-
-    // 3. Update user_nutrition_goals custom_targets and history
-    const existing = getUserNutritionGoals(userId) || {};
-    const existingCustom = existing.custom_targets || {};
-    const updatedCustom = {
-      ...existingCustom,
-      calorie_target: target
-    };
-    const history = Array.isArray(existing.history) ? [...existing.history] : [];
-    if (existing.custom_targets || existing.calculated_targets) {
-      history.unshift({
-        date: existing.updated_at || now,
-        calorie_target: existing.custom_targets?.calorie_target || existing.calculated_targets?.calorie_target,
-        targets: existing.custom_targets || existing.calculated_targets
-      });
-      if (history.length > 20) history.length = 20;
+    // 2. Insert into user_target_history
+    try {
+      const histId = 'uth_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      d.prepare(`
+        INSERT INTO user_target_history (
+          id, user_id, goal_type, calorie_target, protein_target_g, carb_target_g, fat_target_g, fibre_target_g,
+          weight_kg, bmr_estimate, tdee_estimate, reason, goal_version, effective_date, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        histId,
+        userId,
+        existing?.goal_type || 'maintenance',
+        target,
+        proteinG,
+        carbG,
+        fatG,
+        fibreG,
+        existing?.current_weight_kg || null,
+        existing?.bmr_estimate || null,
+        existing?.tdee_estimate || null,
+        'Manual Daily Calorie Goal Update',
+        version,
+        now.slice(0, 10),
+        now
+      );
+    } catch (hErr) {
+      console.warn('user_target_history insertion error:', hErr.message);
     }
 
-    const profileJson = JSON.stringify(existing.profile || {});
-    const calcJson = JSON.stringify(existing.calculated_targets || {});
-    const customJson = JSON.stringify(updatedCustom);
-    const historyJson = JSON.stringify(history);
+    // 3. Update daily_health_settings
+    try {
+      d.prepare(`
+        INSERT INTO daily_health_settings (user_id, calorie_target, water_goal_litres, updated_at)
+        VALUES (?, ?, 2.5, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+          calorie_target = excluded.calorie_target,
+          updated_at = excluded.updated_at
+      `).run(userId, target, now);
+    } catch {}
 
-    d.prepare(`
-      INSERT INTO user_nutrition_goals (user_id, profile_json, calculated_targets_json, custom_targets_json, history_json, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(user_id) DO UPDATE SET
-        custom_targets_json = excluded.custom_targets_json,
-        history_json = excluded.history_json,
-        updated_at = excluded.updated_at
-    `).run(userId, profileJson, calcJson, customJson, historyJson, now);
+    // 4. Update user_nutrition_targets (backwards compatibility)
+    try {
+      d.prepare(`
+        INSERT INTO user_nutrition_targets (user_id, calorie_target, protein_target_g, carb_target_g, fat_target_g, fibre_target_g, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+          calorie_target = excluded.calorie_target,
+          protein_target_g = excluded.protein_target_g,
+          carb_target_g = excluded.carb_target_g,
+          fat_target_g = excluded.fat_target_g,
+          fibre_target_g = excluded.fibre_target_g,
+          updated_at = excluded.updated_at
+      `).run(userId, target, proteinG, carbG, fatG, fibreG, now);
+    } catch {}
 
-    // 4. Sync to MongoDB if available
+    // 5. Update user_nutrition_goals custom_targets and history
+    try {
+      const existingGoals = getUserNutritionGoals(userId) || {};
+      const existingCustom = existingGoals.custom_targets || {};
+      const updatedCustom = {
+        ...existingCustom,
+        calorie_target: target,
+        protein_target: proteinG,
+        carb_target: carbG,
+        fat_target: fatG,
+        fibre_target: fibreG
+      };
+      const history = Array.isArray(existingGoals.history) ? [...existingGoals.history] : [];
+      history.unshift({
+        date: now,
+        calorie_target: target,
+        targets: updatedCustom,
+        reason: 'Manual Daily Calorie Goal Update'
+      });
+      if (history.length > 25) history.length = 25;
+
+      const profileJson = JSON.stringify(existingGoals.profile || {});
+      const calcJson = JSON.stringify(existingGoals.calculated_targets || {});
+      const customJson = JSON.stringify(updatedCustom);
+      const historyJson = JSON.stringify(history);
+
+      d.prepare(`
+        INSERT INTO user_nutrition_goals (user_id, profile_json, calculated_targets_json, custom_targets_json, history_json, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+          custom_targets_json = excluded.custom_targets_json,
+          history_json = excluded.history_json,
+          updated_at = excluded.updated_at
+      `).run(userId, profileJson, calcJson, customJson, historyJson, now);
+    } catch {}
+
+    // 6. Sync to MongoDB if available
     if (process.env.MONGODB_URI) {
       getMongoDb().then(async mongo => {
         if (!mongo) return;
         try {
+          await mongo.collection('user_targets').updateOne(
+            { user_id: userId },
+            { $set: { user_id: userId, calorie_target: target, protein_target_g: proteinG, carb_target_g: carbG, fat_target_g: fatG, fibre_target_g: fibreG, goal_version: version, updated_at: now } },
+            { upsert: true }
+          );
           await mongo.collection('daily_health_settings').updateOne(
             { user_id: userId },
             { $set: { user_id: userId, calorie_target: target, updated_at: now } },
-            { upsert: true }
-          );
-          await mongo.collection('user_nutrition_goals').updateOne(
-            { user_id: userId },
-            {
-              $set: {
-                user_id: userId,
-                custom_targets: updatedCustom,
-                history,
-                updatedAt: now
-              }
-            },
             { upsert: true }
           );
           await mongo.collection('states').updateOne(
@@ -2271,5 +2580,184 @@ export function saveCanonicalCalorieGoal(userId, newCalorieTarget) {
   } catch (err) {
     console.error('saveCanonicalCalorieGoal error:', err.message);
     throw err;
+  }
+}
+
+/* ==================== MODULE 9: DAILY WEIGHT TRACKING & ADAPTIVE STORAGE ==================== */
+
+export function saveWeightLog(userId, { date, weight_kg, notes }) {
+  if (!userId) throw new Error('User ID is required');
+  const d = getDb();
+  if (!d) throw new Error('Database unavailable');
+  const dateStr = String(date || '').trim() || new Date().toISOString().slice(0, 10);
+  const wVal = Number(weight_kg);
+  if (isNaN(wVal) || wVal < 30 || wVal > 350) {
+    throw new Error('Weight must be between 30 and 350 kg');
+  }
+  const roundedWeight = Math.round(wVal * 100) / 100;
+  const now = new Date().toISOString();
+  const id = 'wl_' + userId + '_' + dateStr;
+
+  d.prepare(`
+    INSERT INTO weight_logs (id, user_id, date, weight_kg, notes, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id, date) DO UPDATE SET
+      weight_kg = excluded.weight_kg,
+      notes = excluded.notes,
+      updated_at = excluded.updated_at
+  `).run(id, userId, dateStr, roundedWeight, notes || null, now, now);
+
+  // Update current_weight_kg in user_targets if this is the most recent log
+  try {
+    const latest = d.prepare("SELECT date, weight_kg FROM weight_logs WHERE user_id = ? ORDER BY date DESC LIMIT 1").get(userId);
+    if (latest && latest.date === dateStr) {
+      d.prepare("UPDATE user_targets SET current_weight_kg = ?, updated_at = ? WHERE user_id = ?").run(roundedWeight, now, userId);
+    }
+  } catch {}
+
+  // MongoDB sync
+  if (process.env.MONGODB_URI) {
+    getMongoDb().then(async mongo => {
+      if (!mongo) return;
+      try {
+        await mongo.collection('weight_logs').updateOne(
+          { user_id: userId, date: dateStr },
+          { $set: { id, user_id: userId, date: dateStr, weight_kg: roundedWeight, notes: notes || null, updatedAt: now } },
+          { upsert: true }
+        );
+      } catch {}
+    }).catch(() => {});
+  }
+
+  return { id, user_id: userId, date: dateStr, weight_kg: roundedWeight, notes: notes || null };
+}
+
+export function getWeightLogs(userId, limit = 90) {
+  if (!userId) return [];
+  const d = getDb();
+  if (!d) return [];
+  try {
+    return d.prepare("SELECT * FROM weight_logs WHERE user_id = ? ORDER BY date DESC LIMIT ?").all(userId, limit);
+  } catch {
+    return [];
+  }
+}
+
+export function deleteWeightLog(userId, idOrDate) {
+  if (!userId || !idOrDate) return false;
+  const target = typeof idOrDate === 'object' ? (idOrDate.id || idOrDate.date) : idOrDate;
+  if (!target) return false;
+  const d = getDb();
+  if (!d) return false;
+  try {
+    d.prepare("DELETE FROM weight_logs WHERE user_id = ? AND (id = ? OR date = ?)").run(userId, target, target);
+    if (process.env.MONGODB_URI) {
+      getMongoDb().then(mongo => {
+        if (mongo) mongo.collection('weight_logs').deleteOne({ user_id: userId, $or: [{ id: idOrDate }, { date: idOrDate }] }).catch(() => {});
+      }).catch(() => {});
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getWeightStats(userId) {
+  const logs = getWeightLogs(userId, 60);
+  if (!logs || !logs.length) {
+    return {
+      current: null,
+      currentDate: null,
+      sevenDayAvg: null,
+      previousWeekAvg: null,
+      weeklyChangeKg: 0,
+      totalEntries: 0,
+      history: []
+    };
+  }
+
+  const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date));
+  const current = sorted[sorted.length - 1].weight_kg;
+  const currentDate = sorted[sorted.length - 1].date;
+
+  const latestDateObj = new Date(currentDate + 'T12:00:00');
+  const sevenDaysAgo = new Date(latestDateObj.getTime() - 6 * 86400000).toISOString().slice(0, 10);
+  const fourteenDaysAgo = new Date(latestDateObj.getTime() - 13 * 86400000).toISOString().slice(0, 10);
+
+  const last7DaysLogs = sorted.filter(l => l.date >= sevenDaysAgo && l.date <= currentDate);
+  const prev7DaysLogs = sorted.filter(l => l.date >= fourteenDaysAgo && l.date < sevenDaysAgo);
+
+  const sevenDayAvg = last7DaysLogs.length
+    ? Math.round((last7DaysLogs.reduce((acc, l) => acc + l.weight_kg, 0) / last7DaysLogs.length) * 100) / 100
+    : current;
+
+  const previousWeekAvg = prev7DaysLogs.length
+    ? Math.round((prev7DaysLogs.reduce((acc, l) => acc + l.weight_kg, 0) / prev7DaysLogs.length) * 100) / 100
+    : null;
+
+  const weeklyChangeKg = previousWeekAvg != null
+    ? Math.round((sevenDayAvg - previousWeekAvg) * 100) / 100
+    : 0;
+
+  return {
+    current,
+    currentDate,
+    sevenDayAvg,
+    rolling_7day_avg: sevenDayAvg,
+    previousWeekAvg,
+    previous_week_avg: previousWeekAvg,
+    weeklyChangeKg,
+    weekly_change: weeklyChangeKg,
+    totalEntries: sorted.length,
+    count: sorted.length,
+    count_14d: sorted.length,
+    latest: { weight_kg: current, date: currentDate },
+    history: logs
+  };
+}
+
+export function saveWeeklyNutritionReview(userId, review) {
+  if (!userId || !review) return null;
+  const d = getDb();
+  if (!d) return null;
+  const id = review.id || ('wnr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
+  const now = new Date().toISOString();
+
+  d.prepare(`
+    INSERT OR REPLACE INTO weekly_nutrition_reviews (
+      id, user_id, week_start_date, week_end_date, starting_avg_weight, ending_avg_weight,
+      weight_change_kg, avg_calories_consumed, avg_protein_consumed, target_calories,
+      workouts_completed, cardio_sessions_completed, goal_type, status,
+      recommended_calorie_target, adjustment_kcal, applied, reasoning, review_json, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id, userId, review.week_start_date, review.week_end_date,
+    review.starting_avg_weight || null, review.ending_avg_weight || null,
+    review.weight_change_kg || 0, review.avg_calories_consumed || 0,
+    review.avg_protein_consumed || 0, review.target_calories || 2000,
+    review.workouts_completed || 0, review.cardio_sessions_completed || 0,
+    review.goal_type || 'maintenance', review.status || 'ON_TRACK',
+    review.recommended_calorie_target || review.target_calories || 2000,
+    review.adjustment_kcal || 0, review.applied ? 1 : 0,
+    review.reasoning || '', JSON.stringify(review), now
+  );
+
+  return { ...review, id };
+}
+
+export function getLatestWeeklyNutritionReview(userId) {
+  if (!userId) return null;
+  const d = getDb();
+  if (!d) return null;
+  try {
+    const row = d.prepare("SELECT * FROM weekly_nutrition_reviews WHERE user_id = ? ORDER BY created_at DESC LIMIT 1").get(userId);
+    if (!row) return null;
+    return {
+      ...row,
+      applied: Boolean(row.applied),
+      details: row.review_json ? JSON.parse(row.review_json) : null
+    };
+  } catch {
+    return null;
   }
 }

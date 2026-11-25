@@ -8,6 +8,12 @@ import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { exportDailyReportPdf } from '../lib/exportDailyReportPdf.js'
 import { cardioSheet, confirmSheet } from '../sheets.jsx'
+import {
+  BodyWeightCard,
+  LogWeightModal,
+  WeeklyNutritionReviewCard,
+  fmtWeight
+} from './AdaptiveNutritionComponents.jsx'
 import { EXIDX } from '../lib/exercises.js'
 import {
   AddDietPlanPdfModal,
@@ -117,6 +123,105 @@ export default function Nutrition({ initialTab = 'today_plan' } = {}) {
   const [isEditingGoal, setIsEditingGoal] = useState(false)
   const [editingCalorieGoal, setEditingCalorieGoal] = useState(canonicalTarget)
   const [savingGoal, setSavingGoal] = useState(false)
+
+  const [canonicalGoals, setCanonicalGoals] = useState(null)
+  const [weightLogs, setWeightLogs] = useState([])
+  const [weightStats, setWeightStats] = useState(null)
+  const [weeklyReview, setWeeklyReview] = useState(null)
+
+  const loadAdaptiveData = useCallback(async () => {
+    try {
+      const [goalsRes, weightsRes, reviewRes] = await Promise.allSettled([
+        api('/api/nutrition/canonical-goal'),
+        api('/api/nutrition/weight-logs?limit=30'),
+        api('/api/nutrition/weekly-review?window_days=14')
+      ])
+
+      if (goalsRes.status === 'fulfilled' && goalsRes.value?.ok) {
+        const c = goalsRes.value.targets || goalsRes.value.canonical_goals
+        if (c) {
+          setCanonicalGoals(c)
+          if (c.calorie_target) {
+            setUserCalorieTarget(c.calorie_target)
+          }
+        }
+      }
+
+      if (weightsRes.status === 'fulfilled' && weightsRes.value?.ok) {
+        setWeightLogs(weightsRes.value.logs || [])
+        setWeightStats(weightsRes.value.stats || null)
+      }
+
+      if (reviewRes.status === 'fulfilled' && reviewRes.value?.ok) {
+        setWeeklyReview(reviewRes.value.review || null)
+      }
+    } catch (err) {
+      console.warn('Failed to load adaptive nutrition data:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadAdaptiveData()
+  }, [loadAdaptiveData])
+
+  const handleOpenWeightModal = () => {
+    openSheet(close => (
+      <LogWeightModal
+        defaultDate={date}
+        currentWeight={weightStats?.latest?.weight_kg || canonicalGoals?.current_weight_kg || 75.0}
+        weightLogs={weightLogs}
+        onSaveWeight={async (weightEntry) => {
+          const res = await api('/api/nutrition/weight-logs', {
+            method: 'POST',
+            body: weightEntry
+          })
+          if (res?.ok) {
+            await loadAdaptiveData()
+          } else {
+            throw new Error(res?.error || 'Failed to save weight')
+          }
+        }}
+        onDeleteWeight={async (id, logDate) => {
+          const res = await api('/api/nutrition/weight-logs/delete', {
+            method: 'POST',
+            body: { id, date: logDate }
+          })
+          if (res?.ok) {
+            toast(t('Weight log deleted'))
+            await loadAdaptiveData()
+          }
+        }}
+        close={close}
+        toast={toast}
+        t={t}
+      />
+    ))
+  }
+
+  const handleApplyAdaptiveAdjustment = async (reviewId) => {
+    try {
+      const res = await api('/api/nutrition/weekly-review/apply', {
+        method: 'POST',
+        body: { review_id: reviewId }
+      })
+      if (res?.ok) {
+        const newTarget = res.canonical_goals?.calorie_target || res.result?.new_calorie_target
+        if (newTarget) {
+          useStore.getState().setCalorieTarget(newTarget)
+          setUserCalorieTarget(newTarget)
+        }
+        toast(t('Adaptive calorie goal applied: {0} kcal', (newTarget || 2000).toLocaleString()))
+        await loadAdaptiveData()
+        loadDayData(date)
+        loadAdaptiveData()
+      } else {
+        toast(res?.error || t('Failed to apply review adjustment'))
+      }
+    } catch (err) {
+      toast(t('Error applying adjustment: {0}', err.message))
+    }
+  }
+
 
   useEffect(() => {
     setUserCalorieTarget(canonicalTarget)
@@ -412,6 +517,7 @@ export default function Nutrition({ initialTab = 'today_plan' } = {}) {
     const foodProtein = realFoods.reduce((acc, f) => acc + (Number(f.protein_g) || Number(f.protein) || 0), 0)
     const foodCarbs = realFoods.reduce((acc, f) => acc + (Number(f.carb_g) || Number(f.carbs) || Number(f.carb) || 0), 0)
     const foodFat = realFoods.reduce((acc, f) => acc + (Number(f.fat_g) || Number(f.fat) || 0), 0)
+    const foodFibre = realFoods.reduce((acc, f) => acc + (Number(f.fibre_g) || Number(f.fiber_g) || Number(f.fibre) || Number(f.fiber) || 0), 0)
 
     const waterTotalMl = water.reduce((acc, w) => acc + (Number(w.amount_ml) || 0), 0)
     const waterLitres = Math.round((waterTotalMl / 1000) * 100) / 100
@@ -449,6 +555,7 @@ export default function Nutrition({ initialTab = 'today_plan' } = {}) {
       food_protein: Math.round(foodProtein * 10) / 10,
       food_carbs: Math.round(foodCarbs * 10) / 10,
       food_fat: Math.round(foodFat * 10) / 10,
+      food_fibre: Math.round(foodFibre * 10) / 10,
       calorie_target: userCalorieTarget,
       water_ml: waterTotalMl,
       water_litres: waterLitres,
@@ -1255,6 +1362,70 @@ export default function Nutrition({ initialTab = 'today_plan' } = {}) {
               </button>
             </div>
             
+            {/* BMR, TDEE & Goal Badges */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8, alignItems: 'center' }}>
+              {canonicalGoals?.bmr_estimate && (
+                <span
+                  style={{
+                    background: 'var(--surface-3)',
+                    border: '1px solid var(--borders)',
+                    borderRadius: 9999,
+                    padding: '2px 8px',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: 'var(--label-2)'
+                  }}
+                >
+                  BMR: {canonicalGoals.bmr_estimate.toLocaleString()} kcal
+                </span>
+              )}
+              {canonicalGoals?.tdee_estimate && (
+                <span
+                  style={{
+                    background: 'var(--surface-3)',
+                    border: '1px solid var(--borders)',
+                    borderRadius: 9999,
+                    padding: '2px 8px',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: 'var(--label-2)'
+                  }}
+                >
+                  TDEE: {canonicalGoals.tdee_estimate.toLocaleString()} kcal
+                </span>
+              )}
+              <span
+                style={{
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid var(--borders)',
+                  borderRadius: 9999,
+                  padding: '2px 8px',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: 'var(--label-2)',
+                  textTransform: 'capitalize'
+                }}
+              >
+                {t(canonicalGoals?.goal_type ? canonicalGoals.goal_type.replace('_', ' ') : 'Maintenance')}
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveTab('goals')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--mint)',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                  textDecoration: 'underline'
+                }}
+              >
+                {t('Configure Goals')} →
+              </button>
+            </div>
+
             <div className="big" style={{ fontSize: 26, fontWeight: 800, marginTop: 4 }}>
               {totals.food_calories > 0 ? (
                 <>
@@ -1359,6 +1530,64 @@ export default function Nutrition({ initialTab = 'today_plan' } = {}) {
           </div>
         )}
 
+
+        {/* Macro Distribution Targets Bar */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: 6,
+            marginTop: 10,
+            paddingTop: 10,
+            borderTop: '1px solid var(--borders)'
+          }}
+        >
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--label-3)', textTransform: 'uppercase' }}>
+              {t('Protein')}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--label)', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+              {totals.food_protein}g
+            </div>
+            <div style={{ fontSize: 9, color: 'var(--label-3)' }}>
+              / {canonicalGoals?.protein_target_g || 140}g
+            </div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--label-3)', textTransform: 'uppercase' }}>
+              {t('Carbs')}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--label)', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+              {totals.food_carbs}g
+            </div>
+            <div style={{ fontSize: 9, color: 'var(--label-3)' }}>
+              / {canonicalGoals?.carb_target_g || 220}g
+            </div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--label-3)', textTransform: 'uppercase' }}>
+              {t('Fat')}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--label)', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+              {totals.food_fat}g
+            </div>
+            <div style={{ fontSize: 9, color: 'var(--label-3)' }}>
+              / {canonicalGoals?.fat_target_g || 65}g
+            </div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--label-3)', textTransform: 'uppercase' }}>
+              {t('Fiber')}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--label)', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+              {totals.food_fibre || 0}g
+            </div>
+            <div style={{ fontSize: 9, color: 'var(--label-3)' }}>
+              / {canonicalGoals?.fibre_target_g || 28}g
+            </div>
+          </div>
+        </div>
+
         {/* Progress Bar */}
         <div className="calorie-bar-wrap">
           <div className="calorie-bar-track">
@@ -1396,6 +1625,23 @@ export default function Nutrition({ initialTab = 'today_plan' } = {}) {
           </div>
         </div>
       </div>
+
+
+      {/* Module 6: Daily Body Weight Tracking Card */}
+      <BodyWeightCard
+        weightStats={weightStats}
+        onOpenLogModal={handleOpenWeightModal}
+        t={t}
+      />
+
+      {/* Modules 7, 8, 9: Adaptive Nutrition Review & Intelligence Card */}
+      <WeeklyNutritionReviewCard
+        review={weeklyReview}
+        canonicalGoals={canonicalGoals}
+        onApplyAdjustment={handleApplyAdaptiveAdjustment}
+        onOpenGoals={() => setActiveTab('goals')}
+        t={t}
+      />
 
       {/* Today's Meals Section — Grouped cards matching Phone 6 in reference image */}
       <div style={{ marginBottom: 20 }}>

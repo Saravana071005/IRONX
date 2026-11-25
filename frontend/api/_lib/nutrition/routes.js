@@ -64,8 +64,15 @@ import {
   searchVerifiedFoods,
   searchVerifiedRecipes,
   getVerifiedRecipeById,
-  calculateDeterministicRecipe
+  calculateDeterministicRecipe,
+  saveWeightLog,
+  getWeightLogs,
+  deleteWeightLog,
+  getWeightStats,
+  saveWeeklyNutritionReview,
+  getLatestWeeklyNutritionReview
 } from './db.js';
+import { analyzeWeeklyNutritionProgress, applyWeeklyNutritionReview } from './adaptive.js';
 import {
   calculatePersonalizedTargets
 } from './knowledge.js';
@@ -1707,6 +1714,185 @@ export function nutritionRoutes({ json, readBody, readSession }) {
           calorie_target: updated.calorie_target,
           calories: updated.calorie_target,
           canonical_goals: updated
+        });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ==================== CANONICAL GOAL & ADAPTIVE INTELLIGENCE ==================== */
+    'GET /api/nutrition/canonical-goal': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      try {
+        const canonical = getCanonicalUserNutritionGoals(user.id);
+        json(res, 200, {
+          ok: true,
+          targets: canonical,
+          canonical_goals: canonical,
+          calorie_target: canonical.calorie_target
+        });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/canonical-goal': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      try {
+        const body = await readBody(req);
+        const targetVal = Number(body.calorie_target || body.calories || body.target);
+        if (!targetVal || isNaN(targetVal) || targetVal < 500 || targetVal > 10000) {
+          return json(res, 400, { error: 'Calorie target must be between 500 and 10,000 kcal' });
+        }
+        const updated = saveCanonicalCalorieGoal(user.id, Math.round(targetVal));
+        json(res, 200, {
+          ok: true,
+          targets: updated,
+          calorie_target: updated.calorie_target,
+          calories: updated.calorie_target,
+          canonical_goals: updated
+        });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/goals/onboarding': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      try {
+        const body = await readBody(req);
+        const profile = body.profile || body;
+        const calculated = calculateNutritionTargets(profile);
+        const currentWeight = Number(profile.weight_kg || profile.weight) || null;
+
+        const userTargetsData = {
+          goal_type: profile.fitness_goal || profile.goal || 'maintenance',
+          current_weight_kg: currentWeight,
+          height_cm: Number(profile.height_cm || profile.height) || null,
+          age: Number(profile.age) || null,
+          sex: String(profile.sex || 'male').toLowerCase(),
+          activity_level: profile.activity_level || 'moderately_active',
+          workout_frequency: Number(profile.workout_days_per_week) || 4,
+          cardio_frequency: Number(profile.cardio_frequency_per_week) || 2,
+          cardio_duration_min: Number(profile.cardio_duration_min) || 20,
+          bmr_estimate: calculated.bmr,
+          tdee_estimate: calculated.tdee,
+          calorie_target: calculated.calorie_target,
+          protein_target_g: calculated.protein_target,
+          carb_target_g: calculated.carb_target,
+          fat_target_g: calculated.fat_target,
+          fibre_target_g: calculated.fibre_target,
+          calculation_method: 'mifflin_st_jeor'
+        };
+
+        setUserTargets(user.id, userTargetsData);
+        saveCanonicalCalorieGoal(user.id, calculated.calorie_target);
+
+        if (currentWeight && currentWeight >= 20 && currentWeight <= 400) {
+          try {
+            saveWeightLog(user.id, {
+              date: new Date().toISOString().slice(0, 10),
+              weight_kg: currentWeight,
+              notes: 'Initial onboarding weigh-in'
+            });
+          } catch (_) {}
+        }
+
+        const canonical = getCanonicalUserNutritionGoals(user.id);
+        json(res, 200, {
+          ok: true,
+          message: 'Personalized nutrition targets calculated and saved',
+          targets: canonical,
+          canonical_goals: canonical,
+          calculated
+        });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ==================== MODULE 6: DAILY BODY-WEIGHT TRACKING ==================== */
+    'GET /api/nutrition/weight-logs': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      try {
+        const url = new URL(req.url, 'http://x');
+        const limit = Math.min(100, Math.max(1, +(url.searchParams.get('limit') || 30)));
+        const logs = getWeightLogs(user.id, limit);
+        const stats = getWeightStats(user.id);
+        json(res, 200, { ok: true, logs, stats });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/weight-logs': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      try {
+        const body = await readBody(req);
+        const date = body.date || new Date().toISOString().slice(0, 10);
+        const weight = Number(body.weight_kg ?? body.weight);
+        if (!weight || isNaN(weight) || weight < 20 || weight > 400) {
+          return json(res, 400, { error: 'Weight must be a valid number between 20 and 400 kg' });
+        }
+        const log = saveWeightLog(user.id, {
+          date,
+          weight_kg: weight,
+          notes: body.notes || ''
+        });
+        const stats = getWeightStats(user.id);
+        json(res, 200, { ok: true, log, stats });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/weight-logs/delete': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      try {
+        const body = await readBody(req);
+        const date = body.date;
+        const id = body.id;
+        if (!date && !id) {
+          return json(res, 400, { error: 'Date or ID required to delete weight log' });
+        }
+        const deleted = deleteWeightLog(user.id, id || date);
+        const stats = getWeightStats(user.id);
+        json(res, 200, { ok: true, deleted, stats });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    /* ==================== MODULES 7, 8, 9: ADAPTIVE NUTRITION INTELLIGENCE & WEEKLY REVIEW ==================== */
+    'GET /api/nutrition/weekly-review': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      try {
+        const url = new URL(req.url, 'http://x');
+        const windowDays = Math.min(60, Math.max(7, +(url.searchParams.get('window_days') || 14)));
+        const review = analyzeWeeklyNutritionProgress(user.id, windowDays);
+        json(res, 200, { ok: true, review });
+      } catch (err) {
+        json(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/nutrition/weekly-review/apply': async (req, res) => {
+      const user = requireUser(req, res);
+      if (!user) return;
+      try {
+        const body = await readBody(req);
+        const result = applyWeeklyNutritionReview(user.id, body.review_id || null);
+        json(res, 200, {
+          ok: true,
+          result,
+          canonical_goals: getCanonicalUserNutritionGoals(user.id)
         });
       } catch (err) {
         json(res, 500, { error: err.message });
