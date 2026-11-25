@@ -106,10 +106,17 @@ export default function MuscleBalanceChart({ S }) {
 
   // Filter window: 1 (Day), 7 (Week), 30 (30 Days), 90 (90 Days), 0 (All)
   const [win, setWin] = useState(7)
+  const [activeView, setActiveView] = useState('both')
   const [selectedDate, setSelectedDate] = useState(todayStr)
   const [weekOffset, setWeekOffset] = useState(0)
   const [hard, setHard] = useState(false)
   const [sel, setSel] = useState(null)
+
+  const viewFilterOptions = useMemo(() => [
+    { value: 'both', label: t('Both Views') },
+    { value: 'front', label: t('Anterior (Front)') },
+    { value: 'back', label: t('Posterior (Back)') }
+  ], [])
 
   // Current week bounds
   const currentWeek = useMemo(() => getWeekBounds(weekOffset), [weekOffset])
@@ -494,6 +501,16 @@ export default function MuscleBalanceChart({ S }) {
         </div>
       )}
 
+      {/* View Switcher: Both Views | Anterior (Front) | Posterior (Back) */}
+      <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
+        <Segmented
+          className="seg-range"
+          value={activeView}
+          onChange={setActiveView}
+          options={viewFilterOptions}
+        />
+      </div>
+
       {/* CORE HERO COMPONENT: Human Body Muscle Anatomy Map (ALWAYS RENDERED) */}
       <div style={{ margin: '8px 0 16px', position: 'relative' }}>
         <BodyMap
@@ -503,6 +520,7 @@ export default function MuscleBalanceChart({ S }) {
           selected={sel}
           onMuscle={m => setSel(s => (s === m ? null : m))}
           showLabels={true}
+          activeView={activeView}
         />
       </div>
 

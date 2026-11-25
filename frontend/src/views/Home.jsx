@@ -622,251 +622,6 @@ export default function Home() {
       </div>
       </WidgetBoundary>
 
-      {/* 3. Target Today */}
-      {/* 8. Target Today Card (Strict Monochrome) */}
-      <WidgetBoundary title={t('Target Today')}>
-        <div
-          className="card"
-          style={{
-            padding: '16px 18px',
-            borderRadius: 14,
-            background: 'var(--surface-2)',
-            border: '1px solid var(--borders)',
-            boxShadow: 'var(--card-shadow)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-            marginBottom: 16
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--label-2)', display: 'flex', alignItems: 'center', gap: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              <span>🎯</span>
-              <span>{t('Target Today')}</span>
-            </span>
-            <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--label)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              {t('Day {0} of 30', Math.min(30, (streakCount || 0) + 1))}
-            </span>
-          </div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)' }}>
-            {S?.active?.name || scheduledTemplate?.name || (todayWorkout ? todayWorkout.name : t('Daily Workout Session'))}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--borders)', fontSize: 13 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: 'var(--label)' }}>
-              <span>🔥</span>
-              <span>{streakCount > 0 ? `${streakCount}-Day Streak` : 'Streak Active'}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--label-2)', fontWeight: 600 }}>
-              <Icon name="bolt" size={14} style={{ color: 'var(--label)' }} />
-              <span>{exerciseCaloriesBurned > 0 ? `${exerciseCaloriesBurned} kcal burned` : `${Math.round(loggedCalories || 0)} kcal burned`}</span>
-            </div>
-          </div>
-        </div>
-      </WidgetBoundary>
-
-      {/* 4. Daily Biometrics & Calories Overview */}
-      <div style={{ marginBottom: 16 }}>
-        <WidgetBoundary title={t('Calories Overview')}>
-          <div
-            className="card"
-            style={{
-              padding: '20px',
-              borderRadius: 16,
-              background: 'rgba(255, 255, 255, 0.06)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.07)',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between'
-            }}
-          >
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Icon name="vital" size={18} style={{ color: 'var(--label)' }} />
-                  <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)' }}>
-                    {t('Daily Bio-Metrics')} · {t('Calories Overview')}
-                  </span>
-                </div>
-                <button
-                  onClick={() => nav('/nutrition')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: 'var(--label)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <Icon name="plus" size={13} />
-                  <span>{t('Log Meal')}</span>
-                </button>
-              </div>
-
-              {/* Biometric Metrics Trio (Protein, Calories, Hydration/Carbs) */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: 8,
-                  marginBottom: 14
-                }}
-              >
-                {/* Protein Ring Metric */}
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    padding: '10px 6px',
-                    borderRadius: 12,
-                    background: 'var(--surface-2)',
-                    border: '1px solid var(--borders)',
-                    textAlign: 'center'
-                  }}
-                >
-                  <div style={{ position: 'relative', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
-                    <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 36 36">
-                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--borders)" strokeWidth="3.5" />
-                      <path
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                        fill="none"
-                        stroke="var(--label)"
-                        strokeDasharray={`${Math.min(100, Math.round((proteinGrams / 180) * 100))}, 100`}
-                        strokeLinecap="round"
-                        strokeWidth="3.5"
-                      />
-                    </svg>
-                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: 'var(--label)' }}>
-                      {`${Math.min(100, Math.round((proteinGrams / 180) * 100))}%`}
-                    </span>
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)', lineHeight: 1.1 }}>
-                    {proteinGrams} / 180g
-                  </span>
-                  <span style={{ fontSize: 10, color: 'var(--label-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
-                    {t('Protein')}
-                  </span>
-                </div>
-
-                {/* Calories Ring Metric */}
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    padding: '10px 6px',
-                    borderRadius: 12,
-                    background: 'var(--surface-2)',
-                    border: '1px solid var(--borders)',
-                    textAlign: 'center'
-                  }}
-                >
-                  <div style={{ position: 'relative', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
-                    <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 36 36">
-                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--borders)" strokeWidth="3.5" />
-                      <path
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                        fill="none"
-                        stroke="var(--label)"
-                        strokeDasharray={`${Math.min(100, Math.round((loggedCalories / targetCalories) * 100))}, 100`}
-                        strokeLinecap="round"
-                        strokeWidth="3.5"
-                      />
-                    </svg>
-                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: 'var(--label)' }}>
-                      {loggedCalories > 999 ? `${(loggedCalories / 1000).toFixed(1)}k` : loggedCalories}
-                    </span>
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)', lineHeight: 1.1 }}>
-                    {`${loggedCalories.toLocaleString()} / ${targetCalories.toLocaleString()} kcal`}
-                  </span>
-                  <span style={{ fontSize: 10, color: 'var(--label-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
-                    {t('Calories')}
-                  </span>
-                </div>
-
-                {/* Hydration / Carbs Ring Metric */}
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    padding: '10px 6px',
-                    borderRadius: 12,
-                    background: 'var(--surface-2)',
-                    border: '1px solid var(--borders)',
-                    textAlign: 'center'
-                  }}
-                >
-                  <div style={{ position: 'relative', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
-                    <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 36 36">
-                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--borders)" strokeWidth="3.5" />
-                      <path
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                        fill="none"
-                        stroke="var(--label-2)"
-                        strokeDasharray={`${Math.min(100, Math.round((carbsGrams / 250) * 100))}, 100`}
-                        strokeLinecap="round"
-                        strokeWidth="3.5"
-                      />
-                    </svg>
-                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: 'var(--label)' }}>
-                      {`${Math.min(100, Math.round((carbsGrams / 250) * 100))}%`}
-                    </span>
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)', lineHeight: 1.1 }}>
-                    {carbsGrams} / 250g
-                  </span>
-                  <span style={{ fontSize: 10, color: 'var(--label-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
-                    {t('Carbs')}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Exercise Burned & Remaining Status */}
-            <div
-              style={{
-                marginTop: 16,
-                paddingTop: 12,
-                borderTop: '1px solid var(--borders)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                fontSize: 12,
-                color: 'var(--label-2)'
-              }}
-            >
-              <span>
-                {t('Remaining')}: <strong style={{ color: 'var(--theme-accent, #F5F5F5)' }}>{`${remainingCalories.toLocaleString()} kcal`}</strong>
-              </span>
-              <span>
-                {t('Exercise Burned')}: <strong style={{ color: 'var(--label)' }}>{`${exerciseCaloriesBurned} kcal`}</strong>
-              </span>
-            </div>
-          </div>
-        </WidgetBoundary>
-      </div>
-
-      {/* 5. Today's Meal Tracker */}
-      {/* 9. Today's Meal Tracker (4 Strict Meal Rows) */}
-      <WidgetBoundary title={t("Today's Meal Tracker")}>
-        <div style={{ marginBottom: 24 }}>
-          <HomeMealTracker
-            date={todayISO()}
-            onNavigateNutrition={() => nav('/nutrition')}
-          />
-        </div>
-      </WidgetBoundary>
-
       {/* 6. Today in Progress */}
       {/* 1. Today's Schedule / Session (Full-width Hero Card) */}
       <WidgetBoundary title={t('Today in Progress')}>
@@ -1176,6 +931,240 @@ export default function Home() {
         </div>
       </WidgetBoundary>
 
+      {/* 3. Target Today */}
+      {/* 8. Target Today Card (Strict Monochrome) */}
+      <WidgetBoundary title={t('Target Today')}>
+        <div
+          className="card"
+          style={{
+            padding: '16px 18px',
+            borderRadius: 14,
+            background: 'var(--surface-2)',
+            border: '1px solid var(--borders)',
+            boxShadow: 'var(--card-shadow)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            marginBottom: 16
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--label-2)', display: 'flex', alignItems: 'center', gap: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <span>🎯</span>
+              <span>{t('Target Today')}</span>
+            </span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--label)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              {t('Day {0} of 30', Math.min(30, (streakCount || 0) + 1))}
+            </span>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)' }}>
+            {S?.active?.name || scheduledTemplate?.name || (todayWorkout ? todayWorkout.name : t('Daily Workout Session'))}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--borders)', fontSize: 13 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: 'var(--label)' }}>
+              <span>🔥</span>
+              <span>{streakCount > 0 ? `${streakCount}-Day Streak` : 'Streak Active'}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--label-2)', fontWeight: 600 }}>
+              <Icon name="bolt" size={14} style={{ color: 'var(--label)' }} />
+              <span>{exerciseCaloriesBurned > 0 ? `${exerciseCaloriesBurned} kcal burned` : `${Math.round(loggedCalories || 0)} kcal burned`}</span>
+            </div>
+          </div>
+        </div>
+      </WidgetBoundary>
+
+      {/* 4. Daily Biometrics & Calories Overview */}
+      <div style={{ marginBottom: 16 }}>
+        <WidgetBoundary title={t('Calories Overview')}>
+          <div
+            className="card"
+            style={{
+              padding: '20px',
+              borderRadius: 16,
+              background: 'rgba(255, 255, 255, 0.06)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.07)',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between'
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Icon name="vital" size={18} style={{ color: 'var(--label)' }} />
+                  <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--label)' }}>
+                    {t('Daily Bio-Metrics')} · {t('Calories Overview')}
+                  </span>
+                </div>
+                <button
+                  onClick={() => nav('/nutrition')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: 'var(--label)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Icon name="plus" size={13} />
+                  <span>{t('Log Meal')}</span>
+                </button>
+              </div>
+
+              {/* Biometric Metrics Trio (Protein, Calories, Hydration/Carbs) */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: 8,
+                  marginBottom: 14
+                }}
+              >
+                {/* Protein Ring Metric */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '10px 6px',
+                    borderRadius: 12,
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--borders)',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ position: 'relative', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                    <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 36 36">
+                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--borders)" strokeWidth="3.5" />
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke="var(--label)"
+                        strokeDasharray={`${Math.min(100, Math.round((proteinGrams / 180) * 100))}, 100`}
+                        strokeLinecap="round"
+                        strokeWidth="3.5"
+                      />
+                    </svg>
+                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: 'var(--label)' }}>
+                      {`${Math.min(100, Math.round((proteinGrams / 180) * 100))}%`}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)', lineHeight: 1.1 }}>
+                    {proteinGrams} / 180g
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--label-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
+                    {t('Protein')}
+                  </span>
+                </div>
+
+                {/* Calories Ring Metric */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '10px 6px',
+                    borderRadius: 12,
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--borders)',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ position: 'relative', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                    <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 36 36">
+                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--borders)" strokeWidth="3.5" />
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke="var(--label)"
+                        strokeDasharray={`${Math.min(100, Math.round((loggedCalories / targetCalories) * 100))}, 100`}
+                        strokeLinecap="round"
+                        strokeWidth="3.5"
+                      />
+                    </svg>
+                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: 'var(--label)' }}>
+                      {loggedCalories > 999 ? `${(loggedCalories / 1000).toFixed(1)}k` : loggedCalories}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)', lineHeight: 1.1 }}>
+                    {`${loggedCalories.toLocaleString()} / ${targetCalories.toLocaleString()} kcal`}
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--label-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
+                    {t('Calories')}
+                  </span>
+                </div>
+
+                {/* Hydration / Carbs Ring Metric */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '10px 6px',
+                    borderRadius: 12,
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--borders)',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ position: 'relative', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                    <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }} viewBox="0 0 36 36">
+                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--borders)" strokeWidth="3.5" />
+                      <path
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none"
+                        stroke="var(--label-2)"
+                        strokeDasharray={`${Math.min(100, Math.round((carbsGrams / 250) * 100))}, 100`}
+                        strokeLinecap="round"
+                        strokeWidth="3.5"
+                      />
+                    </svg>
+                    <span style={{ position: 'absolute', fontSize: 11, fontWeight: 700, color: 'var(--label)' }}>
+                      {`${Math.min(100, Math.round((carbsGrams / 250) * 100))}%`}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--label)', lineHeight: 1.1 }}>
+                    {carbsGrams} / 250g
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--label-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>
+                    {t('Carbs')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Exercise Burned & Remaining Status */}
+            <div
+              style={{
+                marginTop: 16,
+                paddingTop: 12,
+                borderTop: '1px solid var(--borders)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: 12,
+                color: 'var(--label-2)'
+              }}
+            >
+              <span>
+                {t('Remaining')}: <strong style={{ color: 'var(--theme-accent, #F5F5F5)' }}>{`${remainingCalories.toLocaleString()} kcal`}</strong>
+              </span>
+              <span>
+                {t('Exercise Burned')}: <strong style={{ color: 'var(--label)' }}>{`${exerciseCaloriesBurned} kcal`}</strong>
+              </span>
+            </div>
+          </div>
+        </WidgetBoundary>
+      </div>
+
       {/* 7. Quick Actions */}
       {/* 3. Quick Actions Grid (Google Stitch 4-Column Touch-Friendly Layout) */}
       <WidgetBoundary title={t('Quick Actions')}>
@@ -1345,6 +1334,17 @@ export default function Home() {
               </span>
             </button>
           </div>
+        </div>
+      </WidgetBoundary>
+
+      {/* 5. Today's Meal Tracker */}
+      {/* 9. Today's Meal Tracker (4 Strict Meal Rows) */}
+      <WidgetBoundary title={t("Today's Meal Tracker")}>
+        <div style={{ marginBottom: 24 }}>
+          <HomeMealTracker
+            date={todayISO()}
+            onNavigateNutrition={() => nav('/nutrition')}
+          />
         </div>
       </WidgetBoundary>
 

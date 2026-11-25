@@ -8,7 +8,7 @@ export const webauthnOK = () => !!(window.PublicKeyCredential && navigator.crede
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '')
 
 export async function api(path, opts = {}) {
-  const { timeout = 8000, signal, headers, ...rest } = opts
+  const { timeout = 12000, signal, headers, ...rest } = opts
   const url = path.startsWith('/api') ? (API_BASE + path) : path
   const token = typeof localStorage !== 'undefined' ? localStorage.getItem('gym_auth_token') : null
 
@@ -88,13 +88,38 @@ export function startGoogleLogin(returnUrl = '/home', intent = 'login') {
 }
 
 /**
+ * Fetches current authenticated user profile from backend.
+ */
+export async function getProfile() {
+  return api('/api/profile', {
+    method: 'GET',
+    timeout: 10000
+  })
+}
+
+/**
  * Updates personal fitness profile on the backend.
+ * Includes automatic retry on transient timeout/network glitch.
  */
 export async function updateProfile(profileData) {
-  return api('/api/profile', {
-    method: 'PUT',
-    body: JSON.stringify(profileData)
-  })
+  try {
+    return await api('/api/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+      timeout: 12000
+    })
+  } catch (err) {
+    if (err.status === 408 || err.name === 'TimeoutError' || (err.message && err.message.includes('timeout'))) {
+      // Short backoff then retry once with 15s timeout
+      await new Promise(r => setTimeout(r, 400))
+      return await api('/api/profile', {
+        method: 'PUT',
+        body: JSON.stringify(profileData),
+        timeout: 15000
+      })
+    }
+    throw err
+  }
 }
 
 /**

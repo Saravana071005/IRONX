@@ -41,31 +41,38 @@ export default function BodyMap({
   onMuscle,
   selected,
   className = '',
-  showLabels = true
+  showLabels = true,
+  activeView = 'both'
 }) {
   const levels = levelsOf(load)
   const g = BODY_PATHS && (BODY_PATHS[body] || BODY_PATHS.male)
+  const showFront = activeView === 'both' || activeView === 'front' || activeView === 'anterior'
+  const showBack = activeView === 'both' || activeView === 'back' || activeView === 'posterior'
 
   return (
-    <div className={'bodymap ' + className}>
+    <div className={'bodymap ' + className + (activeView !== 'both' ? ' single-view' : '')}>
       {g ? (
         <>
-          <View
-            view={g.front}
-            levels={levels}
-            onMuscle={onMuscle}
-            selected={selected}
-            viewName={t('Anterior (Front)')}
-            showLabel={showLabels}
-          />
-          <View
-            view={g.back}
-            levels={levels}
-            onMuscle={onMuscle}
-            selected={selected}
-            viewName={t('Posterior (Back)')}
-            showLabel={showLabels}
-          />
+          {showFront && (
+            <View
+              view={g.front}
+              levels={levels}
+              onMuscle={onMuscle}
+              selected={selected}
+              viewName={t('Anterior (Front)')}
+              showLabel={showLabels}
+            />
+          )}
+          {showBack && (
+            <View
+              view={g.back}
+              levels={levels}
+              onMuscle={onMuscle}
+              selected={selected}
+              viewName={t('Posterior (Back)')}
+              showLabel={showLabels}
+            />
+          )}
         </>
       ) : (
         <div className="bm-ph" aria-hidden="true" />

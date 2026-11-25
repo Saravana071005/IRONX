@@ -7,9 +7,11 @@ export async function getMongoClient() {
   if (!global._mongoClientPromise) {
     try {
       const client = new MongoClient(uri.trim(), {
-        maxPoolSize: 10,
-        serverSelectionTimeoutMS: 5000,
-        connectTimeoutMS: 10000,
+        maxPoolSize: 20,
+        minPoolSize: 1,
+        maxIdleTimeMS: 60000,
+        serverSelectionTimeoutMS: 3000,
+        connectTimeoutMS: 5000,
       });
       global._mongoClientPromise = client.connect().catch(err => {
         global._mongoClientPromise = null;

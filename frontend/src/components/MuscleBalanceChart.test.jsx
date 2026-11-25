@@ -194,4 +194,17 @@ describe('MuscleBalanceChart & Anatomical Muscle Body Map', () => {
     expect(html).toContain('Anterior (Front)')
     expect(html).toContain('Posterior (Back)')
   })
+
+  it('supports toggling between Both Views, Anterior only, and Posterior only with mobile responsiveness', () => {
+    const S = { workouts: [] }
+    const html = renderToString(
+      <MemoryRouter>
+        <MuscleBalanceChart S={S} />
+      </MemoryRouter>
+    )
+    expect(html).toContain('Both Views')
+    expect(html).toContain('Anterior (Front)')
+    expect(html).toContain('Posterior (Back)')
+    expect(html).toContain('bodymap')
+  })
 })

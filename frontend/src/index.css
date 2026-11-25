@@ -2153,6 +2153,12 @@ body:has(textarea:focus) #tabbar {
   --bm-stroke: #4A4A5C;
   --bm-inert: #2E2E3A;
 }
+.bodymap.single-view {
+  max-width: 320px;
+}
+.bodymap.single-view .bm-v {
+  max-height: min(55vh, 420px);
+}
 :root[data-theme="light"] .bodymap {
   --bm-base: #98624F;
   --bm-stroke: #775344;

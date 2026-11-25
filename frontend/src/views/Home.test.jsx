@@ -37,28 +37,28 @@ describe('Home View Rendering & Defensive Edge Cases', () => {
         <Home />
       </MemoryRouter>
     )
-    // Ordered sequence: (1) Greeting -> (3) Target Today -> (4) Calories Overview -> (5) Meal Tracker -> (6) Today in Progress/Session Hero -> (7) Quick Actions -> (8) Weekly Activity -> (9) Your Progress -> (10) This Week Plan
+    // Ordered sequence: (1) Greeting -> (2) Today in Progress/Session Hero -> (3) Target Today -> (4) Calories Overview -> (5) Quick Actions -> (6) Meal Tracker -> (7) Weekly Activity -> (8) Your Progress -> (9) This Week Plan
     const posGreeting = html.indexOf('Hi,')
-    const posTargetToday = html.indexOf('Target Today')
-    const posCaloriesOverview = html.indexOf('Calories Overview')
-    const posMealTracker = html.indexOf("Today&#x27;s Meal Tracker") !== -1
-      ? html.indexOf("Today&#x27;s Meal Tracker")
-      : html.indexOf("Today's Meal Tracker")
     const posTodayInProgress = html.indexOf('Set Up Your First Workout Template') !== -1
       ? html.indexOf('Set Up Your First Workout Template')
       : html.indexOf('No Workout Scheduled')
+    const posTargetToday = html.indexOf('Target Today')
+    const posCaloriesOverview = html.indexOf('Calories Overview')
     const posQuickActions = html.indexOf('Quick Actions')
+    const posMealTracker = html.indexOf("Today&#x27;s Meal Tracker") !== -1
+      ? html.indexOf("Today&#x27;s Meal Tracker")
+      : html.indexOf("Today's Meal Tracker")
     const posWeeklyActivity = html.indexOf('Weekly Activity')
     const posProgress = html.indexOf('Your Progress')
     const posPlan = html.indexOf('This Week Plan')
 
     expect(posGreeting).toBeGreaterThan(-1)
-    expect(posTargetToday).toBeGreaterThan(posGreeting)
+    expect(posTodayInProgress).toBeGreaterThan(posGreeting)
+    expect(posTargetToday).toBeGreaterThan(posTodayInProgress)
     expect(posCaloriesOverview).toBeGreaterThan(posTargetToday)
-    expect(posMealTracker).toBeGreaterThan(posCaloriesOverview)
-    expect(posTodayInProgress).toBeGreaterThan(posMealTracker)
-    expect(posQuickActions).toBeGreaterThan(posTodayInProgress)
-    expect(posWeeklyActivity).toBeGreaterThan(posQuickActions)
+    expect(posQuickActions).toBeGreaterThan(posCaloriesOverview)
+    expect(posMealTracker).toBeGreaterThan(posQuickActions)
+    expect(posWeeklyActivity).toBeGreaterThan(posMealTracker)
     expect(posProgress).toBeGreaterThan(posWeeklyActivity)
     expect(posPlan).toBeGreaterThan(posProgress)
 

@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { updateProfile } from '../lib/api.js'
+import { updateProfile, getProfile } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import Icon from '../components/Icon.jsx'
 import { Button, TextField, NumberField } from '../components/ui.jsx'
@@ -104,6 +104,36 @@ export default function ProfileSetup() {
   const [customFoodInput, setCustomFoodInput] = useState({ breakfast: '', lunch: '', dinner: '' })
 
   const [saving, setSaving] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
+
+  useEffect(() => {
+    if (!user?.profile && typeof localStorage !== 'undefined' && localStorage.getItem('gym_auth_token')) {
+      getProfile()
+        .then(res => {
+          if (res?.user?.profile) {
+            setUser(res.user)
+            const p = res.user.profile
+            if (p.fullName) setFullName(p.fullName)
+            if (p.dateOfBirth) setDateOfBirth(p.dateOfBirth)
+            if (p.sex) setSex(p.sex)
+            if (p.heightCm) setHeightCm(p.heightCm)
+            if (p.currentWeightKg) setCurrentWeightKg(p.currentWeightKg)
+            if (p.fitnessGoal) setFitnessGoal(p.fitnessGoal)
+            if (p.targetWeightKg !== undefined && p.targetWeightKg !== null) setTargetWeightKg(p.targetWeightKg)
+            if (p.activityLevel) setActivityLevel(p.activityLevel)
+            if (p.fitnessExperience) setFitnessExperience(p.fitnessExperience)
+            if (p.workoutType) setWorkoutType(p.workoutType)
+            if (p.preferredWorkoutDays?.length) setWorkoutFrequency(p.preferredWorkoutDays.length)
+            if (p.dietPreferences) {
+              if (p.dietPreferences.breakfast) setBreakfastItems(p.dietPreferences.breakfast)
+              if (p.dietPreferences.lunch) setLunchItems(p.dietPreferences.lunch)
+              if (p.dietPreferences.dinner) setDinnerItems(p.dietPreferences.dinner)
+            }
+          }
+        })
+        .catch(() => {})
+    }
+  }, [])
 
   const calculatedAge = useMemo(() => computeAge(dateOfBirth), [dateOfBirth])
 
@@ -164,6 +194,7 @@ export default function ProfileSetup() {
 
   const handleCompleteSetup = async () => {
     setSaving(true)
+    setSubmitError(null)
     try {
       const preferredDaysMap = {
         3: [1, 3, 5],
@@ -207,7 +238,9 @@ export default function ProfileSetup() {
       toast(t('Profile setup complete! Welcome to IRONX.'))
       navigate('/home', { replace: true })
     } catch (err) {
-      toast(err.message || t('Failed to save profile'))
+      const msg = err.message || t('Failed to save profile')
+      setSubmitError(msg)
+      toast(msg)
     } finally {
       setSaving(false)
     }
@@ -857,6 +890,48 @@ export default function ProfileSetup() {
                 )}
               </div>
             </div>
+
+            {submitError && (
+              <div
+                role="alert"
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: 14,
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  color: '#F87171',
+                  marginBottom: 16,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700 }}>
+                  <Icon name="alertCircle" size={16} />
+                  <span>{submitError}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, color: 'var(--label-2)' }}>
+                    {t('Your entered details are preserved. Tap below to retry.')}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    disabled={saving}
+                    onClick={handleCompleteSetup}
+                    style={{
+                      padding: '6px 14px',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      background: 'var(--label)',
+                      color: '#12100E'
+                    }}
+                  >
+                    {saving ? t('Retrying...') : t('Retry Complete Setup')}
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Complete Setup Action */}
             <Button

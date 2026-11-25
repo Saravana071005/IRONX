@@ -53,5 +53,9 @@ describe('Stats View', () => {
     // Module 10: Muscle Balance in Body Stats
     expect(html).toContain('Body Stats &amp; Muscle Balance')
     expect(html).toContain('Muscle Balance')
+    expect(html).toContain('Both Views')
+    expect(html).toContain('Anterior (Front)')
+    expect(html).toContain('Posterior (Back)')
+    expect(html).toContain('bodymap')
   })
 })

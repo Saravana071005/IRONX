@@ -139,15 +139,21 @@ db.creds = db.creds || [];
 db.subs = db.subs || [];
 db.invites = db.invites || [];
 
+let mongoIndexesEnsured = false;
 async function syncFromMongo() {
   if (!process.env.MONGODB_URI) return;
   try {
     const mongo = await getMongoDb();
     if (!mongo) return;
-    await ensureMongoAuthIndexes(mongo);
-    const users = await mongo.collection('users').find({}).toArray();
-    const creds = await mongo.collection('credentials').find({}).toArray();
-    const invites = await mongo.collection('invites').find({}).toArray();
+    if (!mongoIndexesEnsured) {
+      await ensureMongoAuthIndexes(mongo);
+      mongoIndexesEnsured = true;
+    }
+    const [users, creds, invites] = await Promise.all([
+      mongo.collection('users').find({}).toArray(),
+      mongo.collection('credentials').find({}).toArray(),
+      mongo.collection('invites').find({}).toArray()
+    ]);
     if (users && Array.isArray(users)) db.users = users;
     if (creds && Array.isArray(creds)) db.creds = creds;
     if (invites && Array.isArray(invites)) db.invites = invites;
@@ -170,20 +176,27 @@ async function ensureMongoSync() {
 syncFromMongo().catch(() => {});
 
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
-function saveDb() {
+function saveDb(specificUser = null) {
   try { atomicWrite(dbFile, JSON.stringify(db, null, 2)); } catch {}
   if (process.env.MONGODB_URI) {
     getMongoDb().then(async mongo => {
       if (!mongo) return;
-      for (const u of db.users) {
-        await mongo.collection('users').updateOne({ id: u.id }, { $set: u }, { upsert: true });
+      if (specificUser) {
+        await mongo.collection('users').updateOne({ id: specificUser.id }, { $set: specificUser }, { upsert: true });
+        return;
       }
-      for (const c of db.creds) {
-        await mongo.collection('credentials').updateOne({ id: c.id }, { $set: c }, { upsert: true });
-      }
-      for (const i of db.invites) {
-        await mongo.collection('invites').updateOne({ code: i.code }, { $set: i }, { upsert: true });
-      }
+      const userOps = db.users.map(u => ({
+        updateOne: { filter: { id: u.id }, update: { $set: u }, upsert: true }
+      }));
+      if (userOps.length > 0) await mongo.collection('users').bulkWrite(userOps, { ordered: false }).catch(() => {});
+      const credOps = db.creds.map(c => ({
+        updateOne: { filter: { id: c.id }, update: { $set: c }, upsert: true }
+      }));
+      if (credOps.length > 0) await mongo.collection('credentials').bulkWrite(credOps, { ordered: false }).catch(() => {});
+      const inviteOps = db.invites.map(i => ({
+        updateOne: { filter: { code: i.code }, update: { $set: i }, upsert: true }
+      }));
+      if (inviteOps.length > 0) await mongo.collection('invites').bulkWrite(inviteOps, { ordered: false }).catch(() => {});
     }).catch(e => console.error('MongoDB persist error:', e.message));
   }
 }
@@ -821,7 +834,33 @@ const routes = {
   },
 
   /* ---------- Personal Fitness Profile ---------- */
+  'GET /api/profile': async (req, res) => {
+    const start = Date.now();
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const age = user.profile?.dateOfBirth ? calculateAge(user.profile.dateOfBirth) : null;
+    const profile = user.profile ? { ...user.profile, age } : null;
+    const settings = await getUserSettings(user.id);
+    const duration = Date.now() - start;
+    res.setHeader('Server-Timing', `db;dur=${duration};desc="Profile Read"`);
+    json(res, 200, {
+      ok: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email || null,
+        picture: user.picture || null,
+        googleSub: user.googleSub || null,
+        profile,
+        settings,
+        isNewUser: !user.profile || !user.profile.completed,
+        admin: isAdmin(user)
+      }
+    });
+  },
+
   'PUT /api/profile': async (req, res) => {
+    const startTime = Date.now();
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
     const body = await readBody(req);
@@ -831,49 +870,82 @@ const routes = {
     user.profile = profile;
     user.name = profile.fullName;
     user.updatedAt = new Date().toISOString();
-    saveDb();
+    saveDb(user);
+
+    // Synchronously update local user state file immediately
+    if (profile.currentWeightKg) {
+      try {
+        const file = stateFile(user.id);
+        let localState = {};
+        try { localState = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {}
+        localState.bodyweight = localState.bodyweight || [];
+        const today = new Date().toISOString().slice(0, 10);
+        if (!localState.bodyweight.some(b => b.date === today)) {
+          localState.bodyweight.push({ date: today, weight: profile.currentWeightKg });
+        }
+        if (profile.targetWeightKg) {
+          localState.targetW = profile.targetWeightKg;
+        }
+        localState._ts = Date.now();
+        atomicWrite(file, JSON.stringify(localState));
+      } catch {}
+    }
 
     if (process.env.MONGODB_URI) {
       try {
         const mongo = await getMongoDb();
         if (mongo) {
-          await mongo.collection('users').updateOne(
-            { id: user.id },
-            { $set: { profile: user.profile, name: user.name, updatedAt: user.updatedAt } }
-          );
-
-          // Update initial bodyweight & target weight in user's state
-          if (profile.currentWeightKg) {
-            const today = new Date().toISOString().slice(0, 10);
-            const stateDoc = await mongo.collection('states').findOne({ userId: user.id });
-            const existingState = stateDoc?.state || {
-              unit: 'kg', restSec: 90, sound: true, keepAwake: true, lang: 'en',
-              theme: 'dark', accent: 'mint', body: 'male', targetW: null,
-              bodyweight: [], routines: [], week: {}, dayPlan: {},
-              exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
-              reminder: { on: false, time: '08:00', tz: null }, effort: null,
-              coach: null, favorites: [], restAlertEnabled: true, restAlertTone: 'alarm',
-              restAlertVolume: 1.0, restVibrationEnabled: true, restNotifications: false,
-              nutritionTargets: { calorie: 1900, calories: 1900, protein: 140, carb: 220, carbs: 220, fat: 65, fibre: 30, diet: 'all', waterGoal: 2.5 },
-              meals: [], workoutTemplates: [], cardioLogs: []
-            };
-            existingState.bodyweight = existingState.bodyweight || [];
-            if (profile.targetWeightKg) {
-              existingState.targetW = profile.targetWeightKg;
-            }
-            existingState._ts = Date.now();
-            await mongo.collection('states').updateOne(
-              { userId: user.id },
-              { $set: { userId: user.id, state: existingState, updatedAt: new Date().toISOString() } },
+          const updatePromises = [
+            mongo.collection('users').updateOne(
+              { id: user.id },
+              { $set: { profile: user.profile, name: user.name, updatedAt: user.updatedAt } },
               { upsert: true }
-            );
+            )
+          ];
+
+          // Update initial bodyweight & target weight in user's state in Mongo
+          if (profile.currentWeightKg) {
+            updatePromises.push((async () => {
+              const stateDoc = await mongo.collection('states').findOne({ userId: user.id });
+              const existingState = stateDoc?.state || {
+                unit: 'kg', restSec: 90, sound: true, keepAwake: true, lang: 'en',
+                theme: 'dark', accent: 'mint', body: 'male', targetW: null,
+                bodyweight: [], routines: [], week: {}, dayPlan: {},
+                exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
+                reminder: { on: false, time: '08:00', tz: null }, effort: null,
+                coach: null, favorites: [], restAlertEnabled: true, restAlertTone: 'alarm',
+                restAlertVolume: 1.0, restVibrationEnabled: true, restNotifications: false,
+                nutritionTargets: { calorie: 1900, calories: 1900, protein: 140, carb: 220, carbs: 220, fat: 65, fibre: 30, diet: 'all', waterGoal: 2.5 },
+                meals: [], workoutTemplates: [], cardioLogs: []
+              };
+              existingState.bodyweight = existingState.bodyweight || [];
+              const today = new Date().toISOString().slice(0, 10);
+              if (!existingState.bodyweight.some(b => b.date === today)) {
+                existingState.bodyweight.push({ date: today, weight: profile.currentWeightKg });
+              }
+              if (profile.targetWeightKg) {
+                existingState.targetW = profile.targetWeightKg;
+              }
+              existingState._ts = Date.now();
+              await mongo.collection('states').updateOne(
+                { userId: user.id },
+                { $set: { userId: user.id, state: existingState, updatedAt: new Date().toISOString() } },
+                { upsert: true }
+              );
+            })());
           }
+
+          // Race mongo updates with a 3500ms timeout guard so the response returns well before frontend timeout
+          const mongoTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Mongo update timeout')), 3500));
+          await Promise.race([Promise.all(updatePromises), mongoTimeout]);
         }
       } catch (err) {
         console.error('Mongo profile update error:', err.message);
       }
     }
 
+    const duration = Date.now() - startTime;
+    res.setHeader('Server-Timing', `db;dur=${duration};desc="Profile Save"`);
     json(res, 200, {
       ok: true,
       user: {
@@ -888,6 +960,8 @@ const routes = {
       }
     });
   },
+
+  'POST /api/profile': (req, res) => routes['PUT /api/profile'](req, res),
 
   /* ---------- Guest Progress Import ---------- */
   'POST /api/auth/import-guest': async (req, res) => {
@@ -1348,8 +1422,55 @@ const routes = {
               if (workoutOps.length > 0) {
                 await mongo.collection('workout_sessions').bulkWrite(workoutOps, { ordered: false }).catch(() => {});
               }
+
+              // Persist muscle training records scoped by userId, workoutSessionId, and workoutDate
+              const muscleOps = [];
+              body.state.workouts.forEach(w => {
+                const wDate = String(w.d || w.date || '').slice(0, 10);
+                (w.entries || []).forEach(e => {
+                  const doneSets = (e.sets || []).filter(s => s && s.done);
+                  if (!doneSets.length) return;
+                  const primaryMuscles = Array.isArray(e.primaryMuscles)
+                    ? e.primaryMuscles
+                    : (e.targetMuscles ? [e.targetMuscles] : (e.muscleGroup ? [e.muscleGroup] : []));
+                  const secondaryMuscles = Array.isArray(e.secondaryMuscles) ? e.secondaryMuscles : [];
+                  const record = {
+                    userId: user.id,
+                    workoutSessionId: w.id,
+                    workoutDate: wDate,
+                    workoutName: w.name || 'Strength Workout',
+                    exerciseId: e.id,
+                    exerciseName: e.name || e.n || e.id,
+                    muscleGroups: {
+                      primary: primaryMuscles,
+                      secondary: secondaryMuscles
+                    },
+                    completedSets: doneSets.length,
+                    completedReps: doneSets.reduce((sum, s) => sum + (Number(s.r) || 0), 0),
+                    sets: doneSets.map(s => ({
+                      weight: Number(s.w) || 0,
+                      reps: Number(s.r) || 0,
+                      done: true
+                    })),
+                    volumeKg: doneSets.reduce((sum, s) => sum + (Number(s.w) || 0) * (Number(s.r) || 0), 0),
+                    updatedAt: new Date().toISOString()
+                  };
+                  muscleOps.push({
+                    updateOne: {
+                      filter: { userId: user.id, workoutSessionId: w.id, exerciseId: e.id },
+                      update: { $set: record },
+                      upsert: true
+                    }
+                  });
+                });
+              });
+
+              if (muscleOps.length > 0) {
+                await mongo.collection('muscle_history').bulkWrite(muscleOps, { ordered: false }).catch(() => {});
+              }
             } else {
               await mongo.collection('workout_sessions').deleteMany({ userId: user.id }).catch(() => {});
+              await mongo.collection('muscle_history').deleteMany({ userId: user.id }).catch(() => {});
             }
           }
 
@@ -1412,6 +1533,69 @@ const routes = {
     const updates = body?.settings || body || {};
     const settings = await saveUserSettings(user.id, updates);
     json(res, 200, { ok: true, settings });
+  },
+
+  /* ---------- Muscle Training History & Recovery Load ---------- */
+  'GET /api/muscle-history': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const url = new URL(req.url, 'http://localhost');
+    const date = url.searchParams.get('date');
+    const startDate = url.searchParams.get('startDate');
+    const endDate = url.searchParams.get('endDate');
+
+    if (process.env.MONGODB_URI) {
+      try {
+        const mongo = await getMongoDb();
+        if (mongo) {
+          const filter = { userId: user.id };
+          if (date) {
+            filter.workoutDate = date;
+          } else if (startDate && endDate) {
+            filter.workoutDate = { $gte: startDate, $lte: endDate };
+          }
+          const records = await mongo.collection('muscle_history').find(filter).sort({ workoutDate: -1 }).toArray();
+          return json(res, 200, { ok: true, history: records });
+        }
+      } catch (err) {
+        console.error('Mongo read muscle_history error:', err.message);
+      }
+    }
+
+    // Local file fallback isolated strictly by user.id
+    try {
+      const state = JSON.parse(fs.readFileSync(stateFile(user.id), 'utf8'));
+      const workouts = state.workouts || [];
+      const history = [];
+      workouts.forEach(w => {
+        const wDate = String(w.d || w.date || '').slice(0, 10);
+        if (date && wDate !== date) return;
+        if (startDate && endDate && (wDate < startDate || wDate > endDate)) return;
+        (w.entries || []).forEach(e => {
+          const doneSets = (e.sets || []).filter(s => s && s.done);
+          if (!doneSets.length) return;
+          history.push({
+            userId: user.id,
+            workoutSessionId: w.id,
+            workoutDate: wDate,
+            workoutName: w.name || 'Strength Workout',
+            exerciseId: e.id,
+            exerciseName: e.name || e.n || e.id,
+            muscleGroups: {
+              primary: e.primaryMuscles || (e.targetMuscles ? [e.targetMuscles] : (e.muscleGroup ? [e.muscleGroup] : [])),
+              secondary: e.secondaryMuscles || []
+            },
+            completedSets: doneSets.length,
+            completedReps: doneSets.reduce((sum, s) => sum + (Number(s.r) || 0), 0),
+            sets: doneSets.map(s => ({ weight: Number(s.w) || 0, reps: Number(s.r) || 0, done: true })),
+            volumeKg: doneSets.reduce((sum, s) => sum + (Number(s.w) || 0) * (Number(s.r) || 0), 0)
+          });
+        });
+      });
+      return json(res, 200, { ok: true, history });
+    } catch {
+      return json(res, 200, { ok: true, history: [] });
+    }
   },
 
   /* ---------- Complete Account & Fitness Reset System ---------- */
@@ -1488,6 +1672,7 @@ const routes = {
             mongo.collection('user_templates').deleteMany({ userId: user.id }),
             mongo.collection('weekly_schedules').deleteMany({ userId: user.id }),
             mongo.collection('workout_sessions').deleteMany({ userId: user.id }),
+            mongo.collection('muscle_history').deleteMany({ userId: user.id }),
             mongo.collection('meal_logs').deleteMany({ user_id: user.id }),
             mongo.collection('cardio_logs').deleteMany({ $or: [{ userId: user.id }, { user_id: user.id }] }),
             mongo.collection('custom_exercises').deleteMany({ userId: user.id }),
@@ -1770,7 +1955,8 @@ export async function handleRequest(req, res) {
   const isHealthCheck = pathname === '/' || pathname === '/api/health' || pathname === '/api/health/db' || pathname.startsWith('/api/auth/google');
   if (!isHealthCheck) {
     try {
-      await ensureMongoSync();
+      const syncTimeout = new Promise(resolve => setTimeout(resolve, 1500));
+      await Promise.race([ensureMongoSync(), syncTimeout]);
     } catch (err) {
       console.error('ensureMongoSync non-blocking error:', err.message);
     }
@@ -1787,6 +1973,7 @@ export async function handleRequest(req, res) {
 }
 
 export default handleRequest;
+export { db, makeSession, readSession };
 
 const isRender = !!process.env.RENDER;
 const isDirectRun = process.argv[1] && (process.argv[1].endsWith('server.js') || process.argv[1].includes('server.js'));
